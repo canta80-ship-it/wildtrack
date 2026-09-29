@@ -9,6 +9,7 @@ import '../services/preferences_service.dart';
 import 'brand_screen.dart';
 import 'settings_screen.dart';
 import 'species_screen.dart';
+import 'exploration_screen.dart';
 import 'sos_screen.dart';
 import 'community_screen.dart';
 import 'sightings_screen.dart';
@@ -114,6 +115,7 @@ class _MapScreenState extends State<MapScreen> {
       shared = true,
       locals = true;
   String selected = 'Tutte';
+  String selectedMap = 'all';
   @override
   void initState() {
     super.initState();
@@ -124,6 +126,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void changed() {
+    if (selectedMap != "all" &&
+        selectedMap != "public" &&
+        !CommunityService.instance.sightings.any(
+          (s) => s["groupId"] == selectedMap,
+        ))
+      selectedMap = "all";
     if (mounted) setState(() {});
   }
 
@@ -249,7 +257,7 @@ class _MapScreenState extends State<MapScreen> {
               for (final item in [
                 ('Habitat indicativi', habitats, 0),
                 ('Zone di possibile osservazione', possible, 1),
-                ('Avvistamenti condivisi', shared, 2),
+                ('Avvistamenti pubblici e mappe private', shared, 2),
                 ('Avvistamenti privati', locals, 3),
               ])
                 SwitchListTile(
@@ -284,6 +292,40 @@ class _MapScreenState extends State<MapScreen> {
                 ],
                 onChanged: (v) {
                   setState(() => selected = v!);
+                  update(() {});
+                },
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: selectedMap,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Mappa condivisa'),
+                items: [
+                  const DropdownMenuItem(
+                    value: 'all',
+                    child: Text('Tutte le mappe accessibili'),
+                  ),
+                  const DropdownMenuItem(
+                    value: 'public',
+                    child: Text('Solo comunità pubblica'),
+                  ),
+                  for (final id
+                      in CommunityService.instance.sightings
+                          .where((s) => s['groupId'] != null)
+                          .map((s) => s['groupId'] as String)
+                          .toSet())
+                    DropdownMenuItem(
+                      value: id,
+                      child: Text(
+                        CommunityService.instance.sightings.firstWhere(
+                                  (s) => s['groupId'] == id,
+                                )['groupName']
+                                as String? ??
+                            'Mappa privata',
+                      ),
+                    ),
+                ],
+                onChanged: (v) {
+                  setState(() => selectedMap = v!);
                   update(() {});
                 },
               ),
@@ -423,7 +465,12 @@ class _MapScreenState extends State<MapScreen> {
                   if (locals) ...personal,
                   if (shared)
                     for (final s in c.sightings.where(
-                      (s) => selected == 'Tutte' || s['species'] == selected,
+                      (s) =>
+                          (selected == 'Tutte' || s['species'] == selected) &&
+                          (selectedMap == 'all' ||
+                              (selectedMap == 'public'
+                                  ? s['groupId'] == null
+                                  : s['groupId'] == selectedMap)),
                     ))
                       Marker(
                         point: LatLng(
@@ -434,7 +481,10 @@ class _MapScreenState extends State<MapScreen> {
                         height: 40,
                         child: GestureDetector(
                           onTap: () => showSighting(context, s),
-                          child: SpeciesIcon(s['species'] as String? ?? '', size: 36),
+                          child: SpeciesIcon(
+                            s['species'] as String? ?? '',
+                            size: 36,
+                          ),
                         ),
                       ),
                   if (gps != null)
@@ -532,6 +582,16 @@ class _MapScreenState extends State<MapScreen> {
               runSpacing: 4,
               children: [
                 ActionChip(
+                  avatar: const Icon(Icons.hiking),
+                  label: const Text('Italia e sentieri'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ExplorationScreen(),
+                    ),
+                  ),
+                ),
+                ActionChip(
                   avatar: const Icon(Icons.add_location_alt),
                   label: const Text('Registra offline'),
                   onPressed: () => Navigator.push(
@@ -568,7 +628,7 @@ class _MapScreenState extends State<MapScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                'Verde: habitat indicativo\nOcchio: zona possibile · Zampa: condiviso\nSegnalibro: privato · Viola: persone',
+                'Verde: habitat indicativo\nOcchio: zona possibile · Animale: osservazione\nViola: persone · Filtri per mappe private',
                 style: TextStyle(fontSize: 11),
               ),
             ),

@@ -121,11 +121,11 @@ class CommunityService extends ChangeNotifier {
         req.headers.contentType = ContentType.json;
         req.write(jsonEncode(body));
       }
-      final res = await req.close().timeout(const Duration(seconds: 20));
+      final res = await req.close().timeout(const Duration(seconds: 40));
       final text = await res
           .transform(utf8.decoder)
           .join()
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 40));
       final data = jsonDecode(text) as Map<String, dynamic>;
       if (res.statusCode >= 400) {
         throw Exception(data['error'] ?? 'Servizio non disponibile');

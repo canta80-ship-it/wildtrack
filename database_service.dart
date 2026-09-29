@@ -121,6 +121,16 @@ class DatabaseService {
     });
   }
 
+  Future<List<Map<String, Object?>>> getTrackPoints(String id) async {
+    final db = await database;
+    return db.query(
+      'track_points',
+      where: 'session_id=?',
+      whereArgs: [id],
+      orderBy: 'timestamp ASC,id ASC',
+    );
+  }
+
   Future<List<TrackSession>> getSessions() async {
     final db = await database;
     final rows = await db.query('sessions', orderBy: 'started_at DESC');

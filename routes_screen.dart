@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../models/track_session.dart';
 import '../services/database_service.dart';
+import '../services/exploration_service.dart';
+import 'exploration_screen.dart';
+import 'community_screen.dart';
 
 class RoutesScreen extends StatefulWidget {
   const RoutesScreen({super.key});
@@ -39,6 +43,41 @@ class _RoutesScreenState extends State<RoutesScreen> {
                 return Card(
                   child: ListTile(
                     leading: const Icon(Icons.route),
+                    trailing: const Icon(Icons.map_outlined),
+                    onTap: () async {
+                      try {
+                        final points = await DatabaseService.instance
+                            .getTrackPoints(s.id);
+                        if (!context.mounted) return;
+                        if (points.length < 2) {
+                          message(
+                            context,
+                            'Questo percorso non contiene abbastanza punti GPS.',
+                          );
+                          return;
+                        }
+                        final trail = NatureTrail({
+                          'id': 'recorded_${s.id}',
+                          'name':
+                              'Percorso del ${DateFormat('dd/MM/yyyy').format(s.startedAt)}',
+                          'difficulty': 'Registrato da te',
+                          'source': null,
+                          'segments': [
+                            points
+                                .map((p) => [p['latitude'], p['longitude']])
+                                .toList(),
+                          ],
+                        });
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => ExplorationScreen(trail: trail),
+                          ),
+                        );
+                      } catch (e) {
+                        if (context.mounted) message(context, e);
+                      }
+                    },
                     title: Text(
                       DateFormat('dd/MM/yyyy HH:mm').format(s.startedAt),
                     ),

@@ -15,6 +15,8 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../services/community_service.dart';
+import '../services/preferences_service.dart';
+import 'private_maps_screen.dart';
 import 'species_screen.dart';
 
 String timeLabel(dynamic value) {
@@ -45,6 +47,18 @@ class CommunityScreen extends StatelessWidget {
     child: Scaffold(
       appBar: AppBar(
         title: const Text('Comunità'),
+        actions: [
+          IconButton(
+            tooltip: 'Mappe private',
+            icon: const Icon(Icons.lock_outline),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const PrivateMapsScreen(),
+              ),
+            ),
+          ),
+        ],
         bottom: const TabBar(
           tabs: [
             Tab(text: 'Avvistamenti'),
@@ -136,7 +150,7 @@ class SightingTile extends StatelessWidget {
       leading: const Icon(Icons.pets),
       title: Text('${s['species']} · ${s['count']}'),
       subtitle: Text(
-        '${timeLabel(s['observedAt'])}${s['approximate'] == 1 ? ' · posizione approssimata' : ''}',
+        '${s['groupId'] == null ? 'Pubblico' : 'Privato · ${s['groupName']}'} · ${timeLabel(s['observedAt'])}${s['approximate'] == 1 ? ' · posizione approssimata' : ''}',
       ),
       trailing: s['mine'] == 1 ? const Icon(Icons.person) : null,
       onTap: () => showSighting(context, s),
@@ -162,11 +176,20 @@ Future<void> showSighting(
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           Text(timeLabel(s['observedAt'])),
+          Text(
+            s['groupId'] == null
+                ? 'Condivisione pubblica'
+                : 'Mappa privata: ${s['groupName']}',
+          ),
           if (s['photo'] != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Image.network(
                 '$communityUrl/api/photo?id=${s['id']}',
+                headers: {
+                  'Authorization':
+                      'Bearer ${PreferencesService.instance.token}',
+                },
                 height: 220,
                 fit: BoxFit.contain,
                 errorBuilder: (_, e, st) => const Text('Foto non disponibile'),
@@ -234,6 +257,7 @@ class _PublishScreenState extends State<PublishScreen> {
   @override
   void initState() {
     super.initState();
+    loadMaps();
     final s = widget.initial;
     observedAt = s?.timestamp ?? DateTime.now();
     if (s != null) {
@@ -243,6 +267,26 @@ class _PublishScreenState extends State<PublishScreen> {
       if (s.photoPath != null) photo = XFile(s.photoPath!);
       if (s.hasPosition) location = LatLng(s.latitude!, s.longitude!);
       accuracy = s.accuracy;
+    }
+  }
+
+  String? groupId;
+  List<Map<String, dynamic>> privateMaps = [];
+  Future<void> loadMaps() async {
+    try {
+      final d = await CommunityService.instance.api('maps');
+      if (mounted)
+        setState(
+          () => privateMaps = (d['items'] as List)
+              .map((x) => Map<String, dynamic>.from(x as Map))
+              .toList(),
+        );
+    } catch (e) {
+      if (mounted)
+        setState(
+          () => error =
+              'Mappe private non caricate: riprova prima di condividere.',
+        );
     }
   }
 
@@ -314,7 +358,9 @@ class _PublishScreenState extends State<PublishScreen> {
       }
       final p = location!;
       await CommunityService.instance.add({
-        'id': widget.initial?.id ?? const Uuid().v4(),
+        'id':
+            '${widget.initial?.id ?? const Uuid().v4()}${groupId == null ? '' : '-$groupId'}',
+        'groupId': groupId,
         'species': species,
         'count': n,
         'notes': notes.text.trim(),
@@ -341,6 +387,34 @@ class _PublishScreenState extends State<PublishScreen> {
       padding: const EdgeInsets.all(18),
       children: [
         DropdownButtonFormField<String>(
+          initialValue: groupId ?? 'public',
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Chi può vedere questa osservazione?',
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: 'public',
+              child: Text('Comunità pubblica'),
+            ),
+            for (final m in privateMaps)
+              DropdownMenuItem(
+                value: m['id'] as String,
+                child: Text('Privata: ${m['name']}'),
+              ),
+          ],
+          onChanged: busy
+              ? null
+              : (v) => setState(() {
+                  groupId = v == 'public' ? null : v;
+                  consent = false;
+                }),
+        ),
+        TextButton(
+          onPressed: loadMaps,
+          child: const Text('Aggiorna mappe private'),
+        ),
+        DropdownButtonFormField<String>(
           initialValue: species,
           decoration: const InputDecoration(labelText: 'Specie'),
           items: [
@@ -350,7 +424,14 @@ class _PublishScreenState extends State<PublishScreen> {
                 .map(
                   (a) => DropdownMenuItem(
                     value: a.name,
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [SpeciesIcon(a.name, size: 28), const SizedBox(width: 8), Text(a.name)]),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SpeciesIcon(a.name, size: 28),
+                        const SizedBox(width: 8),
+                        Text(a.name),
+                      ],
+                    ),
                   ),
                 )
                 .toList(),
@@ -409,7 +490,11 @@ class _PublishScreenState extends State<PublishScreen> {
         CheckboxListTile(
           value: consent,
           onChanged: busy ? null : (v) => setState(() => consent = v == true),
-          title: const Text('Pubblica per tutti gli utenti'),
+          title: Text(
+            groupId == null
+                ? 'Pubblica per tutti gli utenti'
+                : 'Condividi solo nella mappa privata scelta',
+          ),
           subtitle: const Text(
             'Condivido specie, foto, note, data e posizione indicata. Senza rete l’invio resta in attesa.',
           ),

@@ -12,6 +12,8 @@ import 'screens/species_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/guide_screen.dart';
+import 'screens/private_maps_screen.dart';
+import 'screens/exploration_screen.dart';
 import 'services/preferences_service.dart';
 import 'services/community_service.dart';
 
@@ -152,6 +154,12 @@ class MoreScreen extends StatelessWidget {
             Icons.radio_button_checked,
             const RecordScreen(),
           ),
+          (
+            'Italia: specie e itinerari',
+            Icons.hiking,
+            const ExplorationScreen(),
+          ),
+          ('Mappe private', Icons.lock_outline, const PrivateMapsScreen()),
           ('Percorsi salvati', Icons.route, const RoutesScreen()),
           (
             'Taccuino offline e posizioni da completare',
