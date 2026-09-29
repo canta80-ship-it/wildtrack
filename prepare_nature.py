@@ -1,10 +1,16 @@
 """Resolve real public data at build time; no credentials or paid services."""
-import concurrent.futures,json,time,urllib.request,urllib.parse,pathlib
+import concurrent.futures,json,time,urllib.request,urllib.parse,pathlib,sys
+if pathlib.Path("nature_assets.json").exists():
+ d=json.loads(pathlib.Path("nature_assets.json").read_text())
+ assert len(d["taxa"])==24 and all(isinstance(v,int) for v in d["taxa"].values())
+ assert d["trails"] and all(t["segments"] for t in d["trails"])
+ print("Verified bundled catalogue:",len(d["taxa"]),"taxa,",len(d["trails"]),"trails")
+ sys.exit(0)
 NAMES=['Cervus elaphus','Capreolus capreolus','Vulpes vulpes','Rupicapra rupicapra','Capra ibex','Sus scrofa','Aquila chrysaetos','Buteo buteo','Strix aluco','Dryocopus martius','Gyps fulvus','Ardea cinerea','Anas platyrhynchos','Circus aeruginosus','Ursus arctos','Canis lupus','Canis aureus','Marmota marmota','Mustela erminea','Meles meles','Pyrrhocorax graculus','Bubo bubo','Tyto alba','Garrulus glandarius']
 PLACES=[('Cansiglio',46.061,12.403),('Gran Paradiso',45.594,7.356),('Abruzzo',41.76,13.908),('Sila',39.38,16.54),('Etna',37.795,15.037),('Sardegna',40.12,9.25)]
 def read(url,data=None):
  req=urllib.request.Request(url,data=data,headers={'User-Agent':'WildTrack/0.4 (https://github.com/canta80-ship-it/wildtrack)'})
- with urllib.request.urlopen(req,timeout=100) as r:return json.load(r)
+ with urllib.request.urlopen(req,timeout=30) as r:return json.load(r)
 def taxon(n):
  try:
   d=read('https://api.gbif.org/v1/species/match?strict=true&name='+urllib.parse.quote(n))
@@ -13,7 +19,7 @@ def taxon(n):
  except Exception as e: print('Taxon unavailable',n,str(e));return n,None
 def trails(place):
  name,lat,lng=place
- q=f'[out:json][timeout:60];relation["route"~"^(hiking|foot)$"]({lat-.05},{lng-.07},{lat+.05},{lng+.07});out tags geom;'
+ q=f'[out:json][timeout:60];relation["route"~"^(hiking|foot)$"]({lat-.05},{lng-.07},{lat+.05},{lng+.07});out body geom;'
  try:
   d=None
   for endpoint in ['https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter']:
