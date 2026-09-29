@@ -14,14 +14,24 @@ class LocationService {
   static Future<Position?> currentPosition() async {
     if (!await ensurePermission()) return null;
     return Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 20),
+      ),
     );
   }
 
   static Stream<Position> positionStream() => Geolocator.getPositionStream(
-    locationSettings: const LocationSettings(
+    locationSettings: AndroidSettings(
       accuracy: LocationAccuracy.best,
       distanceFilter: 5,
+      intervalDuration: const Duration(seconds: 10),
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
+        notificationTitle: 'WildTrack · GPS attivo',
+        notificationText: 'Registrazione o condivisione in corso. Apri WildTrack per fermarla.',
+        enableWakeLock: true,
+        setOngoing: true,
+      ),
     ),
   );
 }

@@ -2,11 +2,18 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../models/sighting.dart';
+import 'sightings_screen.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+
 import '../services/community_service.dart';
 import 'species_screen.dart';
 
@@ -111,7 +118,7 @@ class CommunityScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute<void>(builder: (_) => const PublishScreen()),
+          MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen()),
         ),
         icon: const Icon(Icons.add_location_alt),
         label: const Text('Segnala'),
@@ -209,7 +216,8 @@ Future<void> showSighting(
 );
 
 class PublishScreen extends StatefulWidget {
-  const PublishScreen({super.key});
+  const PublishScreen({super.key, this.initial});
+  final Sighting? initial;
   @override
   State<PublishScreen> createState() => _PublishScreenState();
 }
@@ -220,7 +228,24 @@ class _PublishScreenState extends State<PublishScreen> {
       notes = TextEditingController();
   bool approximate = true, busy = false, consent = false;
   XFile? photo;
-  Position? location;
+  LatLng? location;
+  double? accuracy;
+  late DateTime observedAt;
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.initial;
+    observedAt = s?.timestamp ?? DateTime.now();
+    if (s != null) {
+      species = s.species;
+      count.text = '${s.count}';
+      notes.text = '[${s.kind}] ${s.notes}';
+      if (s.photoPath != null) photo = XFile(s.photoPath!);
+      if (s.hasPosition) location = LatLng(s.latitude!, s.longitude!);
+      accuracy = s.accuracy;
+    }
+  }
+
   String? error;
   @override
   void dispose() {
@@ -239,7 +264,8 @@ class _PublishScreenState extends State<PublishScreen> {
       if (p == LocationPermission.denied) {
         p = await Geolocator.requestPermission();
       }
-      if (p != LocationPermission.always && p != LocationPermission.whileInUse) {
+      if (p != LocationPermission.always &&
+          p != LocationPermission.whileInUse) {
         throw Exception('Permesso GPS non concesso');
       }
       final value = await Geolocator.getCurrentPosition(
@@ -250,7 +276,8 @@ class _PublishScreenState extends State<PublishScreen> {
       );
       if (mounted) {
         setState(() {
-          location = value;
+          location = LatLng(value.latitude, value.longitude);
+          accuracy = value.accuracy;
           error = null;
         });
       }
@@ -287,13 +314,13 @@ class _PublishScreenState extends State<PublishScreen> {
       }
       final p = location!;
       await CommunityService.instance.add({
-        'id': const Uuid().v4(),
+        'id': widget.initial?.id ?? const Uuid().v4(),
         'species': species,
         'count': n,
         'notes': notes.text.trim(),
         'lat': p.latitude,
         'lng': p.longitude,
-        'observedAt': p.timestamp.toUtc().toIso8601String(),
+        'observedAt': observedAt.toUtc().toIso8601String(),
         'approximate': approximate,
         'photo': encoded,
       });
@@ -316,14 +343,18 @@ class _PublishScreenState extends State<PublishScreen> {
         DropdownButtonFormField<String>(
           initialValue: species,
           decoration: const InputDecoration(labelText: 'Specie'),
-          items: animals
-              .map(
-                (a) => DropdownMenuItem(
-                  value: a.name,
-                  child: Text('${a.emoji} ${a.name}'),
-                ),
-              )
-              .toList(),
+          items: [
+            if (!animals.any((a) => a.name == species))
+              DropdownMenuItem(value: species, child: Text(species)),
+            ...animals
+                .map(
+                  (a) => DropdownMenuItem(
+                    value: a.name,
+                    child: Text('${a.emoji} ${a.name}'),
+                  ),
+                )
+                .toList(),
+          ],
           onChanged: busy ? null : (v) => setState(() => species = v!),
         ),
         TextField(
@@ -365,7 +396,7 @@ class _PublishScreenState extends State<PublishScreen> {
         ),
         if (location != null)
           Text(
-            '${location!.latitude.toStringAsFixed(5)}, ${location!.longitude.toStringAsFixed(5)} · ±${location!.accuracy.toStringAsFixed(0)} m',
+            '${location!.latitude.toStringAsFixed(5)}, ${location!.longitude.toStringAsFixed(5)} · ±${accuracy?.toStringAsFixed(0) ?? 'non disponibile'} m',
           ),
         SwitchListTile(
           value: approximate,

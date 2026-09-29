@@ -1,4 +1,5 @@
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/sighting.dart';
@@ -9,13 +10,14 @@ class DatabaseService {
   DatabaseService._();
   static final DatabaseService instance = DatabaseService._();
   Database? _db;
+  final changes = ValueNotifier<int>(0);
 
   Future<Database> get database async {
     if (_db != null) return _db!;
     final path = join(await getDatabasesPath(), 'wildtrack.db');
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
         CREATE TABLE sightings(
@@ -23,10 +25,13 @@ class DatabaseService {
           species TEXT NOT NULL,
           count INTEGER NOT NULL,
           notes TEXT,
-          latitude REAL NOT NULL,
-          longitude REAL NOT NULL,
+          latitude REAL,
+          longitude REAL,
           timestamp TEXT NOT NULL,
-          photo_path TEXT
+          photo_path TEXT,
+          kind TEXT NOT NULL DEFAULT 'Animale',
+          accuracy REAL,
+          position_source TEXT NOT NULL DEFAULT 'gps'
         )
       ''');
         await db.execute('''
@@ -49,6 +54,21 @@ class DatabaseService {
         )
       ''');
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE sightings RENAME TO sightings_v1');
+          await db.execute('''CREATE TABLE sightings(
+            id TEXT PRIMARY KEY, species TEXT NOT NULL, count INTEGER NOT NULL,
+            notes TEXT, latitude REAL, longitude REAL, timestamp TEXT NOT NULL,
+            photo_path TEXT, kind TEXT NOT NULL DEFAULT 'Animale', accuracy REAL,
+            position_source TEXT NOT NULL DEFAULT 'gps')''');
+          await db.execute('''INSERT INTO sightings
+            (id,species,count,notes,latitude,longitude,timestamp,photo_path)
+            SELECT id,species,count,notes,latitude,longitude,timestamp,photo_path
+            FROM sightings_v1''');
+          await db.execute('DROP TABLE sightings_v1');
+        }
+      },
     );
     return _db!;
   }
@@ -60,6 +80,7 @@ class DatabaseService {
       sighting.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    changes.value++;
   }
 
   Future<List<Sighting>> getSightings() async {
@@ -84,6 +105,19 @@ class DatabaseService {
         batch.insert('track_points', p.toMap(session.id));
       }
       await batch.commit(noResult: true);
+    });
+  }
+
+  Future<void> appendTrackPoint(TrackSession session, TrackPoint? point) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.insert(
+        'sessions',
+        session.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      if (point != null)
+        await txn.insert('track_points', point.toMap(session.id));
     });
   }
 

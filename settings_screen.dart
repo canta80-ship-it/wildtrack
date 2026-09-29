@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/preferences_service.dart';
 import '../services/community_service.dart';
 import 'species_screen.dart';
@@ -161,7 +162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         builder: (c) => AlertDialog(
                           title: const Text('Renderti visibile sulla mappa?'),
                           content: const Text(
-                            'Condividerai nickname e posizione precisa con altri utenti entro 5 km. Potranno scriverti. Aggiornamento mentre l’app è aperta; la posizione scade dopo 3 minuti senza aggiornamenti. Puoi disattivare tutto qui.',
+                            'Condividerai nickname e posizione precisa con altri utenti entro 5 km. Potranno scriverti. Aggiornamento mentre l’app è aperta, oppure anche a schermo spento se attivi l’opzione dedicata; la posizione scade dopo 3 minuti senza aggiornamenti. Puoi disattivare tutto qui.',
                           ),
                           actions: [
                             TextButton(
@@ -181,6 +182,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     p.visible = v;
                     await save();
                     if (v) {
+                      await CommunityService.instance
+                          .configureBackgroundSharing();
                       await CommunityService.instance.updatePresence();
                     } else {
                       await CommunityService.instance.hide();
@@ -188,8 +191,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (mounted) setState(() {});
                   },
           ),
+          SwitchListTile(
+            value: p.backgroundSharing,
+            title: const Text('Condividi anche a schermo spento'),
+            subtitle: const Text(
+              'Quando la condivisione è attiva, mantiene il GPS acceso con una notifica. Consuma più batteria. Serve rete per inviare la posizione.',
+            ),
+            onChanged: saving
+                ? null
+                : (value) async {
+                    final previous = p.backgroundSharing;
+                    p.backgroundSharing = value;
+                    try {
+                      await CommunityService.instance
+                          .configureBackgroundSharing();
+                      await save();
+                    } catch (e) {
+                      p.backgroundSharing = previous;
+                      if (context.mounted)
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text('$e')));
+                    }
+                    if (mounted) setState(() {});
+                  },
+          ),
           const Text(
-            'Le posizioni non sono tracciati: viene conservata solo l’ultima posizione condivisa. Chiudendo l’app viene richiesta la rimozione; senza rete scade entro 3 minuti. La chat non è un canale di soccorso e non invia notifiche a app chiusa.',
+            'Le posizioni non sono tracciati: viene conservata solo l’ultima posizione condivisa. Con l’opzione background disattivata, passando a un’altra app viene richiesta la rimozione. Senza aggiornamenti la posizione scade entro 3 minuti. Arresto forzato, riavvio o risparmio energetico possono interrompere il servizio. La chat non è un canale di soccorso e non invia notifiche a app chiusa.',
           ),
           const SizedBox(height: 24),
           ListTile(
@@ -202,7 +229,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const Text(
-            'WildTrack 0.2 · Catalogo e guida disponibili offline; mappe, foto, versi e comunità richiedono connessione.',
+            'WildTrack · Taccuino, foto salvate, catalogo e guida disponibili offline. Cartografia non caricata, versi online e sincronizzazione richiedono rete.',
           ),
         ],
       ),

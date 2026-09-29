@@ -1,6 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import 'screens/map_screen.dart';
+import 'screens/intro_screen.dart';
 import 'screens/record_screen.dart';
 import 'screens/routes_screen.dart';
 import 'screens/sightings_screen.dart';
@@ -93,7 +96,7 @@ class _WildTrackAppState extends State<WildTrackApp>
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
       themeMode: PreferencesService.instance.theme,
-      home: const HomeShell(),
+      home: const IntroScreen(home: HomeShell()),
     ),
   );
 }
@@ -151,7 +154,7 @@ class MoreScreen extends StatelessWidget {
           ),
           ('Percorsi salvati', Icons.route, const RoutesScreen()),
           (
-            'Avvistamenti privati sul telefono',
+            'Taccuino offline e posizioni da completare',
             Icons.bookmark,
             const SightingsScreen(),
           ),

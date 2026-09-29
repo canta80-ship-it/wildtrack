@@ -1,7 +1,7 @@
 from pathlib import Path
 p = Path('android/app/src/main/AndroidManifest.xml')
 s = p.read_text()
-for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','CAMERA']:
+for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK']:
     if 'android.permission.'+permission not in s:
         s=s.replace('<application', f'<uses-permission android:name="android.permission.{permission}" />\n    <application',1)
 s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack"')
@@ -91,8 +91,7 @@ d.write_text('''<vector xmlns:android="http://schemas.android.com/apk/res/androi
 s=p.read_text().replace('android:icon="@mipmap/ic_launcher"','android:icon="@drawable/wildtrack_logo"')
 p.write_text(s)
 # Install alongside the first test APK; its original signing key was not retained.
-s=p.read_text().replace('android:label="WildTrack"','android:label="WildTrack 2"')
-p.write_text(s)
+# The launcher name stays WildTrack; version numbers are internal metadata.
 build=Path('android/app/build.gradle.kts')
 s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v2"')
 build.write_text(s)

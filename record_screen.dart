@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/tracking_service.dart';
 
 class RecordScreen extends StatefulWidget {
@@ -8,11 +9,20 @@ class RecordScreen extends StatefulWidget {
 }
 
 class _RecordScreenState extends State<RecordScreen> {
-  final TrackingService tracker = TrackingService();
+  final TrackingService tracker = TrackingService.instance;
+  @override
+  void initState() {
+    super.initState();
+    tracker.addListener(changed);
+  }
+
+  void changed() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
-    tracker.dispose();
+    tracker.removeListener(changed);
     super.dispose();
   }
 
@@ -36,34 +46,48 @@ class _RecordScreenState extends State<RecordScreen> {
               value: '${tracker.ascentMeters.toStringAsFixed(0)} m',
             ),
             _Metric(label: 'Punti GPS', value: '${tracker.points.length}'),
+            const Text(
+              'Il percorso continua a schermo spento. Ogni punto viene salvato sul telefono; per fermare premi Termina. Un arresto forzato interrompe il GPS, ma conserva i punti già scritti.',
+            ),
+            if (tracker.error != null) Text(tracker.error!),
             const Spacer(),
             FilledButton.icon(
-              onPressed: () async {
-                if (!tracker.isTracking) {
-                  final ok = await tracker.start(() {
-                    if (mounted) setState(() {});
-                  });
-                  if (!mounted) return;
-                  if (!ok) {
-                    ScaffoldMessenger.of(this.context).showSnackBar(
-                      const SnackBar(
-                        content: Text('GPS non disponibile o permesso negato.'),
-                      ),
-                    );
-                  }
-                } else {
-                  final session = await tracker.stop();
-                  if (!mounted) return;
-                  {
-                    setState(() {});
-                    if (session != null) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(content: Text('Uscita salvata.')),
-                      );
-                    }
-                  }
-                }
-              },
+              onPressed: tracker.busy
+                  ? null
+                  : () async {
+                      try {
+                        if (!tracker.isTracking) {
+                          final ok = await tracker.start();
+                          if (!mounted) return;
+                          if (!ok) {
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'GPS non disponibile o permesso negato.',
+                                ),
+                              ),
+                            );
+                          }
+                        } else {
+                          final session = await tracker.stop();
+                          if (!mounted) return;
+                          {
+                            setState(() {});
+                            if (session != null) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Uscita salvata.'),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      } catch (e) {
+                        if (context.mounted)
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text('$e')));
+                      }
+                    },
               icon: Icon(tracker.isTracking ? Icons.stop : Icons.play_arrow),
               label: Text(
                 tracker.isTracking ? 'Termina e salva' : 'Avvia registrazione',

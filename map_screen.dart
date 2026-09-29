@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+
 import '../services/database_service.dart';
 import '../services/community_service.dart';
 import '../services/preferences_service.dart';
@@ -10,6 +11,8 @@ import 'settings_screen.dart';
 import 'species_screen.dart';
 import 'sos_screen.dart';
 import 'community_screen.dart';
+import 'sightings_screen.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 class HabitatArea {
@@ -116,6 +119,7 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     CommunityService.instance.addListener(changed);
     PreferencesService.instance.addListener(changed);
+    DatabaseService.instance.changes.addListener(loadPersonal);
     loadPersonal();
   }
 
@@ -127,6 +131,7 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     CommunityService.instance.removeListener(changed);
     PreferencesService.instance.removeListener(changed);
+    DatabaseService.instance.changes.removeListener(loadPersonal);
     controller.dispose();
     super.dispose();
   }
@@ -137,17 +142,26 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         setState(
           () => personal = rows
+              .where((s) => s.hasPosition)
               .map(
                 (s) => Marker(
-                  point: LatLng(s.latitude, s.longitude),
+                  point: LatLng(s.latitude!, s.longitude!),
                   width: 40,
                   height: 40,
-                  child: Tooltip(
-                    message: 'Privato: ${s.species} · ${s.count}',
-                    child: const Icon(
-                      Icons.bookmark,
-                      color: Color(0xFFAD691F),
-                      size: 28,
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => SightingEditorScreen(initial: s),
+                      ),
+                    ),
+                    child: Tooltip(
+                      message: 'Privato: ${s.species} · ${s.kind}',
+                      child: const Icon(
+                        Icons.bookmark,
+                        color: Color(0xFFAD691F),
+                        size: 28,
+                      ),
                     ),
                   ),
                 ),
@@ -473,9 +487,9 @@ class _MapScreenState extends State<MapScreen> {
                                   children: [
                                     Text(
                                       p['nickname'] as String,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.headlineSmall,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall,
                                     ),
                                     Text(
                                       '${p['distanceM']} m · aggiornamento ${timeLabel(p['updated'])}',
@@ -526,6 +540,16 @@ class _MapScreenState extends State<MapScreen> {
               runSpacing: 4,
               children: [
                 ActionChip(
+                  avatar: const Icon(Icons.add_location_alt),
+                  label: const Text('Registra offline'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SightingEditorScreen(),
+                    ),
+                  ),
+                ),
+                ActionChip(
                   avatar: const Icon(Icons.layers_outlined),
                   label: Text(
                     selected == 'Tutte' ? 'Livelli e specie' : selected,
@@ -547,9 +571,8 @@ class _MapScreenState extends State<MapScreen> {
               constraints: const BoxConstraints(maxWidth: 230),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surface.withValues(alpha: .95),
+                color: Theme.of(context).colorScheme.surface
+                    .withValues(alpha: .95),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -10,6 +11,7 @@ class PreferencesService extends ChangeNotifier {
   bool soundPanel = false;
   int repeats = 1;
   bool visible = false;
+  bool backgroundSharing = false;
   String nickname = 'Esploratore';
   String token = '';
   late File file;
@@ -25,6 +27,7 @@ class PreferencesService extends ChangeNotifier {
       soundPanel = p['soundPanel'] == true;
       repeats = ((p['repeats'] as int?) ?? 1).clamp(1, 5);
       visible = p['visible'] == true;
+      backgroundSharing = p['backgroundSharing'] == true;
       nickname = p['nickname'] as String? ?? nickname;
       token = p['token'] as String? ?? '';
     } catch (_) {}
@@ -46,6 +49,7 @@ class PreferencesService extends ChangeNotifier {
         'soundPanel': soundPanel,
         'repeats': repeats,
         'visible': visible,
+        'backgroundSharing': backgroundSharing,
         'nickname': nickname,
         'token': token,
       }),

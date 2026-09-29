@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+
 import 'preferences_service.dart';
+import 'location_service.dart';
 
 const communityUrl = 'https://wildtrack-community.canta80.chatgpt.site';
 
@@ -19,6 +22,60 @@ class CommunityService extends ChangeNotifier {
   Timer? timer;
   bool foreground = true;
   int presenceGeneration = 0;
+  StreamSubscription<Position>? backgroundLocation;
+  bool presenceBusy = false;
+  Future<void> queueWrites = Future<void>.value();
+  bool get canShare =>
+      PreferencesService.instance.visible &&
+      (foreground ||
+          (PreferencesService.instance.backgroundSharing &&
+              backgroundLocation != null));
+
+  Future<void> configureBackgroundSharing() async {
+    final prefs = PreferencesService.instance;
+    if (!prefs.visible || !prefs.backgroundSharing) {
+      await backgroundLocation?.cancel();
+      backgroundLocation = null;
+      return;
+    }
+    if (!foreground || backgroundLocation != null) return;
+    if (!await LocationService.ensurePermission()) {
+      throw Exception(
+        'Autorizza la posizione per attivare la condivisione a schermo spento.',
+      );
+    }
+    // Start while the activity is visible. Android then keeps the location
+    // foreground service alive when the user switches apps or locks the screen.
+    backgroundLocation =
+        Geolocator.getPositionStream(
+          locationSettings: AndroidSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 0,
+            intervalDuration: const Duration(seconds: 15),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: 'WildTrack · posizione condivisa',
+              notificationText: 'Condivisione attiva anche a schermo spento. Apri WildTrack per disattivarla.',
+              enableWakeLock: true,
+              setOngoing: true,
+            ),
+          ),
+        ).listen(
+          (p) {
+            if (!canShare) return;
+            position = p;
+            notifyListeners();
+            unawaited(updatePresence());
+          },
+          onError: (Object e) {
+            error = 'Condivisione GPS interrotta: $e';
+            final stream = backgroundLocation;
+            backgroundLocation = null;
+            unawaited(stream?.cancel());
+            notifyListeners();
+          },
+        );
+  }
+
   Future<void> load() async {
     queueFile = File(
       '${PreferencesService.instance.file.parent.path}/wildtrack_outbox.json',
@@ -32,10 +89,15 @@ class CommunityService extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> saveQueue() async {
-    final f = File('${queueFile.path}.tmp');
-    await f.writeAsString(jsonEncode(pending), flush: true);
-    await f.rename(queueFile.path);
+  Future<void> saveQueue() {
+    final snapshot = jsonEncode(pending);
+    final write = queueWrites.then((_) async {
+      final f = File('${queueFile.path}.tmp');
+      await f.writeAsString(snapshot, flush: true);
+      await f.rename(queueFile.path);
+    });
+    queueWrites = write.catchError((Object _) {});
+    return write;
   }
 
   Future<Map<String, dynamic>> api(
@@ -77,20 +139,35 @@ class CommunityService extends ChangeNotifier {
   void start() {
     timer?.cancel();
     foreground = true;
+    unawaited(
+      configureBackgroundSharing().catchError((Object e) {
+        error = e.toString();
+        notifyListeners();
+      }),
+    );
     unawaited(refresh());
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (foreground) unawaited(refresh());
+      if (foreground) {
+        unawaited(refresh());
+      } else if (canShare) {
+        unawaited(updatePresence());
+      }
     });
   }
 
   Future<void> pause() async {
     foreground = false;
-    timer?.cancel();
-    await hide();
+    if (!canShare) {
+      timer?.cancel();
+      await hide();
+    }
   }
 
   Future<void> hide() async {
     presenceGeneration++;
+    await backgroundLocation?.cancel();
+    backgroundLocation = null;
+    position = null;
     people = [];
     notifyListeners();
     try {
@@ -104,7 +181,8 @@ class CommunityService extends ChangeNotifier {
 
   Future<void> updatePresence() async {
     final prefs = PreferencesService.instance;
-    if (!prefs.visible || !foreground) return;
+    if (!canShare || presenceBusy) return;
+    presenceBusy = true;
     final generation = presenceGeneration;
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
@@ -118,15 +196,19 @@ class CommunityService extends ChangeNotifier {
           permission != LocationPermission.whileInUse) {
         throw Exception('Autorizza il GPS per condividere la posizione');
       }
-      final p = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-      if (generation != presenceGeneration || !prefs.visible || !foreground) {
+      final p = backgroundLocation != null
+          ? position
+          : await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.high,
+                timeLimit: Duration(seconds: 15),
+              ),
+            );
+      if (generation != presenceGeneration || !canShare) {
         return;
       }
+      if (p == null || DateTime.now().difference(p.timestamp).inSeconds > 90)
+        return;
       position = p;
       await api(
         'community',
@@ -137,7 +219,7 @@ class CommunityService extends ChangeNotifier {
           'lng': p.longitude,
         },
       );
-      if (generation != presenceGeneration || !prefs.visible || !foreground) {
+      if (generation != presenceGeneration || !canShare) {
         await hide();
         return;
       }
@@ -150,14 +232,23 @@ class CommunityService extends ChangeNotifier {
       error = 'Persone vicine: ${e.toString().replaceFirst('Exception: ', '')}';
       people = [];
       notifyListeners();
+    } finally {
+      presenceBusy = false;
     }
   }
 
   Future<void> add(Map<String, dynamic> item) async {
-    pending.add(item);
-    await saveQueue();
+    if (pending.any((s) => s['id'] == item['id'])) return;
+    pending.add(Map<String, dynamic>.from(item));
+    try {
+      await saveQueue();
+    } catch (_) {
+      pending.removeWhere((s) => s['id'] == item['id']);
+      rethrow;
+    }
     notifyListeners();
-    await refresh();
+    // Saving never waits for Internet. Publishing resumes after durable storage.
+    unawaited(refresh());
   }
 
   Future<void> refresh({bool more = false}) async {
@@ -168,7 +259,12 @@ class CommunityService extends ChangeNotifier {
         final item = pending.first;
         await api('sightings', method: 'POST', body: item);
         pending.removeAt(0);
-        await saveQueue();
+        try {
+          await saveQueue();
+        } catch (_) {
+          pending.insert(0, item);
+          rethrow;
+        }
       }
       final data = await api(
         'sightings?offset=${more ? (nextOffset ?? 0) : 0}',
