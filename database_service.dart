@@ -13,8 +13,11 @@ class DatabaseService {
   Future<Database> get database async {
     if (_db != null) return _db!;
     final path = join(await getDatabasesPath(), 'wildtrack.db');
-    _db = await openDatabase(path, version: 1, onCreate: (db, version) async {
-      await db.execute('''
+    _db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
         CREATE TABLE sightings(
           id TEXT PRIMARY KEY,
           species TEXT NOT NULL,
@@ -26,7 +29,7 @@ class DatabaseService {
           photo_path TEXT
         )
       ''');
-      await db.execute('''
+        await db.execute('''
         CREATE TABLE sessions(
           id TEXT PRIMARY KEY,
           started_at TEXT NOT NULL,
@@ -35,7 +38,7 @@ class DatabaseService {
           ascent_m REAL NOT NULL
         )
       ''');
-      await db.execute('''
+        await db.execute('''
         CREATE TABLE track_points(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           session_id TEXT NOT NULL,
@@ -45,13 +48,18 @@ class DatabaseService {
           timestamp TEXT NOT NULL
         )
       ''');
-    });
+      },
+    );
     return _db!;
   }
 
   Future<void> insertSighting(Sighting sighting) async {
     final db = await database;
-    await db.insert('sightings', sighting.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'sightings',
+      sighting.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<List<Sighting>> getSightings() async {
@@ -60,10 +68,17 @@ class DatabaseService {
     return rows.map(Sighting.fromMap).toList();
   }
 
-  Future<void> saveSession(TrackSession session, List<TrackPoint> points) async {
+  Future<void> saveSession(
+    TrackSession session,
+    List<TrackPoint> points,
+  ) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.insert('sessions', session.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+      await txn.insert(
+        'sessions',
+        session.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
       final batch = txn.batch();
       for (final p in points) {
         batch.insert('track_points', p.toMap(session.id));

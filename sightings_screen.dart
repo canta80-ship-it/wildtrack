@@ -38,24 +38,48 @@ class _SightingsScreenState extends State<SightingsScreen> {
         builder: (context, setLocal) => AlertDialog(
           title: const Text('Nuovo avvistamento'),
           content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: species, decoration: const InputDecoration(labelText: 'Specie')),
-              TextField(controller: count, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Numero')),
-              TextField(controller: notes, decoration: const InputDecoration(labelText: 'Note')),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final image = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 85);
-                  if (image != null) setLocal(() => photoPath = image.path);
-                },
-                icon: const Icon(Icons.camera_alt),
-                label: Text(photoPath == null ? 'Scatta foto' : 'Foto acquisita'),
-              ),
-            ]),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: species,
+                  decoration: const InputDecoration(labelText: 'Specie'),
+                ),
+                TextField(
+                  controller: count,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Numero'),
+                ),
+                TextField(
+                  controller: notes,
+                  decoration: const InputDecoration(labelText: 'Note'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final image = await ImagePicker().pickImage(
+                      source: ImageSource.camera,
+                      imageQuality: 85,
+                    );
+                    if (image != null) setLocal(() => photoPath = image.path);
+                  },
+                  icon: const Icon(Icons.camera_alt),
+                  label: Text(
+                    photoPath == null ? 'Scatta foto' : 'Foto acquisita',
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Salva')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annulla'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Salva'),
+            ),
           ],
         ),
       ),
@@ -64,7 +88,13 @@ class _SightingsScreenState extends State<SightingsScreen> {
     if (saved != true) return;
     final p = await LocationService.currentPosition();
     if (p == null || !mounted) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossibile ottenere la posizione GPS.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossibile ottenere la posizione GPS.'),
+          ),
+        );
+      }
       return;
     }
     final sighting = Sighting(
@@ -90,14 +120,16 @@ class _SightingsScreenState extends State<SightingsScreen> {
           : ListView.separated(
               padding: const EdgeInsets.all(12),
               itemCount: sightings.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final s = sightings[i];
                 return Card(
                   child: ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.pets)),
                     title: Text('${s.species} · ${s.count}'),
-                    subtitle: Text('${DateFormat('dd/MM/yyyy HH:mm').format(s.timestamp)}\n${s.latitude.toStringAsFixed(5)}, ${s.longitude.toStringAsFixed(5)}${s.notes.isEmpty ? '' : '\n${s.notes}'}'),
+                    subtitle: Text(
+                      '${DateFormat('dd/MM/yyyy HH:mm').format(s.timestamp)}\n${s.latitude.toStringAsFixed(5)}, ${s.longitude.toStringAsFixed(5)}${s.notes.isEmpty ? '' : '\n${s.notes}'}',
+                    ),
                     isThreeLine: true,
                   ),
                 );

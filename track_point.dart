@@ -12,10 +12,10 @@ class TrackPoint {
   });
 
   Map<String, Object?> toMap(String sessionId) => {
-        'session_id': sessionId,
-        'latitude': latitude,
-        'longitude': longitude,
-        'altitude': altitude,
-        'timestamp': timestamp.toIso8601String(),
-      };
+    'session_id': sessionId,
+    'latitude': latitude,
+    'longitude': longitude,
+    'altitude': altitude,
+    'timestamp': timestamp.toIso8601String(),
+  };
 }

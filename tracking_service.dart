@@ -34,12 +34,14 @@ class TrackingService {
         final climb = position.altitude - prev.altitude;
         if (climb > 0) ascentMeters += climb;
       }
-      points.add(TrackPoint(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        altitude: position.altitude,
-        timestamp: position.timestamp,
-      ));
+      points.add(
+        TrackPoint(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          altitude: position.altitude,
+          timestamp: position.timestamp,
+        ),
+      );
       onUpdate();
     });
     return true;

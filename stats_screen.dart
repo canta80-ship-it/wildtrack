@@ -33,20 +33,32 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Statistiche')),
-        body: RefreshIndicator(
-          onRefresh: _load,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _Stat(icon: Icons.pets, label: 'Avvistamenti', value: '$sightings'),
-              _Stat(icon: Icons.groups, label: 'Animali osservati', value: '$animals'),
-              _Stat(icon: Icons.route, label: 'Uscite registrate', value: '$sessions'),
-              _Stat(icon: Icons.hiking, label: 'Distanza totale', value: '${(distance / 1000).toStringAsFixed(1)} km'),
-            ],
+    appBar: AppBar(title: const Text('Statistiche')),
+    body: RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _Stat(icon: Icons.pets, label: 'Avvistamenti', value: '$sightings'),
+          _Stat(
+            icon: Icons.groups,
+            label: 'Animali osservati',
+            value: '$animals',
           ),
-        ),
-      );
+          _Stat(
+            icon: Icons.route,
+            label: 'Uscite registrate',
+            value: '$sessions',
+          ),
+          _Stat(
+            icon: Icons.hiking,
+            label: 'Distanza totale',
+            value: '${(distance / 1000).toStringAsFixed(1)} km',
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _Stat extends StatelessWidget {
@@ -56,14 +68,18 @@ class _Stat extends StatelessWidget {
   const _Stat({required this.icon, required this.label, required this.value});
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(children: [
-            Icon(icon, size: 34),
-            const SizedBox(width: 16),
-            Expanded(child: Text(label, style: Theme.of(context).textTheme.titleMedium)),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
-          ]),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Icon(icon, size: 34),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+          ),
+          Text(value, style: Theme.of(context).textTheme.headlineSmall),
+        ],
+      ),
+    ),
+  );
 }

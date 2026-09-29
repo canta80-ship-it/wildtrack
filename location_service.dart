@@ -7,20 +7,21 @@ class LocationService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    return permission == LocationPermission.always || permission == LocationPermission.whileInUse;
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
   }
 
   static Future<Position?> currentPosition() async {
     if (!await ensurePermission()) return null;
-    return Geolocator.getCurrentPosition(locationSettings: const LocationSettings(
-      accuracy: LocationAccuracy.high,
-    ));
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    );
   }
 
   static Stream<Position> positionStream() => Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 5,
-        ),
-      );
+    locationSettings: const LocationSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 5,
+    ),
+  );
 }

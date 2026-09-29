@@ -1,8 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/database_service.dart';
-import '../services/location_service.dart';
+import '../services/community_service.dart';
+import '../services/preferences_service.dart';
+import 'brand_screen.dart';
+import 'settings_screen.dart';
+import 'species_screen.dart';
+import 'sos_screen.dart';
+import 'community_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class HabitatArea {
+  const HabitatArea(
+    this.name,
+    this.center,
+    this.points,
+    this.species,
+    this.note,
+    this.source,
+  );
+  final String name, note, source;
+  final LatLng center;
+  final List<LatLng> points;
+  final List<String> species;
+}
+
+const areas = <HabitatArea>[
+  HabitatArea(
+    'Cansiglio',
+    LatLng(46.061, 12.403),
+    [
+      LatLng(46.028, 12.366),
+      LatLng(46.089, 12.361),
+      LatLng(46.117, 12.411),
+      LatLng(46.092, 12.463),
+      LatLng(46.032, 12.444),
+    ],
+    ['Cervo', 'Capriolo', 'Volpe', 'Picchio nero'],
+    'Boschi e radure. Mammiferi spesso più visibili nelle ore tranquille. Il contorno è uno schema geografico, non il confine ufficiale né una previsione.',
+    cansiglioSource,
+  ),
+  HabitatArea(
+    'Prealpi Giulie',
+    LatLng(46.321, 13.256),
+    [
+      LatLng(46.260, 13.109),
+      LatLng(46.361, 13.110),
+      LatLng(46.409, 13.453),
+      LatLng(46.314, 13.455),
+      LatLng(46.260, 13.302),
+    ],
+    [
+      'Cervo',
+      'Capriolo',
+      'Camoscio alpino',
+      'Stambecco',
+      'Cinghiale',
+      'Aquila reale',
+      'Poiana',
+      'Allocco',
+      'Grifone',
+    ],
+    'Mosaico di boschi, praterie e rocce. Le specie occupano ambienti e quote differenti; non sono distribuite uniformemente nel poligono.',
+    prealpsSource,
+  ),
+  HabitatArea(
+    'Cornino e Tagliamento',
+    LatLng(46.229, 13.022),
+    [
+      LatLng(46.210, 12.995),
+      LatLng(46.249, 12.999),
+      LatLng(46.252, 13.041),
+      LatLng(46.221, 13.054),
+    ],
+    ['Grifone'],
+    'Area indicativa collegata alla colonia e ai voli dei grifoni. Per osservare usa i percorsi autorizzati della riserva.',
+    'https://www.riservacornino.it/chi-siamo/la-riserva/',
+  ),
+  HabitatArea(
+    'Foce dell’Isonzo',
+    LatLng(45.758, 13.504),
+    [
+      LatLng(45.724, 13.478),
+      LatLng(45.807, 13.486),
+      LatLng(45.808, 13.525),
+      LatLng(45.744, 13.563),
+    ],
+    ['Airone cenerino', 'Germano reale', 'Falco di palude'],
+    'Zone umide, canneti e acque aperte. Presenze variabili secondo stagione, migrazione e livello dell’acqua.',
+    birdsSource,
+  ),
+];
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -11,68 +101,512 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final MapController _mapController = MapController();
-  LatLng? _position;
-  List<Marker> _sightings = [];
-
+  final controller = MapController();
+  LatLng? position;
+  List<Marker> personal = [];
+  bool ready = false,
+      locating = false,
+      habitats = true,
+      possible = true,
+      shared = true,
+      locals = true;
+  String selected = 'Tutte';
   @override
   void initState() {
     super.initState();
-    _load();
+    CommunityService.instance.addListener(changed);
+    PreferencesService.instance.addListener(changed);
+    loadPersonal();
   }
 
-  Future<void> _load() async {
-    final p = await LocationService.currentPosition();
-    final sightings = await DatabaseService.instance.getSightings();
-    if (!mounted) return;
-    setState(() {
-      if (p != null) _position = LatLng(p.latitude, p.longitude);
-      _sightings = sightings
-          .map((s) => Marker(
-                point: LatLng(s.latitude, s.longitude),
-                width: 44,
-                height: 44,
-                child: Tooltip(
-                  message: '${s.species} (${s.count})',
-                  child: const Icon(Icons.pets, size: 34),
-                ),
-              ))
-          .toList();
-    });
-    if (_position != null) _mapController.move(_position!, 14);
+  void changed() {
+    if (mounted) setState(() {});
   }
 
   @override
-  Widget build(BuildContext context) {
-    final center = _position ?? const LatLng(46.06, 12.40);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mappa')),
-      body: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(initialCenter: center, initialZoom: 11),
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'it.wildtrack.wildtrack_mvp',
-          ),
-          MarkerLayer(markers: [
-            ..._sightings,
-            if (_position != null)
-              Marker(
-                point: _position!,
-                width: 36,
-                height: 36,
-                child: const Icon(Icons.my_location, size: 30),
+  void dispose() {
+    CommunityService.instance.removeListener(changed);
+    PreferencesService.instance.removeListener(changed);
+    controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> loadPersonal() async {
+    try {
+      final rows = await DatabaseService.instance.getSightings();
+      if (mounted) {
+        setState(
+          () => personal = rows
+              .map(
+                (s) => Marker(
+                  point: LatLng(s.latitude, s.longitude),
+                  width: 40,
+                  height: 40,
+                  child: Tooltip(
+                    message: 'Privato: ${s.species} · ${s.count}',
+                    child: const Icon(
+                      Icons.bookmark,
+                      color: Color(0xFFAD691F),
+                      size: 28,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> locate() async {
+    if (locating) return;
+    setState(() => locating = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('Attiva la posizione del telefono');
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        throw Exception('Autorizza il GPS');
+      }
+      final p = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      if (!mounted) return;
+      setState(() => position = LatLng(p.latitude, p.longitude));
+      if (ready) controller.move(position!, 13);
+      await loadPersonal();
+    } catch (e) {
+      if (mounted) message(context, e);
+    } finally {
+      if (mounted) setState(() => locating = false);
+    }
+  }
+
+  Future<void> areaDetails(HabitatArea a) => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(a.name, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 12),
+            Text(a.note),
+            Text('Specie documentate nell’area: ${a.species.join(', ')}'),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'Zona possibile, non avvistamento confermato. Nessuna indicazione di nidi o tane. Verifica accessi e regole locali.',
               ),
-          ]),
-          RichAttributionWidget(attributions: const [
-            TextSourceAttribution('OpenStreetMap contributors'),
-          ]),
+            ),
+            TextButton(
+              onPressed: () => launchUrl(
+                Uri.parse(a.source),
+                mode: LaunchMode.externalApplication,
+              ),
+              child: const Text('Consulta la fonte'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  void filters() => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => StatefulBuilder(
+      builder: (context, update) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Livelli e specie',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              for (final item in [
+                ('Habitat indicativi', habitats, 0),
+                ('Zone di possibile osservazione', possible, 1),
+                ('Avvistamenti condivisi', shared, 2),
+                ('Avvistamenti privati', locals, 3),
+              ])
+                SwitchListTile(
+                  title: Text(item.$1),
+                  value: item.$2,
+                  onChanged: (v) {
+                    setState(() {
+                      switch (item.$3) {
+                        case 0:
+                          habitats = v;
+                        case 1:
+                          possible = v;
+                        case 2:
+                          shared = v;
+                        case 3:
+                          locals = v;
+                      }
+                    });
+                    update(() {});
+                  },
+                ),
+              DropdownButtonFormField<String>(
+                initialValue: selected,
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem(
+                    value: 'Tutte',
+                    child: Text('Tutte le specie'),
+                  ),
+                  for (final a in animals)
+                    DropdownMenuItem(value: a.name, child: Text(a.name)),
+                ],
+                onChanged: (v) {
+                  setState(() => selected = v!);
+                  update(() {});
+                },
+              ),
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'Copertura iniziale: 4 aree documentate del Nordest. I poligoni sono schemi approssimativi, non confini ufficiali o mappe complete di distribuzione.',
+                ),
+              ),
+              for (final a in areas)
+                ListTile(
+                  title: Text(a.name),
+                  trailing: const Icon(Icons.center_focus_strong),
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (ready) {
+                      controller.move(
+                        a.center,
+                        a.name == 'Prealpi Giulie' ? 10 : 12,
+                      );
+                    }
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  @override
+  Widget build(BuildContext context) {
+    final prefs = PreferencesService.instance, c = CommunityService.instance;
+    final filtered = areas
+        .where((a) => selected == 'Tutte' || a.species.contains(selected))
+        .toList();
+    final gps =
+        position ??
+        (c.position == null
+            ? null
+            : LatLng(c.position!.latitude, c.position!.longitude));
+    return Scaffold(
+      appBar: AppBar(
+        title: const WildTrackBrand(),
+        actions: [
+          IconButton(
+            tooltip: 'Impostazioni',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+            ),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+          TextButton(
+            onPressed: () async {
+              await AudioService.instance.stop();
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(builder: (_) => const SosScreen()),
+                );
+              }
+            },
+            child: const Text(
+              'SOS',
+              style: TextStyle(
+                color: Color(0xFFAE292F),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _load,
-        child: const Icon(Icons.gps_fixed),
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: controller,
+            options: MapOptions(
+              initialCenter: const LatLng(46.08, 13.02),
+              initialZoom: 8,
+              onMapReady: () {
+                ready = true;
+              },
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'it.wildtrack.wildtrack_mvp',
+              ),
+              if (habitats)
+                PolygonLayer(
+                  polygons: [
+                    for (final a in filtered)
+                      Polygon(
+                        points: a.points,
+                        color: const Color(0xFF628348).withValues(alpha: .20),
+                        borderColor: const Color(0xFF446B36),
+                        borderStrokeWidth: 2,
+                      ),
+                  ],
+                ),
+              MarkerLayer(
+                markers: [
+                  if (possible)
+                    for (final a in filtered)
+                      Marker(
+                        point: a.center,
+                        width: 145,
+                        height: 60,
+                        child: GestureDetector(
+                          onTap: () => areaDetails(a),
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.visibility,
+                                color: Color(0xFF365626),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 2,
+                                ),
+                                color: const Color(0xFFE0E8CE),
+                                child: Text(
+                                  a.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF173921),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  if (locals) ...personal,
+                  if (shared)
+                    for (final s in c.sightings.where(
+                      (s) => selected == 'Tutte' || s['species'] == selected,
+                    ))
+                      Marker(
+                        point: LatLng(
+                          (s['lat'] as num).toDouble(),
+                          (s['lng'] as num).toDouble(),
+                        ),
+                        width: 40,
+                        height: 40,
+                        child: GestureDetector(
+                          onTap: () => showSighting(context, s),
+                          child: const Icon(
+                            Icons.pets,
+                            color: Color(0xFFB56613),
+                            size: 30,
+                          ),
+                        ),
+                      ),
+                  if (gps != null)
+                    Marker(
+                      point: gps,
+                      width: 36,
+                      height: 36,
+                      child: const Icon(
+                        Icons.my_location,
+                        color: Color(0xFF135AA6),
+                        size: 30,
+                      ),
+                    ),
+                  if (prefs.visible)
+                    for (final p in c.people.where(
+                      (p) =>
+                          DateTime.now().millisecondsSinceEpoch -
+                              (p['updated'] as num) <
+                          180000,
+                    ))
+                      Marker(
+                        point: LatLng(
+                          (p['lat'] as num).toDouble(),
+                          (p['lng'] as num).toDouble(),
+                        ),
+                        width: 44,
+                        height: 44,
+                        child: IconButton(
+                          tooltip: '${p['nickname']} · ${p['distanceM']} m',
+                          icon: const Icon(
+                            Icons.person_pin_circle,
+                            color: Color(0xFF773E95),
+                            size: 38,
+                          ),
+                          onPressed: () => showModalBottomSheet<void>(
+                            context: context,
+                            builder: (context) => SafeArea(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      p['nickname'] as String,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineSmall,
+                                    ),
+                                    Text(
+                                      '${p['distanceM']} m · aggiornamento ${timeLabel(p['updated'])}',
+                                    ),
+                                    const Text(
+                                      'Posizione condivisa volontariamente · nickname non verificato',
+                                    ),
+                                    FilledButton.icon(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        Navigator.push(
+                                          this.context,
+                                          MaterialPageRoute<void>(
+                                            builder: (_) => ChatScreen(
+                                              peer: p['id'] as String,
+                                              nickname: p['nickname'] as String,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.chat_bubble_outline,
+                                      ),
+                                      label: const Text('Scrivi messaggio'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+              RichAttributionWidget(
+                attributions: const [
+                  TextSourceAttribution('OpenStreetMap contributors'),
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            top: 10,
+            left: 10,
+            right: 10,
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.layers_outlined),
+                  label: Text(
+                    selected == 'Tutte' ? 'Livelli e specie' : selected,
+                  ),
+                  onPressed: filters,
+                ),
+                if (prefs.visible)
+                  Chip(
+                    avatar: const Icon(Icons.people_outline),
+                    label: Text('${c.people.length} persone entro 5 km'),
+                  ),
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: 12,
+            left: 12,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 230),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: .95),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Verde: habitat indicativo\nOcchio: zona possibile · Zampa: condiviso\nSegnalibro: privato · Viola: persone',
+                style: TextStyle(fontSize: 11),
+              ),
+            ),
+          ),
+          if (c.error != null)
+            Positioned(
+              top: 65,
+              left: 12,
+              right: 12,
+              child: Material(
+                borderRadius: BorderRadius.circular(12),
+                color: Theme.of(context).colorScheme.surface,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    c.error!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (prefs.soundPanel) ...[
+            FloatingActionButton.small(
+              heroTag: 'sounds',
+              tooltip: 'Versi animali',
+              onPressed: () => showSounds(context),
+              child: const Icon(Icons.volume_up),
+            ),
+            const SizedBox(height: 8),
+          ],
+          FloatingActionButton.small(
+            heroTag: 'layers',
+            tooltip: 'Livelli',
+            onPressed: filters,
+            child: const Icon(Icons.layers),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
+            heroTag: 'gps',
+            tooltip: 'La mia posizione',
+            onPressed: locating ? null : locate,
+            child: locating
+                ? const CircularProgressIndicator()
+                : const Icon(Icons.gps_fixed),
+          ),
+        ],
       ),
     );
   }
