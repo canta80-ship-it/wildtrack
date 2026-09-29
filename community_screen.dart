@@ -350,7 +350,7 @@ class _PublishScreenState extends State<PublishScreen> {
                 .map(
                   (a) => DropdownMenuItem(
                     value: a.name,
-                    child: Text('${a.emoji} ${a.name}'),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [SpeciesIcon(a.name, size: 28), const SizedBox(width: 8), Text(a.name)]),
                   ),
                 )
                 .toList(),

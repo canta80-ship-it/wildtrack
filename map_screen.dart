@@ -157,11 +157,7 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     child: Tooltip(
                       message: 'Privato: ${s.species} · ${s.kind}',
-                      child: const Icon(
-                        Icons.bookmark,
-                        color: Color(0xFFAD691F),
-                        size: 28,
-                      ),
+                      child: SpeciesIcon(s.species, size: 36),
                     ),
                   ),
                 ),
@@ -438,11 +434,7 @@ class _MapScreenState extends State<MapScreen> {
                         height: 40,
                         child: GestureDetector(
                           onTap: () => showSighting(context, s),
-                          child: const Icon(
-                            Icons.pets,
-                            color: Color(0xFFB56613),
-                            size: 30,
-                          ),
+                          child: SpeciesIcon(s['species'] as String? ?? '', size: 36),
                         ),
                       ),
                   if (gps != null)
