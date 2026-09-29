@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'preferences_service.dart';
 
-const communityUrl = 'https://wildtrack-community.fun-bard-3414.chatgpt.site';
+const communityUrl = 'https://wildtrack-community.canta80.chatgpt.site';
 
 class CommunityService extends ChangeNotifier {
   static final instance = CommunityService();
