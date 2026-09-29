@@ -1,0 +1,28 @@
+name: wildtrack_mvp
+description: MVP outdoor per trekking, tracce GPS e avvistamenti fauna.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_map: ^8.3.2
+  latlong2: ^0.9.1
+  geolocator: ^14.1.1
+  sqflite: ^2.4.4
+  path: ^1.9.1
+  image_picker: ^1.2.3
+  intl: ^0.20.2
+  uuid: ^4.5.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
