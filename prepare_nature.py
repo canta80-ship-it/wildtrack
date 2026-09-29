@@ -4,7 +4,7 @@ NAMES=['Cervus elaphus','Capreolus capreolus','Vulpes vulpes','Rupicapra rupicap
 PLACES=[('Cansiglio',46.061,12.403),('Gran Paradiso',45.594,7.356),('Abruzzo',41.76,13.908),('Sila',39.38,16.54),('Etna',37.795,15.037),('Sardegna',40.12,9.25)]
 def read(url,data=None):
  req=urllib.request.Request(url,data=data,headers={'User-Agent':'WildTrack/0.4 (https://github.com/canta80-ship-it/wildtrack)'})
- with urllib.request.urlopen(req,timeout=30) as r:return json.load(r)
+ with urllib.request.urlopen(req,timeout=100) as r:return json.load(r)
 def taxon(n):
  try:
   d=read('https://api.gbif.org/v1/species/match?strict=true&name='+urllib.parse.quote(n))
@@ -13,9 +13,16 @@ def taxon(n):
  except Exception as e: print('Taxon unavailable',n,str(e));return n,None
 def trails(place):
  name,lat,lng=place
- q=f'[out:json][timeout:20];relation["route"~"^(hiking|foot)$"](around:5000,{lat},{lng});out tags geom;'
+ q=f'[out:json][timeout:60];relation["route"~"^(hiking|foot)$"]({lat-.05},{lng-.07},{lat+.05},{lng+.07});out tags geom;'
  try:
-  d=read('https://overpass-api.de/api/interpreter',urllib.parse.urlencode({'data':q}).encode())
+  d=None
+  for endpoint in ['https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter']:
+   try:
+    d=read(endpoint,urllib.parse.urlencode({'data':q}).encode())
+    if d.get('remark'):raise ValueError(d['remark'])
+    break
+   except Exception as e:print('Provider unavailable',name,str(e),flush=True)
+  if d is None:raise ValueError('No provider returned data')
   if d.get('remark'):raise ValueError('Incomplete response')
   out=[]
   for e in d.get('elements',[]):

@@ -90,8 +90,8 @@ d.write_text('''<vector xmlns:android="http://schemas.android.com/apk/res/androi
 </vector>''')
 s=p.read_text().replace('android:icon="@mipmap/ic_launcher"','android:icon="@drawable/wildtrack_logo"')
 p.write_text(s)
-# Install alongside the first test APK; its original signing key was not retained.
+# Install alongside earlier test APKs; their signing keys were not retained.
 # The launcher name stays WildTrack; version numbers are internal metadata.
 build=Path('android/app/build.gradle.kts')
-s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v2"')
+s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v4"')
 build.write_text(s)
