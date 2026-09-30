@@ -4,7 +4,7 @@ s = p.read_text()
 for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK']:
     if 'android.permission.'+permission not in s:
         s=s.replace('<application', f'<uses-permission android:name="android.permission.{permission}" />\n    <application',1)
-s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack"')
+s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack 0.5"')
 p.write_text(s)
 k=Path('android/app/src/main/kotlin/it/wildtrack/wildtrack_mvp/MainActivity.kt')
 k.parent.mkdir(parents=True,exist_ok=True)
@@ -93,5 +93,5 @@ p.write_text(s)
 # Install alongside earlier test APKs; their signing keys were not retained.
 # The launcher name stays WildTrack; version numbers are internal metadata.
 build=Path('android/app/build.gradle.kts')
-s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v4"')
+s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v5"')
 build.write_text(s)
