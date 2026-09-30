@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'preferences_service.dart';
+import 'database_service.dart';
 import 'location_service.dart';
 
 const communityUrl = 'https://wildtrack-community.canta80.chatgpt.site';
@@ -238,14 +239,30 @@ class CommunityService extends ChangeNotifier {
   }
 
   Future<void> add(Map<String, dynamic> item) async {
-    if (pending.any((s) => s['id'] == item['id'])) return;
-    pending.add(Map<String, dynamic>.from(item));
+    final index = pending.indexWhere((s) => s['id'] == item['id']);
+    if (index >= 0 && syncing) {
+      throw Exception(
+        'Invio in corso. Attendi che termini prima di modificare la segnalazione.',
+      );
+    }
+    final previous = index >= 0 ? pending[index] : null;
+    final replacement = Map<String, dynamic>.from(item);
+    if (index >= 0) {
+      pending[index] = replacement;
+    } else {
+      pending.add(replacement);
+    }
     try {
       await saveQueue();
     } catch (_) {
-      pending.removeWhere((s) => s['id'] == item['id']);
+      if (previous != null) {
+        pending[index] = previous;
+      } else {
+        pending.remove(replacement);
+      }
       rethrow;
     }
+    error = null;
     notifyListeners();
     // Saving never waits for Internet. Publishing resumes after durable storage.
     unawaited(refresh());
@@ -258,6 +275,10 @@ class CommunityService extends ChangeNotifier {
       while (pending.isNotEmpty) {
         final item = pending.first;
         await api('sightings', method: 'POST', body: item);
+        if (item['groupId'] == null) {
+          // Only a successful server response converts the private observation.
+          await DatabaseService.instance.deleteSighting(item['id'] as String);
+        }
         pending.removeAt(0);
         try {
           await saveQueue();
@@ -277,6 +298,11 @@ class CommunityService extends ChangeNotifier {
         sightings.addAll(rows.where((x) => !ids.contains(x['id'])));
       } else {
         sightings = rows;
+      }
+      for (final row in rows) {
+        if (row['mine'] == 1 && row['groupId'] == null) {
+          await DatabaseService.instance.deleteSighting(row['id'] as String);
+        }
       }
       nextOffset = data['nextOffset'] as int?;
       error = null;

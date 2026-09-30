@@ -13,6 +13,7 @@ import '../services/database_service.dart';
 import '../services/location_service.dart';
 import '../services/preferences_service.dart';
 import 'community_screen.dart';
+import 'species_screen.dart';
 
 class SightingsScreen extends StatefulWidget {
   const SightingsScreen({super.key});
@@ -110,12 +111,13 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
   String kind = 'Animale', source = 'missing';
   String? photoPath, error;
   double? accuracy;
-  bool saving = false, locating = false;
+  bool saving = false, locating = false, saved = false;
   int locationGeneration = 0;
   @override
   void initState() {
     super.initState();
     final s = widget.initial;
+    saved = s != null;
     id = s?.id ?? const Uuid().v4();
     observedAt = s?.timestamp ?? DateTime.now();
     species.text = s?.species ?? '';
@@ -298,13 +300,52 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
       );
       await DatabaseService.instance.insertSighting(sighting);
       if (mounted) {
-        setState(() => photoPath = storedPhoto);
+        setState(() {
+          photoPath = storedPhoto;
+          saved = true;
+        });
         if (close) Navigator.pop(context);
       }
       return sighting;
     } catch (e) {
       if (mounted) setState(() => error = 'Salvataggio non riuscito: $e');
       return null;
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> deletePrivateSighting() async {
+    if (saving || !saved) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancellare l’osservazione privata?'),
+        content: const Text(
+          'Il punto sarà rimosso dalla mappa e dal taccuino di questo telefono. '
+          'L’eventuale avvistamento pubblicato in Comunità resterà visibile.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annulla'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Cancella'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || saving) return;
+    setState(() => saving = true);
+    try {
+      await DatabaseService.instance.deleteSighting(id);
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        setState(() => error = 'Cancellazione non riuscita. Riprova.');
+      }
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -320,15 +361,28 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
       );
       return;
     }
-    await Navigator.push<void>(
+    final publishedSpecies = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (_) => PublishScreen(initial: s)),
     );
+    if (mounted && publishedSpecies != null) {
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Registra osservazione')),
+    appBar: AppBar(
+      title: Text(saved ? 'Osservazione privata' : 'Registra osservazione'),
+      actions: [
+        if (saved)
+          IconButton(
+            tooltip: 'Cancella dal telefono',
+            onPressed: saving ? null : deletePrivateSighting,
+            icon: const Icon(Icons.delete_outline),
+          ),
+      ],
+    ),
     body: ListView(
       padding: const EdgeInsets.all(18),
       children: [
@@ -346,11 +400,34 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
           ].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
           onChanged: saving ? null : (v) => setState(() => kind = v!),
         ),
-        TextField(
-          controller: species,
-          decoration: const InputDecoration(
-            labelText: 'Specie (anche non identificata)',
-          ),
+        DropdownButtonFormField<String>(
+          initialValue: species.text.isEmpty
+              ? 'Specie non identificata'
+              : species.text,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Specie'),
+          items:
+              {
+                    'Specie non identificata',
+                    ...animals.map((a) => a.name),
+                    if (species.text.isNotEmpty) species.text,
+                  }
+                  .map(
+                    (name) => DropdownMenuItem(
+                      value: name,
+                      child: Row(
+                        children: [
+                          SpeciesIcon(name, size: 28),
+                          const SizedBox(width: 8),
+                          Text(name),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+          onChanged: saving
+              ? null
+              : (value) => setState(() => species.text = value!),
         ),
         TextField(
           controller: count,

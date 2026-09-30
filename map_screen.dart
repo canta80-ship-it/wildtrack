@@ -107,7 +107,7 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final controller = MapController();
   LatLng? position;
-  List<Marker> personal = [];
+  Map<String, Marker> personal = {};
   bool ready = false,
       locating = false,
       habitats = true,
@@ -149,28 +149,32 @@ class _MapScreenState extends State<MapScreen> {
       final rows = await DatabaseService.instance.getSightings();
       if (mounted) {
         setState(
-          () => personal = rows
-              .where((s) => s.hasPosition)
-              .map(
-                (s) => Marker(
-                  point: LatLng(s.latitude!, s.longitude!),
-                  width: 40,
-                  height: 40,
-                  child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => SightingEditorScreen(initial: s),
+          () => personal = Map.fromEntries(
+            rows
+                .where((s) => s.hasPosition)
+                .map(
+                  (s) => MapEntry(
+                    s.id,
+                    Marker(
+                      point: LatLng(s.latitude!, s.longitude!),
+                      width: 40,
+                      height: 40,
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => SightingEditorScreen(initial: s),
+                          ),
+                        ),
+                        child: Tooltip(
+                          message: 'Privato: ${s.species} · ${s.kind}',
+                          child: SpeciesIcon(s.species, size: 36),
+                        ),
                       ),
-                    ),
-                    child: Tooltip(
-                      message: 'Privato: ${s.species} · ${s.kind}',
-                      child: SpeciesIcon(s.species, size: 36),
                     ),
                   ),
                 ),
-              )
-              .toList(),
+          ),
         );
       }
     } catch (_) {}
@@ -462,7 +466,19 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         ),
                       ),
-                  if (locals) ...personal,
+                  if (locals)
+                    ...personal.entries
+                        .where(
+                          (entry) =>
+                              !shared ||
+                              !c.sightings.any(
+                                (s) =>
+                                    '${s['id']}' == entry.key &&
+                                    (selected == 'Tutte' ||
+                                        s['species'] == selected),
+                              ),
+                        )
+                        .map((entry) => entry.value),
                   if (shared)
                     for (final s in c.sightings.where(
                       (s) =>

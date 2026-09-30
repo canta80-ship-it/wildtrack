@@ -83,6 +83,12 @@ class DatabaseService {
     changes.value++;
   }
 
+  Future<void> deleteSighting(String id) async {
+    final db = await database;
+    await db.delete('sightings', where: 'id = ?', whereArgs: [id]);
+    changes.value++;
+  }
+
   Future<List<Sighting>> getSightings() async {
     final db = await database;
     final rows = await db.query('sightings', orderBy: 'timestamp DESC');

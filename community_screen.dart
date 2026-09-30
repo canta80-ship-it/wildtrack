@@ -15,6 +15,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../services/community_service.dart';
+import '../services/database_service.dart';
 import '../services/preferences_service.dart';
 import 'private_maps_screen.dart';
 import 'species_screen.dart';
@@ -339,22 +340,71 @@ class _PublishScreenState extends State<PublishScreen> {
     try {
       String? encoded;
       if (photo != null) {
-        final codec = await ui.instantiateImageCodec(
-          await File(photo!.path).readAsBytes(),
-          targetWidth: 800,
-        );
-        final frame = await codec.getNextFrame();
-        final data = await frame.image.toByteData(
-          format: ui.ImageByteFormat.png,
-        );
-        frame.image.dispose();
-        codec.dispose();
-        if (data == null || data.lengthInBytes > 1000000) {
-          throw Exception(
-            'Foto troppo grande: scegli una foto più semplice o pubblica senza foto.',
-          );
+        final bytes = await File(photo!.path).readAsBytes();
+        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+        ui.ImageDescriptor? descriptor;
+        try {
+          descriptor = await ui.ImageDescriptor.encoded(buffer);
+          final longest = descriptor.width > descriptor.height
+              ? descriptor.width
+              : descriptor.height;
+          var edge = longest.clamp(1, 1600).toInt();
+          while (encoded == null) {
+            final width = (descriptor.width * edge / longest)
+                .round()
+                .clamp(1, 1600)
+                .toInt();
+            final height = (descriptor.height * edge / longest)
+                .round()
+                .clamp(1, 1600)
+                .toInt();
+            final codec = await descriptor.instantiateCodec(
+              targetWidth: width,
+              targetHeight: height,
+            );
+            try {
+              final frame = await codec.getNextFrame();
+              try {
+                final data = await frame.image.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                if (data == null)
+                  throw Exception(
+                    'Impossibile elaborare questa foto. Prova un’altra immagine.',
+                  );
+                if (data.lengthInBytes <= 1000000) {
+                  encoded = base64Encode(
+                    data.buffer.asUint8List(
+                      data.offsetInBytes,
+                      data.lengthInBytes,
+                    ),
+                  );
+                }
+              } finally {
+                frame.image.dispose();
+              }
+            } finally {
+              codec.dispose();
+            }
+            if (encoded != null) break;
+            if (edge <= 256)
+              throw Exception(
+                'Impossibile preparare questa foto per la condivisione.',
+              );
+            edge = (edge * 0.8).floor().clamp(256, 1600).toInt();
+          }
+        } finally {
+          descriptor?.dispose();
+          buffer.dispose();
         }
-        encoded = base64Encode(data.buffer.asUint8List());
+      }
+      final original = widget.initial;
+      if (original != null) {
+        final row = original.toMap();
+        row['species'] = species;
+        row['count'] = n;
+        row['notes'] = notes.text.trim();
+        await DatabaseService.instance.insertSighting(Sighting.fromMap(row));
       }
       final p = location!;
       await CommunityService.instance.add({
@@ -370,7 +420,7 @@ class _PublishScreenState extends State<PublishScreen> {
         'approximate': approximate,
         'photo': encoded,
       });
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, species);
     } catch (e) {
       if (mounted) {
         setState(() => error = e.toString().replaceFirst('Exception: ', ''));
@@ -467,7 +517,12 @@ class _PublishScreenState extends State<PublishScreen> {
         ),
         if (photo != null)
           TextButton(
-            onPressed: () => setState(() => photo = null),
+            onPressed: busy
+                ? null
+                : () => setState(() {
+                    photo = null;
+                    error = null;
+                  }),
             child: const Text('Rimuovi foto'),
           ),
         OutlinedButton.icon(

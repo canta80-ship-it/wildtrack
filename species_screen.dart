@@ -206,7 +206,7 @@ const animals = <Animal>[
     "Non lasciare cibo e rispetta le indicazioni locali di osservazione.",
     "https://www.parcoabruzzo.it/mammiferi.php",
     audio: 'Yellowstone sound library - Grizzly Bears Roar - 001.mp3',
-    voice: 'Vocalizzazione · grizzly (Ursus arctos), Yellowstone',
+    voice: 'Vocalizzazione · orso bruno, registrazione nordamericana',
   ),
   Animal(
     "Lupo",
@@ -1055,10 +1055,20 @@ class SpeciesIconPainter extends CustomPainter {
       31,
       Paint()..color = const Color(0xFFE8EDD9),
     );
-    switch (species) {
+    final name = species.trim().toLowerCase();
+    final canonical =
+        animals
+            .where(
+              (a) =>
+                  a.name.toLowerCase() == name || a.latin.toLowerCase() == name,
+            )
+            .firstOrNull
+            ?.name ??
+        species;
+    switch (canonical) {
       case 'Cervo':
       case 'Capriolo':
-        final deer = species == 'Cervo';
+        final deer = canonical == 'Cervo';
         for (final flip in [false, true]) {
           canvas.save();
           if (flip) {
@@ -1108,7 +1118,7 @@ class SpeciesIconPainter extends CustomPainter {
         oval(29, 46, 6, 5, ink);
       case 'Camoscio alpino':
       case 'Stambecco':
-        final ibex = species == 'Stambecco';
+        final ibex = canonical == 'Stambecco';
         for (final flip in [false, true]) {
           canvas.save();
           if (flip) {
