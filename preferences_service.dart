@@ -12,9 +12,13 @@ class PreferencesService extends ChangeNotifier {
   int repeats = 1;
   bool visible = false;
   bool backgroundSharing = false;
+  bool chatNotifications = true;
+  bool sightingNotifications = true;
+  bool fieldSilence = false;
   String nickname = 'Esploratore';
   String token = '';
   late File file;
+
   Future<void> load() async {
     file = File('${await getDatabasesPath()}/wildtrack_preferences.json');
     await file.parent.create(recursive: true);
@@ -28,6 +32,9 @@ class PreferencesService extends ChangeNotifier {
       repeats = ((p['repeats'] as int?) ?? 1).clamp(1, 5);
       visible = p['visible'] == true;
       backgroundSharing = p['backgroundSharing'] == true;
+      chatNotifications = p['chatNotifications'] != false;
+      sightingNotifications = p['sightingNotifications'] != false;
+      fieldSilence = p['fieldSilence'] == true;
       nickname = p['nickname'] as String? ?? nickname;
       token = p['token'] as String? ?? '';
     } catch (_) {}
@@ -50,6 +57,9 @@ class PreferencesService extends ChangeNotifier {
         'repeats': repeats,
         'visible': visible,
         'backgroundSharing': backgroundSharing,
+        'chatNotifications': chatNotifications,
+        'sightingNotifications': sightingNotifications,
+        'fieldSilence': fieldSilence,
         'nickname': nickname,
         'token': token,
       }),
