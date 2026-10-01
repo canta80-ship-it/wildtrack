@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/intro_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/sightings_screen.dart';
+import 'screens/premium_sighting_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/community_screen.dart';
 import 'services/preferences_service.dart';
@@ -117,7 +117,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
-  final pages = const [HomeScreen(), SightingsScreen(), StatsScreen(), CommunityScreen()];
+  final pages = const [HomeScreen(), PremiumSightingScreen(), StatsScreen(), CommunityScreen()];
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -135,7 +135,7 @@ class _HomeShellState extends State<HomeShell> {
         ),
         child: Row(children: [
           _NavItem(icon: Icons.explore_outlined, selected: Icons.explore, label: 'Esplora', active: index == 0, onTap: () => setState(() => index = 0)),
-          _NavItem(icon: Icons.binoculars_outlined, selected: Icons.binoculars, label: 'Avvista', active: index == 1, emphasized: true, onTap: () => setState(() => index = 1)),
+          _NavItem(icon: Icons.visibility_outlined, selected: Icons.visibility, label: 'Avvista', active: index == 1, emphasized: true, onTap: () => setState(() => index = 1)),
           _NavItem(icon: Icons.menu_book_outlined, selected: Icons.menu_book, label: 'Diario', active: index == 2, onTap: () => setState(() => index = 2)),
           _NavItem(icon: Icons.groups_outlined, selected: Icons.groups, label: 'Community', active: index == 3, onTap: () => setState(() => index = 3)),
         ]),
