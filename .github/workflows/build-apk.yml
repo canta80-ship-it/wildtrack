@@ -15,6 +15,26 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Restore stable preview signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: wildtrack-preview-signing-v1
+      - name: Ensure stable preview signing key
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore ~/.android/debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=WildTrack Preview,OU=WildTrack,O=WildTrack,L=Udine,ST=Friuli-Venezia Giulia,C=IT"
+          fi
+          keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep -E 'SHA256:|Owner:' || true
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -57,6 +77,12 @@ jobs:
             --dart-define=WILDTRACK_FIREBASE_APP_ID='${{ secrets.WILDTRACK_FIREBASE_APP_ID }}' \
             --dart-define=WILDTRACK_FIREBASE_PROJECT_ID='${{ secrets.WILDTRACK_FIREBASE_PROJECT_ID }}' \
             --dart-define=WILDTRACK_FIREBASE_SENDER_ID='${{ secrets.WILDTRACK_FIREBASE_SENDER_ID }}'
+      - name: Verify APK signature and package
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          "$APKSIGNER" verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | head -n 8
       - name: Prepare APK
         run: cp build/app/outputs/flutter-apk/app-release.apk WildTrack-release.apk
       - uses: actions/upload-artifact@v4
