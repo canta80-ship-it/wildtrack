@@ -39,7 +39,7 @@ class RadarService {
           permission != LocationPermission.whileInUse) {
         return null;
       }
-      return Geolocator.getCurrentPosition(
+      return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.medium,
           timeLimit: Duration(seconds: 8),
@@ -125,11 +125,13 @@ class RadarService {
       }
     }
     if ((wind ?? 0) > 30) {
-      for (final k in scores.keys.toList()) scores[k] = scores[k]! - 8;
+      for (final k in scores.keys.toList()) {
+        scores[k] = scores[k]! - 8;
+      }
     }
 
     final ranked = scores.entries
-        .map((e) => RadarSpecies(e.key, e.value.round().clamp(5, 95)))
+        .map((e) => RadarSpecies(e.key, e.value.round().clamp(5, 95).toInt()))
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
     final best = ranked.first.score;
