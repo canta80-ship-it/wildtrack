@@ -2,20 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'screens/map_screen.dart';
 import 'screens/intro_screen.dart';
-import 'screens/record_screen.dart';
-import 'screens/routes_screen.dart';
+import 'screens/home_screen.dart';
 import 'screens/sightings_screen.dart';
 import 'screens/stats_screen.dart';
-import 'screens/species_screen.dart';
 import 'screens/community_screen.dart';
-import 'screens/settings_screen.dart';
-import 'screens/guide_screen.dart';
-import 'screens/private_maps_screen.dart';
-import 'screens/exploration_screen.dart';
 import 'services/preferences_service.dart';
 import 'services/community_service.dart';
+import 'screens/species_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,32 +53,64 @@ class _WildTrackAppState extends State<WildTrackApp>
 
   ThemeData theme(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: const Color(0xFF405D36),
-          brightness: brightness,
-        ).copyWith(
-          surface: dark ? const Color(0xFF17251B) : const Color(0xFFCCD5B5),
-          surfaceContainerLow: dark
-              ? const Color(0xFF213225)
-              : const Color(0xFFD8DFC6),
-          primary: dark ? const Color(0xFFB4CD91) : const Color(0xFF29452E),
-          onSurface: dark ? const Color(0xFFE5EBDC) : const Color(0xFF1A2A1B),
-        );
+    const forest = Color(0xFF254D38);
+    const sage = Color(0xFFDDE8DA);
+    const ivory = Color(0xFFF8F6EF);
+    const ink = Color(0xFF203126);
+    final scheme = ColorScheme.fromSeed(
+      seedColor: forest,
+      brightness: brightness,
+    ).copyWith(
+      primary: dark ? const Color(0xFFB8D1AE) : forest,
+      onPrimary: dark ? const Color(0xFF17301F) : Colors.white,
+      surface: dark ? const Color(0xFF152019) : ivory,
+      surfaceContainerLow: dark ? const Color(0xFF202D24) : const Color(0xFFF3F0E7),
+      surfaceContainer: dark ? const Color(0xFF26342A) : sage,
+      onSurface: dark ? const Color(0xFFE7EDE5) : ink,
+    );
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
-      cardTheme: CardThemeData(color: scheme.surfaceContainerLow, elevation: 0),
+      cardTheme: CardThemeData(
+        color: scheme.surfaceContainerLow,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: scheme.onSurface,
+          fontSize: 23,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -.4,
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: scheme.surfaceContainerLow,
+        backgroundColor: scheme.surface,
+        indicatorColor: dark ? const Color(0xFF365543) : sage,
+        height: 72,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+          fontSize: 12,
+          fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+        )),
       ),
-      inputDecorationTheme: const InputDecorationTheme(
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: scheme.surfaceContainerLow,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: scheme.primary, width: 1.4)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
       ),
     );
   }
@@ -112,12 +138,12 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
   final pages = const [
-    MapScreen(),
-    SpeciesScreen(),
+    HomeScreen(),
+    SightingsScreen(),
+    StatsScreen(),
     CommunityScreen(),
-    GuideScreen(),
-    MoreScreen(),
   ];
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: IndexedStack(index: index, children: pages),
@@ -125,59 +151,10 @@ class _HomeShellState extends State<HomeShell> {
       selectedIndex: index,
       onDestinationSelected: (i) => setState(() => index = i),
       destinations: const [
-        NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Mappa'),
-        NavigationDestination(icon: Icon(Icons.pets_outlined), label: 'Specie'),
-        NavigationDestination(
-          icon: Icon(Icons.people_outline),
-          label: 'Comunità',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.menu_book_outlined),
-          label: 'Guida',
-        ),
-        NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Altro'),
-      ],
-    ),
-  );
-}
-
-class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('WildTrack')),
-    body: ListView(
-      children: [
-        for (final item in <(String, IconData, Widget)>[
-          (
-            'Registra percorso',
-            Icons.radio_button_checked,
-            const RecordScreen(),
-          ),
-          (
-            'Italia: specie e itinerari',
-            Icons.hiking,
-            const ExplorationScreen(),
-          ),
-          ('Mappe private', Icons.lock_outline, const PrivateMapsScreen()),
-          ('Percorsi salvati', Icons.route, const RoutesScreen()),
-          (
-            'Taccuino offline e posizioni da completare',
-            Icons.bookmark,
-            const SightingsScreen(),
-          ),
-          ('Statistiche', Icons.bar_chart, const StatsScreen()),
-          ('Impostazioni', Icons.settings, const SettingsScreen()),
-        ])
-          ListTile(
-            leading: Icon(item.$2),
-            title: Text(item.$1),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(builder: (_) => item.$3),
-            ),
-          ),
+        NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore), label: 'Esplora'),
+        NavigationDestination(icon: Icon(Icons.add_a_photo_outlined), selectedIcon: Icon(Icons.add_a_photo), label: 'Avvista'),
+        NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories), label: 'Diario'),
+        NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'Community'),
       ],
     ),
   );
