@@ -23,9 +23,20 @@ if private_maps.exists():
 field_tools = Path('lib/screens/field_tools_screen.dart')
 if field_tools.exists():
     text = field_tools.read_text()
+    additions = []
     if "import 'camera_assistant_screen.dart';" not in text:
-        text = text.replace("import '../premium_ui.dart';", "import '../premium_ui.dart';\nimport 'camera_assistant_screen.dart';")
+        additions.append("import 'camera_assistant_screen.dart';")
+    if "import 'mission_action_screen.dart';" not in text:
+        additions.append("import 'mission_action_screen.dart';")
+    if "import 'lens_assistant_screen.dart';" not in text:
+        additions.append("import 'lens_assistant_screen.dart';")
+    if additions:
+        text = text.replace("import '../premium_ui.dart';", "import '../premium_ui.dart';\n" + "\n".join(additions))
     text = text.replace("_PhotoMode(snapshot: snapshot),", "CameraAssistantCard(snapshot: snapshot),")
+    text = text.replace("_Mission(mission: m),", "MissionActionCard(mission: m),")
+    old_lens = "const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [\n                Icon(Icons.auto_awesome_outlined, color: WildColors.earth),\n                SizedBox(width: 10),\n                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n                  Text('WildTrack Lens', style: TextStyle(fontWeight: FontWeight.w900)),\n                  SizedBox(height: 3),\n                  Text('Resta separato finché non colleghiamo un motore di riconoscimento reale. Nessuna falsa identificazione “AI” viene mostrata come certezza.', style: TextStyle(fontSize: 11, color: WildColors.muted, height: 1.3)),\n                ])),\n              ]),"
+    new_lens = "InkWell(onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const LensAssistantScreen())), borderRadius: BorderRadius.circular(18), child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.auto_awesome_outlined, color: WildColors.earth), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('WildTrack Lens', style: TextStyle(fontWeight: FontWeight.w900)), SizedBox(height: 3), Text('Fotografa o descrivi una traccia e restringi le alternative con un livello di confidenza esplicito.', style: TextStyle(fontSize: 11, color: WildColors.muted, height: 1.3))])), Icon(Icons.chevron_right)])),"
+    text = text.replace(old_lens, new_lens)
     field_tools.write_text(text)
 
 replacements = {
