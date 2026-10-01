@@ -22,7 +22,7 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
   String kind = 'Animale';
   String selectedSpecies = 'Cervo';
   int count = 1;
-  String? photo;
+  final List<String> photos = [];
   double? lat, lng, accuracy;
   bool locating = false, saving = false, publicMode = false;
   final notes = TextEditingController();
@@ -30,9 +30,17 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
   @override
   void dispose() { notes.dispose(); super.dispose(); }
 
-  Future<void> pick(ImageSource source) async {
-    final f = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
-    if (f != null && mounted) setState(() => photo = f.path);
+  Future<void> pickCamera() async {
+    if (photos.length >= 5) return;
+    final f = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1800, imageQuality: 88);
+    if (f != null && mounted) setState(() => photos.add(f.path));
+  }
+
+  Future<void> pickGallery() async {
+    if (photos.length >= 5) return;
+    final remaining = 5 - photos.length;
+    final files = await ImagePicker().pickMultiImage(limit: remaining, maxWidth: 1800, imageQuality: 88);
+    if (files.isNotEmpty && mounted) setState(() => photos.addAll(files.take(remaining).map((e) => e.path)));
   }
 
   Future<void> locate() async {
@@ -45,36 +53,83 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
     }
   }
 
+  Future<void> _helpIdentify() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: WildColors.ivory,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Cosa hai trovato?', style: WildText.h1),
+            const SizedBox(height: 6),
+            const Text('Salviamo correttamente l’osservazione anche se la specie non è ancora identificata.', style: TextStyle(color: WildColors.muted)),
+            const SizedBox(height: 12),
+            _HelpTile(icon: Icons.pets_outlined, title: 'Animale non identificato', value: 'Animale'),
+            _HelpTile(icon: Icons.pets, title: 'Impronta o traccia', value: 'Impronta'),
+            _HelpTile(icon: Icons.article_outlined, title: 'Penna, pelo o resto', value: 'Penna'),
+            _HelpTile(icon: Icons.scatter_plot_outlined, title: 'Fatta / escrementi', value: 'Fatta'),
+          ]),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      kind = result;
+      selectedSpecies = 'Specie non identificata';
+    });
+    final addPhoto = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Aggiungere una foto?'),
+        content: const Text('Una foto nitida di forma, dimensioni e contesto renderà molto più semplice identificare la traccia in seguito.'),
+        actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Non ora')), FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Scatta foto'))],
+      ),
+    );
+    if (addPhoto == true) await pickCamera();
+  }
+
   Future<Sighting?> persist() async {
     if (saving) return null;
     setState(() => saving = true);
     try {
       final id = const Uuid().v4();
-      final storedPhoto = await MediaStorageService.instance.persistPhoto(photo, id);
+      final stored = <String>[];
+      for (var i = 0; i < photos.length; i++) {
+        final path = await MediaStorageService.instance.persistPhoto(photos[i], '$id-$i');
+        if (path != null) stored.add(path);
+      }
       final row = Sighting(
-        id: id, species: selectedSpecies, count: count,
-        notes: notes.text.trim(), latitude: lat, longitude: lng,
-        timestamp: DateTime.now(), photoPath: storedPhoto, kind: kind,
-        accuracy: accuracy, positionSource: lat == null ? 'missing' : 'gps',
+        id: id,
+        species: selectedSpecies,
+        count: count,
+        notes: notes.text.trim(),
+        latitude: lat,
+        longitude: lng,
+        timestamp: DateTime.now(),
+        photoPath: stored.firstOrNull,
+        kind: kind,
+        accuracy: accuracy,
+        positionSource: lat == null ? 'missing' : 'gps',
       );
       await DatabaseService.instance.insertSighting(row);
+      await DatabaseService.instance.replaceSightingPhotos(id, stored);
       return row;
     } finally {
       if (mounted) setState(() => saving = false);
     }
   }
 
-  Future<void> savePrivate() async {
+  Future<void> saveSelectedMode() async {
     final row = await persist();
     if (!mounted || row == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avvistamento salvato nel diario privato.')));
-  }
-
-  Future<void> publish() async {
-    final row = await persist();
-    if (!mounted || row == null) return;
+    if (!publicMode) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avvistamento salvato nel diario privato.')));
+      return;
+    }
     if (!row.hasPosition) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Salvato. Per pubblicare aggiungi prima la posizione.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Salvato in privato. Per pubblicare aggiungi prima la posizione.')));
       return;
     }
     await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PublishScreen(initial: row)));
@@ -91,53 +146,75 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
           Row(children: [IconButton(onPressed: () => Navigator.maybePop(context), icon: const Icon(Icons.arrow_back_ios_new, color: WildColors.forest)), const WildLogo(compact: true), const Spacer(), const Icon(Icons.notifications_none, color: WildColors.forest)]),
           const Spacer(),
           const Text('Nuovo avvistamento', style: TextStyle(fontFamily: 'serif', fontSize: 37, height: 1, fontWeight: FontWeight.w800, color: WildColors.ink)),
-          const SizedBox(height: 6), const Text('Cosa hai osservato?', style: TextStyle(fontSize: 19, color: WildColors.muted)),
+          const SizedBox(height: 6),
+          const Text('Cosa hai osservato?', style: TextStyle(fontSize: 19, color: WildColors.muted)),
         ]))),
       ]))),
       SliverPadding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 120), sliver: SliverList(delegate: SliverChildListDelegate([
         Row(children: [
-          Expanded(child: _KindCard(label: 'Animale', icon: Icons.pets, active: kind == 'Animale', onTap: () => setState(() => kind = 'Animale'))),
-          const SizedBox(width: 7), Expanded(child: _KindCard(label: 'Impronta /\ntraccia', icon: Icons.pets_outlined, active: kind == 'Impronta', onTap: () => setState(() => kind = 'Impronta'))),
-          const SizedBox(width: 7), Expanded(child: _KindCard(label: 'Penna / resto', icon: Icons.article_outlined, active: kind == 'Penna', onTap: () => setState(() => kind = 'Penna'))),
-          const SizedBox(width: 7), Expanded(child: _KindCard(label: 'Non so,\naiutami', icon: Icons.search, active: kind == 'Non identificato', onTap: () => setState(() => kind = 'Non identificato'))),
+          Expanded(child: _KindCard(label: 'Animale', icon: Icons.pets, active: kind == 'Animale' && selectedSpecies != 'Specie non identificata', onTap: () => setState(() { kind = 'Animale'; if (selectedSpecies == 'Specie non identificata') selectedSpecies = 'Cervo'; }))),
+          const SizedBox(width: 7),
+          Expanded(child: _KindCard(label: 'Impronta /\ntraccia', icon: Icons.pets_outlined, active: kind == 'Impronta', onTap: () => setState(() => kind = 'Impronta'))),
+          const SizedBox(width: 7),
+          Expanded(child: _KindCard(label: 'Penna / resto', icon: Icons.article_outlined, active: kind == 'Penna', onTap: () => setState(() => kind = 'Penna'))),
+          const SizedBox(width: 7),
+          Expanded(child: _KindCard(label: 'Non so,\naiutami', icon: Icons.search, active: selectedSpecies == 'Specie non identificata', onTap: _helpIdentify)),
         ]),
         const SizedBox(height: 12),
-        _Panel(title: 'Foto', subtitle: 'facoltativa ma consigliata', child: SizedBox(height: 135, child: Row(children: [
-          Expanded(child: InkWell(onTap: () => pick(ImageSource.camera), borderRadius: BorderRadius.circular(16), child: Container(decoration: BoxDecoration(border: Border.all(color: const Color(0xFFBCC5B9), style: BorderStyle.solid), borderRadius: BorderRadius.circular(16)), child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.camera_alt, size: 36, color: WildColors.forest), SizedBox(height: 8), Text('Aggiungi foto', style: TextStyle(fontWeight: FontWeight.w700))])))),
-          if (photo != null) ...[const SizedBox(width: 9), Expanded(child: Stack(fit: StackFit.expand, children: [ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(File(photo!), fit: BoxFit.cover)), Positioned(top: 5, right: 5, child: InkWell(onTap: () => setState(() => photo = null), child: const CircleAvatar(radius: 13, backgroundColor: Color(0xCC17231A), child: Icon(Icons.close, size: 16, color: Colors.white))))]))],
-          const SizedBox(width: 9), Expanded(child: InkWell(onTap: () => pick(ImageSource.gallery), child: Container(decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(16)), child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add, size: 36, color: WildColors.forest), SizedBox(height: 6), Text('Aggiungi\naltra foto', textAlign: TextAlign.center, style: TextStyle(color: WildColors.forest))])))),
-        ]))),
+        _Panel(
+          title: 'Foto',
+          subtitle: '${photos.length}/5 · facoltative',
+          child: Column(children: [
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(onPressed: photos.length >= 5 ? null : pickCamera, icon: const Icon(Icons.camera_alt), label: const Text('Scatta'))),
+              const SizedBox(width: 8),
+              Expanded(child: OutlinedButton.icon(onPressed: photos.length >= 5 ? null : pickGallery, icon: const Icon(Icons.photo_library_outlined), label: const Text('Galleria'))),
+            ]),
+            if (photos.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 108,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: photos.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) => Stack(children: [
+                    ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.file(File(photos[i]), width: 108, height: 108, fit: BoxFit.cover)),
+                    Positioned(top: 5, right: 5, child: InkWell(onTap: () => setState(() => photos.removeAt(i)), child: const CircleAvatar(radius: 13, backgroundColor: Color(0xCC17231A), child: Icon(Icons.close, size: 16, color: Colors.white)))),
+                  ]),
+                ),
+              ),
+            ],
+          ]),
+        ),
         const SizedBox(height: 10),
         _Panel(title: 'Specie', trailing: 'Cerca o seleziona', child: InkWell(
           onTap: () async {
             final result = await showModalBottomSheet<String>(context: context, showDragHandle: true, builder: (_) => ListView(children: [for (final a in animals) ListTile(leading: SpeciesIcon(a.name, size: 34), title: Text(a.name), subtitle: Text(a.latin), onTap: () => Navigator.pop(context, a.name))]));
-            if (result != null && mounted) setState(() => selectedSpecies = result);
+            if (result != null && mounted) setState(() { selectedSpecies = result; kind = 'Animale'; });
           },
-          child: Row(children: [WildAnimalIllustration(selectedSpecies, size: 66), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(selectedSpecies, style: const TextStyle(fontFamily: 'serif', fontSize: 19, fontWeight: FontWeight.w800)), Text(animals.where((a) => a.name == selectedSpecies).map((a) => a.latin).firstOrNull ?? '', style: const TextStyle(fontStyle: FontStyle.italic, color: WildColors.muted))])), const Icon(Icons.chevron_right)]),
+          child: Row(children: [WildAnimalIllustration(selectedSpecies, size: 66), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(selectedSpecies, style: const TextStyle(fontFamily: 'serif', fontSize: 19, fontWeight: FontWeight.w800)), Text(animals.where((a) => a.name == selectedSpecies).map((a) => a.latin).firstOrNull ?? 'Da identificare', style: const TextStyle(fontStyle: FontStyle.italic, color: WildColors.muted))])), const Icon(Icons.chevron_right)]),
         )),
         const SizedBox(height: 10),
-        _Panel(title: 'Numero di individui', child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          IconButton.filledTonal(onPressed: count > 1 ? () => setState(() => count--) : null, icon: const Icon(Icons.remove)),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 26), child: Text('$count', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800))),
-          IconButton.filledTonal(onPressed: () => setState(() => count++), icon: const Icon(Icons.add)),
-        ])),
+        _Panel(title: 'Numero di individui', child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [IconButton.filledTonal(onPressed: count > 1 ? () => setState(() => count--) : null, icon: const Icon(Icons.remove)), Padding(padding: const EdgeInsets.symmetric(horizontal: 26), child: Text('$count', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800))), IconButton.filledTonal(onPressed: () => setState(() => count++), icon: const Icon(Icons.add))])),
         const SizedBox(height: 10),
         _Panel(title: 'Posizione', child: Row(children: [const WildIconDisc(Icons.location_on, size: 48), const SizedBox(width: 12), Expanded(child: Text(lat == null ? 'Posizione non ancora rilevata' : '${lat!.toStringAsFixed(4)}, ${lng!.toStringAsFixed(4)}\nPrecisione ±${accuracy?.toStringAsFixed(0) ?? '—'} m', style: const TextStyle(color: WildColors.muted))), FilledButton.tonalIcon(onPressed: locating ? null : locate, icon: const Icon(Icons.map_outlined), label: Text(locating ? 'GPS…' : 'Usa posizione attuale'))])),
         const SizedBox(height: 10),
-        _Panel(title: 'Note', subtitle: 'facoltativo', child: TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(hintText: 'Es. comportamento, habitat, condizioni…'))),
+        _Panel(title: 'Note', subtitle: 'facoltativo', child: TextField(controller: notes, maxLines: 3, decoration: const InputDecoration(hintText: 'Es. comportamento, habitat, condizioni…'))),
         const SizedBox(height: 10),
-        _Panel(title: 'Modalità di pubblicazione', child: Row(children: [
-          Expanded(child: _PrivacyChoice(icon: Icons.lock, title: 'Privato', subtitle: 'Solo per te', active: !publicMode, onTap: () => setState(() => publicMode = false))),
-          const SizedBox(width: 9), Expanded(child: _PrivacyChoice(icon: Icons.groups, title: 'Pubblico', subtitle: 'Condividi con la community', active: publicMode, onTap: () => setState(() => publicMode = true))),
-        ])),
+        _Panel(title: 'Modalità di pubblicazione', child: Row(children: [Expanded(child: _PrivacyChoice(icon: Icons.lock, title: 'Privato', subtitle: 'Solo per te', active: !publicMode, onTap: () => setState(() => publicMode = false))), const SizedBox(width: 9), Expanded(child: _PrivacyChoice(icon: Icons.groups, title: 'Pubblico', subtitle: 'Community', active: publicMode, onTap: () => setState(() => publicMode = true)))])),
         const SizedBox(height: 14),
-        Row(children: [
-          Expanded(child: SizedBox(height: 60, child: FilledButton.icon(onPressed: saving ? null : savePrivate, icon: const Icon(Icons.lock), label: const Text('Salva privato'), style: FilledButton.styleFrom(backgroundColor: WildColors.cream, foregroundColor: WildColors.forest, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))))),
-          const SizedBox(width: 10), Expanded(child: SizedBox(height: 60, child: FilledButton.icon(onPressed: saving ? null : publish, icon: const Icon(Icons.send), label: const Text('Pubblica'), style: FilledButton.styleFrom(backgroundColor: WildColors.forest, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))))),
-        ]),
+        SizedBox(height: 60, child: FilledButton.icon(onPressed: saving ? null : saveSelectedMode, icon: Icon(publicMode ? Icons.send : Icons.lock), label: Text(saving ? 'Salvataggio…' : publicMode ? 'Salva e prepara pubblicazione' : 'Salva privato'), style: FilledButton.styleFrom(backgroundColor: WildColors.forest, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))))),
       ]))),
     ]),
   );
+}
+
+class _HelpTile extends StatelessWidget {
+  const _HelpTile({required this.icon, required this.title, required this.value});
+  final IconData icon; final String title; final String value;
+  @override
+  Widget build(BuildContext context) => ListTile(leading: WildIconDisc(icon), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.pop(context, value));
 }
 
 class _KindCard extends StatelessWidget {
