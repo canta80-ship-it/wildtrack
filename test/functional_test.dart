@@ -868,6 +868,8 @@ void main() {
   testWidgets('UI CAMERA assistant saves edited profile', (tester) async {
     await mount(tester, const CameraAssistantScreen());
     await tester.enterText(find.byType(TextField), 'Corpo test + 300 mm');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Salva profilo'),
       400,
