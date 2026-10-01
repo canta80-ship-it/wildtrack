@@ -1,5 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:sqflite/sqflite.dart';
 
 import 'preferences_service.dart';
 
@@ -22,9 +28,11 @@ class AuthService {
     );
   }
 
+  bool get usesCloudAccounts => _options != null;
+
   Future<FirebaseAuth> _auth() async {
     final options = _options;
-    if (options == null) throw Exception('Servizio account non configurato. Mancano i parametri Firebase del progetto.');
+    if (options == null) throw Exception('Cloud account non configurato.');
     if (Firebase.apps.isEmpty) await Firebase.initializeApp(options: options);
     return FirebaseAuth.instance;
   }
@@ -38,9 +46,57 @@ class AuthService {
 
   String _syntheticEmail(String username) => '${normalizeUsername(username)}@users.wildtrack.app';
 
+  Future<File> _localAuthFile() async {
+    final dir = Directory(await getDatabasesPath());
+    await dir.create(recursive: true);
+    return File('${dir.path}/wildtrack_local_account.json');
+  }
+
+  String _makeSalt() {
+    final r = Random.secure();
+    return List.generate(24, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  String _hash(String username, String password, String salt) =>
+      sha256.convert(utf8.encode('$salt:$username:$password')).toString();
+
+  Future<Map<String, dynamic>?> _readLocalAccount() async {
+    try {
+      final file = await _localAuthFile();
+      if (!await file.exists()) return null;
+      return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveLocalAccount(String username, String password) async {
+    final salt = _makeSalt();
+    final file = await _localAuthFile();
+    final tmp = File('${file.path}.tmp');
+    await tmp.writeAsString(jsonEncode({
+      'username': username,
+      'salt': salt,
+      'hash': _hash(username, password, salt),
+    }), flush: true);
+    await tmp.rename(file.path);
+  }
+
   Future<String> register(String username, String password) async {
     final normalized = normalizeUsername(username);
     if (password.length < 8) throw Exception('La password deve avere almeno 8 caratteri.');
+
+    if (!usesCloudAccounts) {
+      final existing = await _readLocalAccount();
+      if (existing != null && existing['username'] != normalized) {
+        throw Exception('Su questo dispositivo esiste già un account locale.');
+      }
+      await _saveLocalAccount(normalized, password);
+      PreferencesService.instance.nickname = normalized;
+      await PreferencesService.instance.save();
+      return normalized;
+    }
+
     final auth = await _auth();
     try {
       await auth.createUserWithEmailAndPassword(email: _syntheticEmail(normalized), password: password);
@@ -57,6 +113,21 @@ class AuthService {
 
   Future<String> signIn(String username, String password) async {
     final normalized = normalizeUsername(username);
+
+    if (!usesCloudAccounts) {
+      final account = await _readLocalAccount();
+      if (account == null) throw Exception('Nessun account locale trovato. Registrati prima su questo dispositivo.');
+      final savedUser = account['username'] as String? ?? '';
+      final salt = account['salt'] as String? ?? '';
+      final savedHash = account['hash'] as String? ?? '';
+      if (savedUser != normalized || salt.isEmpty || savedHash != _hash(normalized, password, salt)) {
+        throw Exception('Nome utente o password non corretti.');
+      }
+      PreferencesService.instance.nickname = normalized;
+      await PreferencesService.instance.save();
+      return normalized;
+    }
+
     final auth = await _auth();
     try {
       await auth.signInWithEmailAndPassword(email: _syntheticEmail(normalized), password: password);
@@ -72,11 +143,16 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    if (!usesCloudAccounts) return;
     final auth = await _auth();
     await auth.signOut();
   }
 
   Future<String?> currentUsername() async {
+    if (!usesCloudAccounts) {
+      final account = await _readLocalAccount();
+      return account?['username'] as String?;
+    }
     try {
       final auth = await _auth();
       final user = auth.currentUser;
