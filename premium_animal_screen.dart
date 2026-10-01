@@ -315,7 +315,21 @@ class PremiumAnimalScreen extends StatelessWidget {
                                   ),
                                 ),
                               )
-                            : AudioTile(animal),
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  AudioTile(animal),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    animal.behaviour,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      height: 1.35,
+                                      color: WildColors.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
                   ],

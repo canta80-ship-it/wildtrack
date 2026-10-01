@@ -70,8 +70,8 @@ const speciesDetails = <String, SpeciesDetail>{
   ),
   "Volpe": SpeciesDetail(
     asset: "volpe",
-    size: "65–75 cm",
-    mass: "Corpo, coda esclusa",
+    size: "60–80 cm",
+    mass: "6–10 kg",
     activity: "Soprattutto crepuscolo e notte",
     tags: ["Boschi", "Campagne", "Periferie"],
     signs: [
@@ -94,7 +94,7 @@ const speciesDetails = <String, SpeciesDetail>{
     ],
     seasons: ["Margini", "Ore fresche", "Frutti e bacche", "Piste sulla neve"],
     photo: "Fotografa a distanza con tempi rapidi; non attirare la volpe con cibo e non inseguirla.",
-    source: "https://bur.regione.veneto.it/BurvServices/pubblica/burvGalleryDettaglio.aspx?id=593",
+    source: "https://www.parcoabruzzo.it/fauna.schede.dettaglio.php?id=314",
     badge: null,
     status: "Consulta la valutazione nella fonte",
     note: "",
@@ -436,8 +436,8 @@ const speciesDetails = <String, SpeciesDetail>{
   ),
   "Sciacallo dorato": SpeciesDetail(
     asset: "sciacallo",
-    size: "Canide medio",
-    mass: "Più piccolo del lupo",
+    size: "70–85 cm ♂",
+    mass: "6–14 kg ♂",
     activity: "Documenta luogo e ora",
     tags: ["Campagne", "Boschi radi", "Nord-est"],
     signs: [
@@ -459,15 +459,15 @@ const speciesDetails = <String, SpeciesDetail>{
       "Presenza locale",
     ],
     photo: "Fotografa senza avvicinarti e annota luogo, ora e caratteri visibili; non attirarlo con cibo o audio.",
-    source: "https://www.consiglio.regione.fvg.it/pagineinterne/Portale/comunicatiStampaDettaglio.aspx?ID=964510",
+    source: "https://www.mabalpiledrensijudicaria.tn.it/dettaglio.php?id=62794",
     badge: null,
     status: "Consulta la valutazione nella fonte",
     note: "",
   ),
   "Marmotta": SpeciesDetail(
     asset: "marmotta",
-    size: "53–73 cm",
-    mass: "Coda 13–16 cm",
+    size: "50–60 cm",
+    mass: "3–6 kg",
     activity: "Praterie alpine, di giorno",
     tags: ["Praterie alpine", "Tane", "Pascoli"],
     signs: [
@@ -478,7 +478,7 @@ const speciesDetails = <String, SpeciesDetail>{
     ],
     seasons: ["Risveglio", "Attiva", "Verso il letargo", "Letargo"],
     photo: "Riprendi da lontano all’altezza dell’animale e interrompi l’avvicinamento quando emette fischi d’allarme.",
-    source: "https://www.pngp.it/natura-e-ricerca/fauna/praterie-e-ambienti-rocciosi/la-marmotta",
+    source: "https://ambiente.regione.emilia-romagna.it/it/parchi-natura2000/sistema-regionale/fauna/mammiferi/schede/marmotta",
     badge: null,
     status: "Consulta la valutazione nella fonte",
     note: "",
