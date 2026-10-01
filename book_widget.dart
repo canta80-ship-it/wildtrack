@@ -4,15 +4,9 @@ import '../premium_ui.dart';
 
 String wildBookAssetFor(String name) {
   final n = name.toLowerCase();
-  if (n.contains('lupo') || n.contains('volpe') || n.contains('sciacallo')) {
-    return 'intro_lupo.jpg';
-  }
-  if (n.contains('marmotta') || n.contains('tasso') || n.contains('lepre') || n.contains('ermellino') || n.contains('martora') || n.contains('faina')) {
-    return 'intro_marmotta.jpg';
-  }
-  if (n.contains('gufo') || n.contains('allocco') || n.contains('civetta') || n.contains('poiana') || n.contains('aquila') || n.contains('falco') || n.contains('grifone') || n.contains('airone') || n.contains('germano') || n.contains('picchio') || n.contains('uccell')) {
-    return 'intro_gufo.jpg';
-  }
+  if (n.contains('lupo') || n.contains('volpe') || n.contains('sciacallo')) return 'intro_lupo.jpg';
+  if (n.contains('marmotta') || n.contains('tasso') || n.contains('lepre') || n.contains('ermellino') || n.contains('martora') || n.contains('faina')) return 'intro_marmotta.jpg';
+  if (n.contains('gufo') || n.contains('allocco') || n.contains('civetta') || n.contains('poiana') || n.contains('aquila') || n.contains('falco') || n.contains('grifone') || n.contains('airone') || n.contains('germano') || n.contains('picchio') || n.contains('uccell')) return 'intro_gufo.jpg';
   return 'intro_cervo.jpg';
 }
 
@@ -43,14 +37,7 @@ class BookPhoto extends StatelessWidget {
 }
 
 class BookHero extends StatelessWidget {
-  const BookHero({
-    super.key,
-    required this.asset,
-    required this.child,
-    this.height = 340,
-    this.alignment = Alignment.center,
-    this.bottomStrength = .78,
-  });
+  const BookHero({super.key, required this.asset, required this.child, this.height = 340, this.alignment = Alignment.center, this.bottomStrength = .78});
   final String asset;
   final Widget child;
   final double height;
@@ -70,11 +57,7 @@ class BookHero extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0x16000000),
-                    Colors.transparent,
-                    Color.fromRGBO(12, 31, 22, bottomStrength),
-                  ],
+                  colors: [const Color(0x16000000), Colors.transparent, Color.fromRGBO(12, 31, 22, bottomStrength)],
                   stops: const [0, .42, 1],
                 ),
               ),
@@ -82,6 +65,24 @@ class BookHero extends StatelessWidget {
             child,
           ],
         ),
+      );
+}
+
+class BookLegacyHero extends StatelessWidget {
+  const BookLegacyHero({super.key, required this.image, required this.child, this.height = 260, this.alignment = Alignment.center, this.darkBottom = true});
+  final String image;
+  final Widget child;
+  final double height;
+  final Alignment alignment;
+  final bool darkBottom;
+
+  @override
+  Widget build(BuildContext context) => BookHero(
+        asset: image.isEmpty ? 'intro_cervo.jpg' : image,
+        height: height,
+        alignment: alignment,
+        bottomStrength: darkBottom ? .72 : .25,
+        child: child,
       );
 }
 
@@ -98,10 +99,7 @@ class BookLandscape extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            BookPhoto(
-              asset: wildBookAssetFor(animal ?? 'Cervo'),
-              alignment: animal == null ? Alignment.topCenter : Alignment.center,
-            ),
+            BookPhoto(asset: wildBookAssetFor(animal ?? 'Cervo'), alignment: animal == null ? Alignment.topCenter : Alignment.center),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -139,10 +137,7 @@ class BookAnimalThumb extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: width,
         height: height,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4F0E6),
-          borderRadius: BorderRadius.circular(18),
-        ),
+        decoration: BoxDecoration(color: const Color(0xFFF4F0E6), borderRadius: BorderRadius.circular(18)),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           fit: StackFit.expand,
@@ -194,14 +189,7 @@ class BookSectionTitle extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                fontFamily: 'serif',
-                fontSize: 25,
-                height: 1,
-                fontWeight: FontWeight.w800,
-                color: WildColors.ink,
-                letterSpacing: -.5,
-              ),
+              style: const TextStyle(fontFamily: 'serif', fontSize: 25, height: 1, fontWeight: FontWeight.w800, color: WildColors.ink, letterSpacing: -.5),
             ),
           ),
           if (action != null)
