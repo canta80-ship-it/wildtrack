@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
+import '../services/auth_service.dart';
 import '../services/preferences_service.dart';
 import '../services/community_service.dart';
 import '../services/push_service.dart';
+import 'backup_screen.dart';
 import 'species_screen.dart';
 import 'guide_screen.dart';
 import '../premium_ui.dart';
@@ -16,9 +19,33 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final nickname = TextEditingController(text: PreferencesService.instance.nickname);
   bool saving = false;
+  bool locationAllowed = false;
+  bool cameraAllowed = false;
+  bool notificationsAllowed = false;
+  bool backgroundAllowed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPermissions();
+  }
 
   @override
   void dispose() { nickname.dispose(); super.dispose(); }
+
+  Future<void> _refreshPermissions() async {
+    final location = await Permission.locationWhenInUse.status;
+    final camera = await Permission.camera.status;
+    final notifications = await Permission.notification.status;
+    final background = await Permission.locationAlways.status;
+    if (!mounted) return;
+    setState(() {
+      locationAllowed = location.isGranted || location.isLimited;
+      cameraAllowed = camera.isGranted || camera.isLimited;
+      notificationsAllowed = notifications.isGranted || notifications.isLimited;
+      backgroundAllowed = background.isGranted;
+    });
+  }
 
   Future<void> save() async {
     if (saving) return;
@@ -31,6 +58,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => saving = false);
     }
+  }
+
+  Future<void> _permissionToggle(Permission permission, bool enable) async {
+    if (enable) {
+      final result = await permission.request();
+      if (result.isPermanentlyDenied) await openAppSettings();
+    } else {
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Modifica permesso Android'),
+          content: const Text('Android non consente a WildTrack di revocare da sola un permesso già concesso. Apri le impostazioni di sistema per modificarlo.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Annulla')), FilledButton(onPressed: () { Navigator.pop(c); openAppSettings(); }, child: const Text('Apri impostazioni'))],
+        ),
+      );
+    }
+    await _refreshPermissions();
+  }
+
+  Future<void> _toggleNotifications(bool value) async {
+    final p = PreferencesService.instance;
+    if (value) {
+      final status = await Permission.notification.request();
+      if (!status.isGranted && status.isPermanentlyDenied) await openAppSettings();
+      p.chatNotifications = status.isGranted;
+      p.sightingNotifications = status.isGranted;
+    } else {
+      p.chatNotifications = false;
+      p.sightingNotifications = false;
+    }
+    await save();
+    await _refreshPermissions();
+  }
+
+  Future<void> _toggleBackground(bool value) async {
+    final p = PreferencesService.instance;
+    if (value) {
+      final foreground = await Permission.locationWhenInUse.request();
+      if (!foreground.isGranted) {
+        await _refreshPermissions();
+        return;
+      }
+      final always = await Permission.locationAlways.request();
+      p.backgroundSharing = always.isGranted;
+      if (always.isGranted) {
+        await p.save();
+        await CommunityService.instance.configureBackgroundSharing();
+      }
+    } else {
+      p.backgroundSharing = false;
+      await p.save();
+      await CommunityService.instance.configureBackgroundSharing();
+    }
+    await _refreshPermissions();
+  }
+
+  Future<void> _logout() async {
+    try { await AuthService.instance.signOut(); } catch (_) {}
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account disconnesso. I dati locali restano sul telefono.')));
   }
 
   @override
@@ -47,19 +133,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Spacer(),
             const Text('Privacy e\npermessi', style: TextStyle(fontFamily: 'serif', fontSize: 42, height: .92, fontWeight: FontWeight.w700, color: WildColors.forest)),
             const SizedBox(height: 10),
-            const SizedBox(width: 300, child: Text('Per offrirti la migliore esperienza e contribuire alla tutela della fauna selvatica, abbiamo bisogno di alcuni permessi.', style: TextStyle(fontSize: 16, height: 1.25, color: WildColors.muted))),
+            const SizedBox(width: 300, child: Text('Gestisci i permessi realmente concessi ad Android e le preferenze di WildTrack.', style: TextStyle(fontSize: 16, height: 1.25, color: WildColors.muted))),
           ]))),
         ]))),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 36),
           sliver: SliverList(delegate: SliverChildListDelegate([
-            _PermissionCard(icon: Icons.location_on, title: 'Posizione precisa', body: 'Ci permette di mostrarti specie, sentieri e avvistamenti vicino a te.', tint: WildColors.sageSoft, trailing: Switch(value: true, onChanged: (_) {}), foot: 'Usata solo durante l’app'),
+            _PermissionCard(icon: Icons.location_on, title: 'Posizione', body: 'Specie, sentieri, Radar e avvistamenti vicino a te.', tint: WildColors.sageSoft, trailing: Switch(value: locationAllowed, onChanged: saving ? null : (v) => _permissionToggle(Permission.locationWhenInUse, v)), foot: locationAllowed ? 'Permesso Android attivo' : 'Permesso non concesso'),
             const SizedBox(height: 10),
-            _PermissionCard(icon: Icons.notifications, title: 'Notifiche', body: 'Ricevi avvisi su specie di interesse, nuovi avvistamenti e messaggi.', tint: const Color(0xFFF5EADB), trailing: Switch(value: p.chatNotifications || p.sightingNotifications, onChanged: saving ? null : (v) async { p.chatNotifications = v; p.sightingNotifications = v; await save(); })),
+            _PermissionCard(icon: Icons.notifications, title: 'Notifiche', body: 'Messaggi e nuovi avvistamenti.', tint: const Color(0xFFF5EADB), trailing: Switch(value: notificationsAllowed && (p.chatNotifications || p.sightingNotifications), onChanged: saving ? null : _toggleNotifications), foot: notificationsAllowed ? 'Permesso Android attivo' : 'Permesso Android non concesso'),
             const SizedBox(height: 10),
-            _PermissionCard(icon: Icons.camera_alt, title: 'Fotocamera e foto', body: 'Ti consente di scattare foto degli avvistamenti e caricarle nel tuo diario personale.', tint: WildColors.sageSoft, trailing: Switch(value: true, onChanged: (_) {})),
+            _PermissionCard(icon: Icons.camera_alt, title: 'Fotocamera e foto', body: 'Scatta foto degli avvistamenti e aggiungile al diario.', tint: WildColors.sageSoft, trailing: Switch(value: cameraAllowed, onChanged: saving ? null : (v) => _permissionToggle(Permission.camera, v)), foot: cameraAllowed ? 'Fotocamera autorizzata' : 'Fotocamera non autorizzata'),
             const SizedBox(height: 10),
-            _PermissionCard(icon: Icons.navigation, title: 'Posizione in background', body: 'Migliora il tracciamento delle tue uscite, anche quando l’app è chiusa.', tint: const Color(0xFFF5EADB), foot: 'Usata solo durante le uscite', trailing: OutlinedButton(onPressed: saving ? null : () async { p.backgroundSharing = !p.backgroundSharing; await CommunityService.instance.configureBackgroundSharing(); await save(); }, child: const Text('Attiva'))),
+            _PermissionCard(icon: Icons.navigation, title: 'Posizione in background', body: 'Permette di continuare la registrazione delle uscite a schermo spento.', tint: const Color(0xFFF5EADB), foot: backgroundAllowed ? 'Permesso sempre attivo' : 'Non autorizzata in background', trailing: Switch(value: backgroundAllowed && p.backgroundSharing, onChanged: saving ? null : _toggleBackground)),
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(18),
@@ -70,33 +156,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('I tuoi dati restano tuoi', style: TextStyle(fontFamily: 'serif', fontSize: 22, fontWeight: FontWeight.w800)),
                   SizedBox(height: 6),
-                  Text('WildTrack raccoglie solo i dati necessari per funzionare. Le posizioni sensibili della fauna vengono protette e non vengono mai mostrate pubblicamente con precisione completa.', style: TextStyle(height: 1.25, color: WildColors.muted)),
-                  SizedBox(height: 9),
-                  Row(children: [Icon(Icons.lock_outline, size: 16, color: WildColors.forest), SizedBox(width: 6), Text('Scopri di più sulla nostra privacy', style: TextStyle(fontWeight: FontWeight.w700, color: WildColors.forest))]),
+                  Text('Le posizioni sensibili della fauna vengono protette. I backup restano nella destinazione scelta dall’utente.', style: TextStyle(height: 1.25, color: WildColors.muted)),
                 ])),
               ]),
             ),
             const SizedBox(height: 20),
             const Text('Notifiche', style: WildText.h2),
             const SizedBox(height: 8),
-            _ToggleTile(title: 'Messaggi chat', subtitle: 'Attive di default, disattivabili in qualsiasi momento.', value: p.chatNotifications, onChanged: saving ? null : (v) async { p.chatNotifications = v; await save(); }),
-            _ToggleTile(title: 'Nuovi avvistamenti', subtitle: 'Avvisi per nuovi inserimenti della community.', value: p.sightingNotifications, onChanged: saving ? null : (v) async { p.sightingNotifications = v; await save(); }),
+            _ToggleTile(title: 'Messaggi chat', subtitle: 'Disattivabile indipendentemente dagli avvistamenti.', value: p.chatNotifications, onChanged: saving ? null : (v) async { p.chatNotifications = v; if (v && !notificationsAllowed) await Permission.notification.request(); await save(); await _refreshPermissions(); }),
+            _ToggleTile(title: 'Nuovi avvistamenti', subtitle: 'Avvisi per nuovi inserimenti della community.', value: p.sightingNotifications, onChanged: saving ? null : (v) async { p.sightingNotifications = v; if (v && !notificationsAllowed) await Permission.notification.request(); await save(); await _refreshPermissions(); }),
             const SizedBox(height: 14),
             const Text('Modalità sul campo', style: WildText.h2),
             const SizedBox(height: 8),
             _ToggleTile(title: 'Silenzio sul campo', subtitle: 'Riduce distrazioni e disattiva il pannello versi.', value: p.fieldSilence, onChanged: saving ? null : (v) async { p.fieldSilence = v; if (v) { p.soundPanel = false; await AudioService.instance.stop(); } await save(); }),
             const SizedBox(height: 14),
-            const Text('Identità e persone vicine', style: WildText.h2),
+            const Text('Profilo e persone vicine', style: WildText.h2),
             const SizedBox(height: 8),
-            TextField(controller: nickname, maxLength: 30, decoration: const InputDecoration(labelText: 'Nickname')),
-            WildOutlineButton(label: 'Salva nickname', onPressed: saving ? null : () async { if (nickname.text.trim().length < 2) return; p.nickname = nickname.text.trim(); await save(); await CommunityService.instance.updatePresence(); }),
+            TextField(controller: nickname, maxLength: 30, decoration: const InputDecoration(labelText: 'Nome utente / nickname')),
+            WildOutlineButton(label: 'Salva nome utente', onPressed: saving ? null : () async { if (nickname.text.trim().length < 2) return; p.nickname = nickname.text.trim(); await save(); await CommunityService.instance.updatePresence(); }),
             const SizedBox(height: 8),
             _ToggleTile(title: 'Condividi la mia posizione', subtitle: 'Visibile alle persone entro 5 km che condividono a loro volta la posizione.', value: p.visible, onChanged: saving ? null : (v) async { if (v && nickname.text.trim().length < 2) return; if (v) p.nickname = nickname.text.trim(); p.visible = v; await save(); if (v) { await CommunityService.instance.configureBackgroundSharing(); await CommunityService.instance.updatePresence(); } else { await CommunityService.instance.hide(); } }),
             const SizedBox(height: 14),
-            ListTile(contentPadding: EdgeInsets.zero, leading: const WildIconDisc(Icons.menu_book_outlined), title: const Text('Guida sul campo', style: TextStyle(fontWeight: FontWeight.w800)), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const GuideScreen()))),
-            const SizedBox(height: 16),
+            const Text('Dati e backup', style: WildText.h2),
+            const SizedBox(height: 8),
+            ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 10), tileColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), leading: const WildIconDisc(Icons.cloud_done_outlined), title: const Text('Backup cloud', style: TextStyle(fontWeight: FontWeight.w800)), subtitle: const Text('Destinazione scelta da te · dati, profilo e impostazioni'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const BackupScreen()))),
+            const SizedBox(height: 8),
+            ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 10), tileColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), leading: const WildIconDisc(Icons.menu_book_outlined), title: const Text('Guida sul campo', style: TextStyle(fontWeight: FontWeight.w800)), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const GuideScreen()))),
+            const SizedBox(height: 8),
+            ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 10), tileColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), leading: const WildIconDisc(Icons.logout), title: const Text('Disconnetti account', style: TextStyle(fontWeight: FontWeight.w800)), subtitle: const Text('Non cancella i dati presenti sul dispositivo'), trailing: const Icon(Icons.chevron_right), onTap: _logout),
+            const SizedBox(height: 20),
             WildPrimaryButton(label: 'Continua', icon: Icons.arrow_forward, onPressed: () => Navigator.pop(context)),
-            TextButton(onPressed: () => Navigator.pop(context), child: const Center(child: Text('Configura dopo', style: TextStyle(color: WildColors.forest, fontWeight: FontWeight.w700)))),
           ])),
         ),
       ]),
@@ -128,9 +217,5 @@ class _ToggleTile extends StatelessWidget {
   const _ToggleTile({required this.title, required this.subtitle, required this.value, required this.onChanged});
   final String title; final String subtitle; final bool value; final ValueChanged<bool>? onChanged;
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-    child: SwitchListTile(value: value, onChanged: onChanged, title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: WildColors.muted))),
-  );
+  Widget build(BuildContext context) => Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: SwitchListTile(value: value, onChanged: onChanged, title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: WildColors.muted))));
 }
