@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'database_service.dart';
-import 'location_service.dart';
 
 class RadarSpecies {
   const RadarSpecies(this.name, this.score);
@@ -31,10 +31,29 @@ class RadarSnapshot {
 class RadarService {
   static final instance = RadarService();
 
+  Future<Position?> _authorizedPosition() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return null;
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        return null;
+      }
+      return Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<RadarSnapshot> load() async {
     final now = DateTime.now();
     final sightings = await DatabaseService.instance.getSightings();
-    final position = await LocationService.currentPosition();
+    final position = await _authorizedPosition();
 
     double? temperature;
     double? wind;
@@ -61,7 +80,7 @@ class RadarService {
           client.close(force: true);
         }
       } catch (_) {
-        // Weather is an enhancement. Radar still works with time, season and local history.
+        // Meteo opzionale: il Radar continua con ora, stagione e storico locale.
       }
     }
 
