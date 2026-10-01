@@ -737,6 +737,29 @@ void main() {
     expect(await photo.readAsBytes(), [9, 8, 7]);
     expect(prefs.cameraLabel, 'Keep');
   });
+  test('BACKUP invalid preferences rejected without changing data', () async {
+    await db.insertSighting(row('keep'));
+    final backup = jsonDecode(
+      utf8.decode(await WildTrackBackupService.instance.buildBackup()),
+    ) as Map;
+    backup['appData']['profileAndSettings']['repeats'] = 1.5;
+    await expectLater(
+      WildTrackBackupService.instance.restore(
+        Uint8List.fromList(utf8.encode(jsonEncode(backup))),
+      ),
+      throwsFormatException,
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+  });
+  test(
+    'PREF overlapping saves complete without losing preferences file',
+    () async {
+      prefs.cameraLabel = 'Concurrent';
+      await Future.wait([prefs.save(), prefs.save(), prefs.save()]);
+      await prefs.load();
+      expect(prefs.cameraLabel, 'Concurrent');
+    },
+  );
   test('BACKUP traversal names rejected before changing archive', () async {
     await db.insertSighting(row('keep'));
     final backup = jsonDecode(

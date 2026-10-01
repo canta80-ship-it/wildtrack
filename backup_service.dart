@@ -161,7 +161,19 @@ class WildTrackBackupService {
     await restore(bytes);
   }
 
+  bool _restoring = false;
+
   Future<void> restore(Uint8List bytes) async {
+    if (_restoring) throw StateError('Un ripristino è già in corso.');
+    _restoring = true;
+    try {
+      await _restore(bytes);
+    } finally {
+      _restoring = false;
+    }
+  }
+
+  Future<void> _restore(Uint8List bytes) async {
     final root = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     if (root['format'] != 'wildtrack-backup') {
       throw const FormatException(
@@ -246,6 +258,7 @@ class WildTrackBackupService {
         final value = entry.value;
         if ((old is String && value is! String) ||
             (old is bool && value is! bool) ||
+            (old is int && value is! int) ||
             (old is num && value is! num) ||
             (old is List &&
                 (value is! List || value.any((v) => v is! String)))) {

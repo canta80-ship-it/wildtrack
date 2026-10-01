@@ -96,7 +96,15 @@ class PreferencesService extends ChangeNotifier {
     }
   }
 
-  Future<void> save() async {
+  Future<void> _pendingSave = Future<void>.value();
+
+  Future<void> save() {
+    final operation = _pendingSave.then((_) => _writePreferences());
+    _pendingSave = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  Future<void> _writePreferences() async {
     final temporary = File('${file.path}.tmp');
     await temporary.writeAsString(
       jsonEncode({
