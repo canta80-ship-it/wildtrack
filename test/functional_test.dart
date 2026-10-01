@@ -15,6 +15,9 @@ import 'package:wildtrack_mvp/services/tracking_service.dart';
 import 'package:wildtrack_mvp/services/radar_service.dart';
 import 'package:wildtrack_mvp/screens/sos_screen.dart';
 import 'package:wildtrack_mvp/screens/real_geo_stats_widget.dart';
+import 'package:wildtrack_mvp/screens/lens_assistant_screen.dart';
+import 'package:wildtrack_mvp/screens/camera_assistant_screen.dart';
+import 'package:wildtrack_mvp/screens/guide_screen.dart';
 import 'package:wildtrack_mvp/main.dart' show wildTrackTheme;
 import 'package:wildtrack_mvp/models/sighting.dart';
 import 'package:wildtrack_mvp/models/track_point.dart';
@@ -835,4 +838,86 @@ void main() {
       expect(next.shouldRepaint(oldPainter), true);
     },
   );
+  testWidgets('UI CATALOGUE scientific search opens correct species', (
+    tester,
+  ) async {
+    await mount(tester, const SpeciesScreen());
+    await tester.enterText(find.byType(TextField), 'Cervus');
+    await tester.pumpAndSettle();
+    expect(find.text('Cervo'), findsOneWidget);
+    expect(find.text('Volpe'), findsNothing);
+    await click(tester, find.text('Cervo'));
+    expect(find.byType(PremiumAnimalScreen), findsOneWidget);
+  });
+  testWidgets('UI LENS manual track clues produce candidate species', (
+    tester,
+  ) async {
+    await mount(tester, const LensAssistantScreen());
+    await click(tester, find.byType(DropdownButtonFormField<String>).at(2));
+    await click(tester, find.text('4 dita').last);
+    await tester.scrollUntilVisible(
+      find.text('Analizza gli indizi'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await click(tester, find.text('Analizza gli indizi'));
+    expect(find.text('Possibili corrispondenze'), findsOneWidget);
+    expect(find.text('Volpe'), findsOneWidget);
+    expect(find.text('Lupo'), findsOneWidget);
+  });
+  testWidgets('UI CAMERA assistant saves edited profile', (tester) async {
+    await mount(tester, const CameraAssistantScreen());
+    await tester.enterText(find.byType(TextField), 'Corpo test + 300 mm');
+    await tester.scrollUntilVisible(
+      find.text('Salva profilo'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await click(tester, find.text('Salva profilo'));
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        try {
+          final raw = jsonDecode(await prefs.file.readAsString()) as Map;
+          if (raw['cameraLabel'] == 'Corpo test + 300 mm') break;
+        } catch (_) {}
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    });
+    await tester.pumpAndSettle();
+    expect(prefs.cameraLabel, 'Corpo test + 300 mm');
+    final raw = await tester.runAsync(
+      () async => jsonDecode(await prefs.file.readAsString()) as Map,
+    );
+    expect(raw!['cameraLabel'], 'Corpo test + 300 mm');
+  });
+  testWidgets('UI GUIDE offline checklist toggles selected item', (
+    tester,
+  ) async {
+    await mount(tester, const GuideScreen());
+    expect(find.text('Guida sul campo'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Checklist prima di uscire'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await click(tester, find.text('Checklist prima di uscire'));
+    await tester.scrollUntilVisible(
+      find.byType(CheckboxListTile).first,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      tester
+          .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
+          .value,
+      false,
+    );
+    await click(tester, find.byType(CheckboxListTile).first);
+    expect(
+      tester
+          .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
+          .value,
+      true,
+    );
+  });
 }
