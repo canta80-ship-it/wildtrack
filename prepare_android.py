@@ -10,6 +10,7 @@ k=Path('android/app/src/main/kotlin/it/wildtrack/wildtrack_mvp/MainActivity.kt')
 k.parent.mkdir(parents=True,exist_ok=True)
 k.write_text('''package it.wildtrack.wildtrack_mvp
 
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -17,7 +18,9 @@ import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -25,16 +28,25 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity: FlutterActivity() {
     private var player: MediaPlayer? = null
     private var channel: MethodChannel? = null
+    private var backupChannel: MethodChannel? = null
+    private var backupResult: MethodChannel.Result? = null
     private var remaining = 0
     private var generation = 0
+    private val backupRequestCode = 4011
+    private val prefsName = "wildtrack_backup"
+    private val folderKey = "tree_uri"
+
     private val noisy = object: BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { stopAudio() }
     }
+
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
         channel = MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/audio")
+        backupChannel = MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/backup")
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), Context.RECEIVER_NOT_EXPORTED)
         else registerReceiver(noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
+
         channel!!.setMethodCallHandler { call, result ->
             when(call.method) {
                 "stop" -> { stopAudio(); result.success(null) }
@@ -67,7 +79,158 @@ class MainActivity: FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        backupChannel!!.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "pickFolder" -> pickBackupFolder(result)
+                "folderInfo" -> folderInfo(result)
+                "clearFolder" -> {
+                    getSharedPreferences(prefsName, Context.MODE_PRIVATE).edit().remove(folderKey).apply()
+                    result.success(null)
+                }
+                "writeBackup" -> {
+                    val name = call.argument<String>("name") ?: "WildTrack-backup.wildtrack"
+                    val bytes = call.argument<ByteArray>("data") ?: byteArrayOf()
+                    writeBackup(name, bytes, result)
+                }
+                "readLatest" -> readLatestBackup(result)
+                else -> result.notImplemented()
+            }
+        }
     }
+
+    private fun pickBackupFolder(result: MethodChannel.Result) {
+        if (backupResult != null) {
+            result.error("BUSY", "Selettore backup già aperto", null)
+            return
+        }
+        backupResult = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+        }
+        startActivityForResult(intent, backupRequestCode)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == backupRequestCode) {
+            val pending = backupResult
+            backupResult = null
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                val uri = data.data!!
+                val flags = data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                try { contentResolver.takePersistableUriPermission(uri, flags) } catch (_: Exception) {}
+                getSharedPreferences(prefsName, Context.MODE_PRIVATE).edit().putString(folderKey, uri.toString()).apply()
+                pending?.success(mapOf("uri" to uri.toString(), "label" to documentName(uri)))
+            } else {
+                pending?.success(null)
+            }
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    private fun savedTreeUri(): Uri? {
+        val raw = getSharedPreferences(prefsName, Context.MODE_PRIVATE).getString(folderKey, null) ?: return null
+        return try { Uri.parse(raw) } catch (_: Exception) { null }
+    }
+
+    private fun documentName(uri: Uri): String {
+        return try {
+            val docId = DocumentsContract.getTreeDocumentId(uri)
+            val docUri = DocumentsContract.buildDocumentUriUsingTree(uri, docId)
+            contentResolver.query(docUri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else "Cartella backup"
+            } ?: "Cartella backup"
+        } catch (_: Exception) {
+            "Cartella backup"
+        }
+    }
+
+    private fun folderInfo(result: MethodChannel.Result) {
+        val uri = savedTreeUri()
+        if (uri == null) {
+            result.success(null)
+            return
+        }
+        result.success(mapOf("uri" to uri.toString(), "label" to documentName(uri)))
+    }
+
+    private fun children(tree: Uri): MutableList<Triple<String, Long, String>> {
+        val rows = mutableListOf<Triple<String, Long, String>>()
+        val parentId = DocumentsContract.getTreeDocumentId(tree)
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
+        val projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+        )
+        contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(0)
+                val name = cursor.getString(1) ?: ""
+                val modified = if (cursor.isNull(2)) 0L else cursor.getLong(2)
+                rows.add(Triple(id, modified, name))
+            }
+        }
+        return rows
+    }
+
+    private fun pruneOldBackups(tree: Uri) {
+        try {
+            val backups = children(tree)
+                .filter { it.third.endsWith(".wildtrack") }
+                .sortedByDescending { it.second }
+            for (entry in backups.drop(5)) {
+                val uri = DocumentsContract.buildDocumentUriUsingTree(tree, entry.first)
+                try { DocumentsContract.deleteDocument(contentResolver, uri) } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun writeBackup(name: String, bytes: ByteArray, result: MethodChannel.Result) {
+        val tree = savedTreeUri()
+        if (tree == null) {
+            result.error("NO_FOLDER", "Scegli prima una cartella backup", null)
+            return
+        }
+        try {
+            val parentId = DocumentsContract.getTreeDocumentId(tree)
+            val parentUri = DocumentsContract.buildDocumentUriUsingTree(tree, parentId)
+            val created = DocumentsContract.createDocument(contentResolver, parentUri, "application/octet-stream", name)
+                ?: throw IllegalStateException("Impossibile creare il backup")
+            contentResolver.openOutputStream(created, "w")!!.use { it.write(bytes) }
+            pruneOldBackups(tree)
+            result.success(mapOf("name" to name, "bytes" to bytes.size))
+        } catch (e: Exception) {
+            result.error("WRITE", e.message ?: "Backup non riuscito", null)
+        }
+    }
+
+    private fun readLatestBackup(result: MethodChannel.Result) {
+        val tree = savedTreeUri()
+        if (tree == null) {
+            result.error("NO_FOLDER", "Scegli prima una cartella backup", null)
+            return
+        }
+        try {
+            val latest = children(tree)
+                .filter { it.third.endsWith(".wildtrack") }
+                .maxByOrNull { it.second }
+                ?: run {
+                    result.success(null)
+                    return
+                }
+            val uri = DocumentsContract.buildDocumentUriUsingTree(tree, latest.first)
+            val bytes = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+            result.success(mapOf("name" to latest.third, "data" to bytes))
+        } catch (e: Exception) {
+            result.error("READ", e.message ?: "Ripristino non riuscito", null)
+        }
+    }
+
     private fun stopAudio(notify: Boolean = true) {
         generation++
         remaining=0
@@ -90,8 +253,7 @@ d.write_text('''<vector xmlns:android="http://schemas.android.com/apk/res/androi
 s=p.read_text().replace('android:icon="@mipmap/ic_launcher"','android:icon="@drawable/wildtrack_logo"')
 p.write_text(s)
 
-# The package id changes because historical test signing keys were not retained;
-# the launcher label deliberately remains simply "WildTrack".
+# Stable package identity for this release family. Keep this unchanged in future updates.
 build=Path('android/app/build.gradle.kts')
 s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v6"')
 build.write_text(s)
