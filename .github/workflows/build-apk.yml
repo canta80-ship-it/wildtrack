@@ -61,6 +61,7 @@ jobs:
           sed -i "/import 'exploration_screen.dart';/d" lib/screens/home_screen.dart
           python3 normalize_ui.py
           python3 final_fixes.py
+          python3 bookify_ui.py
       - name: Generate Android project
         run: |
           flutter create --platforms=android --org it.wildtrack --project-name wildtrack_mvp --no-pub .
