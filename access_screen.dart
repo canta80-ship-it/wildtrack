@@ -54,8 +54,8 @@ class _AccessScreenState extends State<AccessScreen> {
         SizedBox(
           height: 285,
           child: Stack(fit: StackFit.expand, children: [
-            Image.asset('intro_cervo.jpg', fit: BoxFit.cover, alignment: const Alignment(.15, -.1)),
-            DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.white.withValues(alpha: .08), Colors.transparent, WildColors.ivory]))),
+            const WildLandscape(height: 285),
+            DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.white.withValues(alpha: .03), Colors.transparent, WildColors.ivory]))),
             const Positioned(top: 32, left: 0, right: 0, child: Column(children: [
               WildLogo(),
               SizedBox(height: 9),
@@ -68,7 +68,7 @@ class _AccessScreenState extends State<AccessScreen> {
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 18),
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .96), borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 24, offset: Offset(0, 8))]),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .97), borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 24, offset: Offset(0, 8))]),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Container(
                 height: 56,
@@ -84,13 +84,13 @@ class _AccessScreenState extends State<AccessScreen> {
               const SizedBox(height: 5),
               Text(register ? 'Un’identità pseudonima, senza profilazione.' : 'Continua la tua esplorazione', style: const TextStyle(color: WildColors.muted, fontSize: 16)),
               const SizedBox(height: 22),
-              TextField(controller: identity, decoration: InputDecoration(prefixIcon: const Icon(Icons.mail_outline), hintText: register ? 'Email o nickname' : 'Email o nickname')),
+              TextField(controller: identity, decoration: const InputDecoration(prefixIcon: Icon(Icons.mail_outline), hintText: 'Email o nickname')),
               const SizedBox(height: 12),
               TextField(controller: password, obscureText: hidden, decoration: InputDecoration(prefixIcon: const Icon(Icons.lock_outline), hintText: 'Password', suffixIcon: IconButton(onPressed: () => setState(() => hidden = !hidden), icon: Icon(hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined)))),
               const SizedBox(height: 15),
               WildPrimaryButton(label: register ? 'Registrati con passkey' : 'Accedi con passkey', icon: Icons.key, onPressed: unavailable),
               const SizedBox(height: 12),
-              Row(children: const [Expanded(child: Divider()), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('oppure', style: TextStyle(color: WildColors.muted))), Expanded(child: Divider())]),
+              const Row(children: [Expanded(child: Divider()), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('oppure', style: TextStyle(color: WildColors.muted))), Expanded(child: Divider())]),
               const SizedBox(height: 12),
               WildPrimaryButton(label: register ? 'Registrati' : 'Accedi', icon: Icons.arrow_forward, onPressed: unavailable),
               const SizedBox(height: 12),
