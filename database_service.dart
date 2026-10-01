@@ -77,8 +77,7 @@ class DatabaseService {
             path TEXT NOT NULL,
             position INTEGER NOT NULL DEFAULT 0
           )''');
-          await db.execute('''INSERT INTO sighting_photos(sighting_id,path,position)
-            SELECT id,photo_path,0 FROM sightings WHERE photo_path IS NOT NULL AND photo_path != '' ''');
+          await db.execute("INSERT INTO sighting_photos(sighting_id,path,position) SELECT id,photo_path,0 FROM sightings WHERE photo_path IS NOT NULL AND photo_path != ''");
         }
       },
     );
@@ -180,7 +179,10 @@ class DatabaseService {
     final trackPoints = (snapshot['trackPoints'] as List? ?? const []).cast<Map>();
     final db = await database;
     await db.transaction((txn) async {
-      await txn.delete('sighting_photos'); await txn.delete('track_points'); await txn.delete('sessions'); await txn.delete('sightings');
+      await txn.delete('sighting_photos');
+      await txn.delete('track_points');
+      await txn.delete('sessions');
+      await txn.delete('sightings');
       for (final raw in sightings) await txn.insert('sightings', Map<String, Object?>.from(raw), conflictAlgorithm: ConflictAlgorithm.replace);
       if (sightingPhotos.isEmpty) {
         for (final raw in sightings) {
