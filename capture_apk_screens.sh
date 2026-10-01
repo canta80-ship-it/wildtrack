@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Real-APK visual QA: capture the installed release, not design mockups.
 
 PKG="it.wildtrack.app"
 APK="${APK_PATH:-WildTrack-release.apk}"
@@ -148,7 +149,6 @@ if tap_text "Avvia uscita"; then
   sleep 2
 fi
 
-# Impostazioni: il pulsante in home usa l'icona notifiche. Proviamo coordinate note del layout reale.
 adb shell input tap 880 155
 sleep 2
 if ! wait_text "Privacy e permessi" 5; then
@@ -178,7 +178,6 @@ if tap_text "Guida sul campo" 5; then
   sleep 2
 fi
 
-# Torna alla home e cattura di nuovo la mappa con filtro specie, se raggiungibile.
 adb shell input keyevent 4 || true
 sleep 1
 if tap_text "Esplora" 4; then
