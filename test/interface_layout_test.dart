@@ -29,6 +29,20 @@ Future<void> capture(WidgetTester tester, String name) async {
   });
 }
 
+Future<void> settleImages(WidgetTester tester) async {
+  final images = tester.widgetList<Image>(find.byType(Image)).toList();
+  if (images.isNotEmpty) {
+    final context = tester.element(find.byType(Image).first);
+    await tester.runAsync(() async {
+      for (final image in images) {
+        if (image.image is AssetImage)
+          await precacheImage(image.image, context);
+      }
+    });
+  }
+  await tester.pumpAndSettle();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
@@ -38,6 +52,7 @@ void main() {
         'assets/approved/editorial_serif_italic.ttf',
       ],
       'sans-serif': ['assets/approved/interface_sans.ttf'],
+      'Roboto': ['assets/approved/interface_sans.ttf'],
       'WildTrackIcons': ['assets/approved/wildtrack_icons.ttf'],
       'MaterialIcons': ['fonts/MaterialIcons-Regular.otf'],
     };
@@ -73,7 +88,7 @@ void main() {
               ),
             ),
           );
-          await tester.pumpAndSettle();
+          await settleImages(tester);
           expect(tester.takeException(), isNull);
           if (width == 411) await capture(tester, screen.key);
           if (screen.key.startsWith('species ')) {
@@ -81,14 +96,16 @@ void main() {
               find.byType(CustomScrollView),
               const Offset(0, -550),
             );
-            await tester.pumpAndSettle();
+            await settleImages(tester);
             expect(tester.takeException(), isNull);
+            if (width == 411) await capture(tester, '${screen.key}_middle');
             await tester.drag(
               find.byType(CustomScrollView),
               const Offset(0, -550),
             );
-            await tester.pumpAndSettle();
+            await settleImages(tester);
             expect(tester.takeException(), isNull);
+            if (width == 411) await capture(tester, '${screen.key}_bottom');
           }
           await tester.pumpWidget(const SizedBox());
         },

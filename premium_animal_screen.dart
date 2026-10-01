@@ -478,6 +478,7 @@ class _Hero extends StatelessWidget {
                           maxLines: 2,
                           text: TextSpan(
                             style: const TextStyle(
+                              fontFamily: 'sans-serif',
                               color: Colors.white,
                               fontSize: 12,
                               height: 1.12,
