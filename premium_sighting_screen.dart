@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../models/sighting.dart';
 import '../services/database_service.dart';
 import '../services/location_service.dart';
+import '../services/media_storage_service.dart';
 import 'community_screen.dart';
 import 'species_screen.dart';
 import '../premium_ui.dart';
@@ -48,10 +49,12 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
     if (saving) return null;
     setState(() => saving = true);
     try {
+      final id = const Uuid().v4();
+      final storedPhoto = await MediaStorageService.instance.persistPhoto(photo, id);
       final row = Sighting(
-        id: const Uuid().v4(), species: selectedSpecies, count: count,
+        id: id, species: selectedSpecies, count: count,
         notes: notes.text.trim(), latitude: lat, longitude: lng,
-        timestamp: DateTime.now(), photoPath: photo, kind: kind,
+        timestamp: DateTime.now(), photoPath: storedPhoto, kind: kind,
         accuracy: accuracy, positionSource: lat == null ? 'missing' : 'gps',
       );
       await DatabaseService.instance.insertSighting(row);
@@ -103,7 +106,7 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
         Row(children: [
           Expanded(child: _KindCard(label: 'Animale', icon: Icons.pets, active: kind == 'Animale', onTap: () => setState(() => kind = 'Animale'))),
           const SizedBox(width: 7), Expanded(child: _KindCard(label: 'Impronta /\ntraccia', icon: Icons.pets_outlined, active: kind == 'Impronta', onTap: () => setState(() => kind = 'Impronta'))),
-          const SizedBox(width: 7), Expanded(child: _KindCard(label: 'Penna / resto', icon: Icons.feather_outlined, active: kind == 'Penna', onTap: () => setState(() => kind = 'Penna'))),
+          const SizedBox(width: 7), Expanded(child: _KindCard(label: 'Penna / resto', icon: Icons.article_outlined, active: kind == 'Penna', onTap: () => setState(() => kind = 'Penna'))),
           const SizedBox(width: 7), Expanded(child: _KindCard(label: 'Non so,\naiutami', icon: Icons.search, active: kind == 'Non identificato', onTap: () => setState(() => kind = 'Non identificato'))),
         ]),
         const SizedBox(height: 12),
