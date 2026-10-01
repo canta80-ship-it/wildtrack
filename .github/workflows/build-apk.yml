@@ -59,6 +59,7 @@ jobs:
           sed -i "1i import 'premium_explore_screen.dart';" lib/screens/home_screen.dart
           sed -i 's/const ExplorationScreen()/const PremiumExploreScreen()/g' lib/screens/home_screen.dart
           sed -i "/import 'exploration_screen.dart';/d" lib/screens/home_screen.dart
+          sed -i 's/PremiumExploreScreen(species: animal.name)/PremiumExploreScreen()/g' lib/screens/premium_animal_screen.dart
           python3 normalize_ui.py
           python3 final_fixes.py
           python3 bookify_ui.py
