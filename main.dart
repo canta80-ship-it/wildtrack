@@ -10,6 +10,7 @@ import 'screens/premium_community_screen.dart';
 import 'services/preferences_service.dart';
 import 'services/community_service.dart';
 import 'services/push_service.dart';
+import 'services/backup_service.dart';
 import 'screens/species_screen.dart';
 import 'premium_ui.dart';
 
@@ -33,6 +34,15 @@ class _WildTrackAppState extends State<WildTrackApp> with WidgetsBindingObserver
     WidgetsBinding.instance.addObserver(this);
     CommunityService.instance.start();
     unawaited(PushService.instance.initialize());
+    unawaited(_safeAutoBackup());
+  }
+
+  Future<void> _safeAutoBackup() async {
+    try {
+      await WildTrackBackupService.instance.autoBackupIfDue();
+    } catch (_) {
+      // Il backup non deve mai impedire l'uso dell'app.
+    }
   }
 
   @override
@@ -47,9 +57,11 @@ class _WildTrackAppState extends State<WildTrackApp> with WidgetsBindingObserver
     if (state == AppLifecycleState.resumed) {
       CommunityService.instance.start();
       unawaited(PushService.instance.syncPreferences());
+      unawaited(_safeAutoBackup());
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       unawaited(AudioService.instance.stop());
       unawaited(CommunityService.instance.pause());
+      unawaited(_safeAutoBackup());
     }
   }
 
