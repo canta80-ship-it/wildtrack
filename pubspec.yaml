@@ -1,7 +1,7 @@
 name: wildtrack_mvp
 description: MVP outdoor per trekking, tracce GPS e avvistamenti fauna.
 publish_to: 'none'
-version: 0.7.1+8
+version: 0.7.2+9
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -23,6 +23,8 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   firebase_auth: ^6.1.2
+  permission_handler: ^12.0.1
+  share_plus: ^12.0.0
 
 dev_dependencies:
   flutter_test:
