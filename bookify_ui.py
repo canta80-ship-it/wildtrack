@@ -3,6 +3,7 @@ from pathlib import Path
 ROOT = Path('lib/screens')
 SKIP = {
     'book_widget.dart',
+    'premium_ui.dart',
     'access_screen.dart',
     'intro_screen.dart',
     'premium_animal_screen.dart',
