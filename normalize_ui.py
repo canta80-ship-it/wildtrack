@@ -19,7 +19,6 @@ if exploration_service.exists():
     text = exploration_service.read_text().replace('^(hiking|foot)$"]', '^(hiking|foot)\\$"]')
     exploration_service.write_text(text)
 
-# Imports and navigation wiring that must survive the generated Flutter layout.
 private_maps = Path('lib/screens/private_maps_screen.dart')
 if private_maps.exists():
     text = private_maps.read_text()
@@ -63,6 +62,21 @@ if field_tools.exists():
     new_lens = "InkWell(onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const LensAssistantScreen())), borderRadius: BorderRadius.circular(18), child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.auto_awesome_outlined, color: WildColors.earth), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('WildTrack Lens', style: TextStyle(fontWeight: FontWeight.w900)), SizedBox(height: 3), Text('Fotografa o descrivi una traccia e restringi le alternative con un livello di confidenza esplicito.', style: TextStyle(fontSize: 11, color: WildColors.muted, height: 1.3))])), Icon(Icons.chevron_right)])),"
     text = text.replace(old_lens, new_lens)
     field_tools.write_text(text)
+
+stats = Path('lib/screens/premium_stats_screen.dart')
+if stats.exists():
+    text = stats.read_text()
+    if "import 'real_geo_stats_widget.dart';" not in text:
+        text = text.replace("import '../premium_ui.dart';", "import '../premium_ui.dart';\nimport 'real_geo_stats_widget.dart';")
+    text = text.replace(
+        "const Expanded(child:_Panel(title:'Heatmap privata',child:_HeatmapIllustration())),",
+        "Expanded(child:_Panel(title:'Heatmap privata',child:RealHeatmap(sightings:sightings))),",
+    )
+    text = text.replace(
+        "const _Panel(title:'Regioni / province visitate',child:_RegionsIllustration()),",
+        "_Panel(title:'Regioni / province visitate',child:RealRegions(sightings:sightings)),",
+    )
+    stats.write_text(text)
 
 replacements = {
     Path('lib/screens/premium_explore_screen.dart'): [
