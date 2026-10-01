@@ -18,42 +18,32 @@ class DatabaseService {
     if (_db != null) return _db!;
     _db = await openDatabase(
       await databasePath,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
-        await db.execute('''
-        CREATE TABLE sightings(
-          id TEXT PRIMARY KEY,
-          species TEXT NOT NULL,
-          count INTEGER NOT NULL,
-          notes TEXT,
-          latitude REAL,
-          longitude REAL,
-          timestamp TEXT NOT NULL,
-          photo_path TEXT,
-          kind TEXT NOT NULL DEFAULT 'Animale',
-          accuracy REAL,
-          position_source TEXT NOT NULL DEFAULT 'gps'
-        )
-      ''');
-        await db.execute('''
-        CREATE TABLE sessions(
+        await db.execute('''CREATE TABLE sightings(
+          id TEXT PRIMARY KEY, species TEXT NOT NULL, count INTEGER NOT NULL,
+          notes TEXT, latitude REAL, longitude REAL, timestamp TEXT NOT NULL,
+          photo_path TEXT, kind TEXT NOT NULL DEFAULT 'Animale', accuracy REAL,
+          position_source TEXT NOT NULL DEFAULT 'gps')''');
+        await db.execute('''CREATE TABLE sessions(
           id TEXT PRIMARY KEY,
           started_at TEXT NOT NULL,
           ended_at TEXT NOT NULL,
           distance_m REAL NOT NULL,
-          ascent_m REAL NOT NULL
-        )
-      ''');
-        await db.execute('''
-        CREATE TABLE track_points(
+          ascent_m REAL NOT NULL,
+          descent_m REAL NOT NULL DEFAULT 0,
+          notes TEXT NOT NULL DEFAULT '',
+          is_public INTEGER NOT NULL DEFAULT 0,
+          published_at TEXT
+        )''');
+        await db.execute('''CREATE TABLE track_points(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           session_id TEXT NOT NULL,
           latitude REAL NOT NULL,
           longitude REAL NOT NULL,
           altitude REAL NOT NULL,
           timestamp TEXT NOT NULL
-        )
-      ''');
+        )''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -65,9 +55,14 @@ class DatabaseService {
             position_source TEXT NOT NULL DEFAULT 'gps')''');
           await db.execute('''INSERT INTO sightings
             (id,species,count,notes,latitude,longitude,timestamp,photo_path)
-            SELECT id,species,count,notes,latitude,longitude,timestamp,photo_path
-            FROM sightings_v1''');
+            SELECT id,species,count,notes,latitude,longitude,timestamp,photo_path FROM sightings_v1''');
           await db.execute('DROP TABLE sightings_v1');
+        }
+        if (oldVersion < 3) {
+          await db.execute("ALTER TABLE sessions ADD COLUMN descent_m REAL NOT NULL DEFAULT 0");
+          await db.execute("ALTER TABLE sessions ADD COLUMN notes TEXT NOT NULL DEFAULT ''");
+          await db.execute("ALTER TABLE sessions ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0");
+          await db.execute("ALTER TABLE sessions ADD COLUMN published_at TEXT");
         }
       },
     );
@@ -97,11 +92,15 @@ class DatabaseService {
     await db.transaction((txn) async {
       await txn.insert('sessions', session.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
       final batch = txn.batch();
-      for (final p in points) {
-        batch.insert('track_points', p.toMap(session.id));
-      }
+      for (final p in points) { batch.insert('track_points', p.toMap(session.id)); }
       await batch.commit(noResult: true);
     });
+    changes.value++;
+  }
+
+  Future<void> updateSession(TrackSession session) async {
+    final db = await database;
+    await db.insert('sessions', session.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     changes.value++;
   }
 
@@ -128,7 +127,7 @@ class DatabaseService {
   Future<Map<String, dynamic>> exportSnapshot() async {
     final db = await database;
     return {
-      'schemaVersion': 2,
+      'schemaVersion': 3,
       'sightings': await db.query('sightings', orderBy: 'timestamp ASC'),
       'sessions': await db.query('sessions', orderBy: 'started_at ASC'),
       'trackPoints': await db.query('track_points', orderBy: 'session_id ASC,timestamp ASC,id ASC'),
@@ -137,22 +136,23 @@ class DatabaseService {
 
   Future<void> restoreSnapshot(Map<String, dynamic> snapshot) async {
     final version = (snapshot['schemaVersion'] as num?)?.toInt() ?? 0;
-    if (version < 1 || version > 2) {
-      throw const FormatException('Versione backup database non supportata');
-    }
+    if (version < 1 || version > 3) throw const FormatException('Versione backup database non supportata');
     final sightings = (snapshot['sightings'] as List? ?? const []).cast<Map>();
     final sessions = (snapshot['sessions'] as List? ?? const []).cast<Map>();
     final trackPoints = (snapshot['trackPoints'] as List? ?? const []).cast<Map>();
     final db = await database;
     await db.transaction((txn) async {
-      await txn.delete('track_points');
-      await txn.delete('sessions');
-      await txn.delete('sightings');
+      await txn.delete('track_points'); await txn.delete('sessions'); await txn.delete('sightings');
       for (final raw in sightings) {
         await txn.insert('sightings', Map<String, Object?>.from(raw), conflictAlgorithm: ConflictAlgorithm.replace);
       }
       for (final raw in sessions) {
-        await txn.insert('sessions', Map<String, Object?>.from(raw), conflictAlgorithm: ConflictAlgorithm.replace);
+        final row = Map<String, Object?>.from(raw);
+        row.putIfAbsent('descent_m', () => 0.0);
+        row.putIfAbsent('notes', () => '');
+        row.putIfAbsent('is_public', () => 0);
+        row.putIfAbsent('published_at', () => null);
+        await txn.insert('sessions', row, conflictAlgorithm: ConflictAlgorithm.replace);
       }
       for (final raw in trackPoints) {
         final row = Map<String, Object?>.from(raw)..remove('id');
