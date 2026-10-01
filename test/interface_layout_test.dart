@@ -1,3 +1,6 @@
+import 'package:flutter/services.dart';
+import 'package:wildtrack_mvp/main.dart' show wildTrackTheme;
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -27,6 +30,23 @@ Future<void> capture(WidgetTester tester, String name) async {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    final fonts = <String, List<String>>{
+      'serif': [
+        'assets/approved/editorial_serif.ttf',
+        'assets/approved/editorial_serif_italic.ttf',
+      ],
+      'sans-serif': ['assets/approved/interface_sans.ttf'],
+      'WildTrackIcons': ['assets/approved/wildtrack_icons.ttf'],
+      'MaterialIcons': ['fonts/MaterialIcons-Regular.otf'],
+    };
+    for (final font in fonts.entries) {
+      final loader = FontLoader(font.key);
+      for (final path in font.value) loader.addFont(rootBundle.load(path));
+      await loader.load();
+    }
+  });
   for (final width in [360.0, 411.0]) {
     final screens = <String, Widget>{
       'welcome': const IntroScreen(home: SizedBox()),
@@ -46,7 +66,11 @@ void main() {
           await tester.pumpWidget(
             RepaintBoundary(
               key: const ValueKey('interface-capture'),
-              child: MaterialApp(home: screen.value),
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: wildTrackTheme(Brightness.light),
+                home: screen.value,
+              ),
             ),
           );
           await tester.pumpAndSettle();

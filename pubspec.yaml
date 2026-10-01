@@ -42,15 +42,13 @@ flutter:
           weight: 700
         - asset: assets/approved/editorial_serif_italic.ttf
           style: italic
+    - family: sans-serif
+      fonts:
+        - asset: assets/approved/interface_sans.ttf
+        - asset: assets/approved/interface_sans.ttf
+          weight: 700
     - family: WildTrackIcons
       fonts:
-    - family: serif
-      fonts:
-        - asset: assets/approved/editorial_serif.ttf
-        - asset: assets/approved/editorial_serif.ttf
-          weight: 700
-        - asset: assets/approved/editorial_serif_italic.ttf
-          style: italic
         - asset: assets/approved/wildtrack_icons.ttf
   assets:
     - nature_assets.json
