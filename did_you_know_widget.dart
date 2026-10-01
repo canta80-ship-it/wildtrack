@@ -82,11 +82,21 @@ class _FeedCard extends StatelessWidget {
         _ => Icons.explore_outlined,
       };
 
+  Color get tint => switch (item.category) {
+        'FAUNA' => WildColors.sageSoft,
+        'FOTOGRAFIA' => const Color(0xFFE9EFF0),
+        'ATTREZZATURA' => const Color(0xFFF3E9D9),
+        'ESCURSIONI' => const Color(0xFFE7EFE4),
+        'EVENTI' => const Color(0xFFF2E7D8),
+        'LUOGHI' => const Color(0xFFE2ECE6),
+        _ => WildColors.cream,
+      };
+
   @override
   Widget build(BuildContext context) => SizedBox(
         width: 285,
         child: Material(
-          color: Colors.white,
+          color: tint,
           borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -96,14 +106,14 @@ class _FeedCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(item.asset, fit: BoxFit.cover),
-                const DecoratedBox(
+                Positioned.fill(child: Opacity(opacity: .34, child: WildLandscape(height: 220, animal: item.category == 'FAUNA' ? 'Fauna' : null))),
+                DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Color(0x22000000), Color(0x22000000), Color(0xDD0B2117)],
-                      stops: [0, .28, 1],
+                      colors: [Colors.white.withValues(alpha: .05), tint.withValues(alpha: .38), WildColors.ivory.withValues(alpha: .96)],
+                      stops: const [0, .38, 1],
                     ),
                   ),
                 ),
@@ -115,7 +125,7 @@ class _FeedCard extends StatelessWidget {
                       Row(children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                          decoration: BoxDecoration(color: const Color(0xDDF8F6EF), borderRadius: BorderRadius.circular(15)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: .88), borderRadius: BorderRadius.circular(15)),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Icon(icon, size: 14, color: WildColors.forest),
                             const SizedBox(width: 4),
@@ -126,22 +136,18 @@ class _FeedCard extends StatelessWidget {
                         if (item.isLive)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                            decoration: BoxDecoration(color: const Color(0xDDF3E3B8), borderRadius: BorderRadius.circular(14)),
-                            child: const Row(children: [
-                              Icon(Icons.sync, size: 12, color: WildColors.earth),
-                              SizedBox(width: 3),
-                              Text('LIVE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: WildColors.earth)),
-                            ]),
+                            decoration: BoxDecoration(color: const Color(0xEAF3E3B8), borderRadius: BorderRadius.circular(14)),
+                            child: const Row(children: [Icon(Icons.sync, size: 12, color: WildColors.earth), SizedBox(width: 3), Text('LIVE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: WildColors.earth))]),
                           ),
                       ]),
                       const Spacer(),
-                      Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 20, height: 1.05, fontWeight: FontWeight.w800)),
+                      Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', color: WildColors.ink, fontSize: 20, height: 1.05, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 6),
-                      Text(item.body, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFE5EBE6), fontSize: 10.5, height: 1.25)),
+                      Text(item.body, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: WildColors.muted, fontSize: 10.5, height: 1.25)),
                       const SizedBox(height: 8),
                       Row(children: [
-                        Expanded(child: Text('${item.source} · ${DateFormat('d MMM', 'it').format(item.publishedAt)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 9))),
-                        if (item.link != null) const Icon(Icons.arrow_forward, color: Colors.white, size: 17),
+                        Expanded(child: Text('${item.source} · ${DateFormat('d MMM', 'it').format(item.publishedAt)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: WildColors.forest, fontSize: 9, fontWeight: FontWeight.w700))),
+                        if (item.link != null) const Icon(Icons.arrow_forward, color: WildColors.forest, size: 17),
                       ]),
                     ],
                   ),
