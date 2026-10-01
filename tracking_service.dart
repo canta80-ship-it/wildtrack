@@ -48,6 +48,7 @@ class TrackingService extends ChangeNotifier {
         endedAt: endedAt,
         distanceMeters: distanceMeters,
         ascentMeters: ascentMeters,
+        descentMeters: descentMeters,
       );
 
   Future<bool> start() async {
@@ -74,9 +75,7 @@ class TrackingService extends ChangeNotifier {
       isTracking = true;
       _subscription = LocationService.positionStream().listen(
         (position) {
-          if (!isTracking || position.accuracy > 100 || !position.accuracy.isFinite) {
-            return;
-          }
+          if (!isTracking || position.accuracy > 100 || !position.accuracy.isFinite) return;
 
           gpsAccuracyMeters = position.accuracy;
           altitudeAccuracyMeters = position.altitudeAccuracy.isFinite ? position.altitudeAccuracy : null;
@@ -84,57 +83,28 @@ class TrackingService extends ChangeNotifier {
           currentAltitudeMeters = position.altitude.isFinite ? position.altitude : null;
 
           if (currentAltitudeMeters != null) {
-            minAltitudeMeters = minAltitudeMeters == null
-                ? currentAltitudeMeters
-                : math.min(minAltitudeMeters!, currentAltitudeMeters!);
-            maxAltitudeMeters = maxAltitudeMeters == null
-                ? currentAltitudeMeters
-                : math.max(maxAltitudeMeters!, currentAltitudeMeters!);
+            minAltitudeMeters = minAltitudeMeters == null ? currentAltitudeMeters : math.min(minAltitudeMeters!, currentAltitudeMeters!);
+            maxAltitudeMeters = maxAltitudeMeters == null ? currentAltitudeMeters : math.max(maxAltitudeMeters!, currentAltitudeMeters!);
           }
 
           if (points.isNotEmpty) {
             final prev = points.last;
             if (!position.timestamp.isAfter(prev.timestamp)) return;
-
-            final segmentDistance = Geolocator.distanceBetween(
-              prev.latitude,
-              prev.longitude,
-              position.latitude,
-              position.longitude,
-            );
-
-            // Scarta micro-jitter GPS ma conserva movimento reale.
+            final segmentDistance = Geolocator.distanceBetween(prev.latitude, prev.longitude, position.latitude, position.longitude);
             if (segmentDistance >= 1.5 && segmentDistance < 500) {
               distanceMeters += segmentDistance;
               final climb = position.altitude - prev.altitude;
-
-              // Per evitare che il rumore altimetrico diventi un Everest tascabile,
-              // contiamo il dislivello solo oltre una soglia minima sensata.
               if (climb.abs() >= 1.2 && climb.abs() <= 80) {
-                if (climb > 0) {
-                  ascentMeters += climb;
-                } else {
-                  descentMeters += -climb;
-                }
+                if (climb > 0) ascentMeters += climb; else descentMeters += -climb;
               }
-
-              currentGradePercent = segmentDistance >= 4
-                  ? ((climb / segmentDistance) * 100).clamp(-60.0, 60.0)
-                  : currentGradePercent;
+              currentGradePercent = segmentDistance >= 4 ? ((climb / segmentDistance) * 100).clamp(-60.0, 60.0) : currentGradePercent;
             }
           }
 
-          final p = TrackPoint(
-            latitude: position.latitude,
-            longitude: position.longitude,
-            altitude: position.altitude,
-            timestamp: position.timestamp,
-          );
+          final p = TrackPoint(latitude: position.latitude, longitude: position.longitude, altitude: position.altitude, timestamp: position.timestamp);
           points.add(p);
           final snapshot = session(position.timestamp);
-          _writes = _writes
-              .then((_) => DatabaseService.instance.appendTrackPoint(snapshot, p))
-              .catchError((Object e) {
+          _writes = _writes.then((_) => DatabaseService.instance.appendTrackPoint(snapshot, p)).catchError((Object e) {
             error = 'Registrazione fermata: impossibile salvare il tracciato. $e';
             isTracking = false;
             unawaited(_subscription?.cancel());
