@@ -1,5 +1,24 @@
 from pathlib import Path
 
+# Small compile-time normalizations required by the repository's generated Flutter layout.
+for ui_path in [Path('lib/premium_ui.dart'), Path('lib/screens/premium_ui.dart')]:
+    if ui_path.exists():
+        text = ui_path.read_text().replace(
+            "p.lineTo(s.width, s.height)..close();",
+            "p.lineTo(s.width, s.height);\n    p.close();",
+        )
+        ui_path.write_text(text)
+
+access = Path('lib/screens/access_screen.dart')
+if access.exists():
+    text = access.read_text().replace("import 'auth_service.dart';", "import '../services/auth_service.dart';")
+    access.write_text(text)
+
+exploration_service = Path('lib/services/exploration_service.dart')
+if exploration_service.exists():
+    text = exploration_service.read_text().replace('^(hiking|foot)$"]', '^(hiking|foot)\\$"]')
+    exploration_service.write_text(text)
+
 # Imports and navigation wiring that must survive the generated Flutter layout.
 private_maps = Path('lib/screens/private_maps_screen.dart')
 if private_maps.exists():
