@@ -9,6 +9,7 @@ import 'screens/stats_screen.dart';
 import 'screens/premium_community_screen.dart';
 import 'services/preferences_service.dart';
 import 'services/community_service.dart';
+import 'services/push_service.dart';
 import 'screens/species_screen.dart';
 import 'premium_ui.dart';
 
@@ -31,6 +32,7 @@ class _WildTrackAppState extends State<WildTrackApp> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     CommunityService.instance.start();
+    unawaited(PushService.instance.initialize());
   }
 
   @override
@@ -44,6 +46,7 @@ class _WildTrackAppState extends State<WildTrackApp> with WidgetsBindingObserver
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       CommunityService.instance.start();
+      unawaited(PushService.instance.syncPreferences());
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       unawaited(AudioService.instance.stop());
       unawaited(CommunityService.instance.pause());
