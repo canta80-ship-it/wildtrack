@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'auth_service.dart';
 import 'premium_ui.dart';
 
 class AccessScreen extends StatefulWidget {
@@ -12,39 +14,44 @@ class AccessScreen extends StatefulWidget {
 
 class _AccessScreenState extends State<AccessScreen> {
   late bool register = widget.register;
-  final identity = TextEditingController();
+  final username = TextEditingController();
   final password = TextEditingController();
   bool hidden = true;
+  bool busy = false;
+  String? error;
 
   @override
   void dispose() {
-    identity.dispose();
+    username.dispose();
     password.dispose();
     super.dispose();
   }
 
-  void unavailable() {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: WildColors.ivory,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(22, 4, 22, 28),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const WildLogo(compact: true),
-          const SizedBox(height: 18),
-          Text(register ? 'Registrazione sicura' : 'Accesso sicuro', style: WildText.h1),
-          const SizedBox(height: 10),
-          const Text('La schermata è già pronta, ma l’account reale e le passkey verranno attivati solo insieme al backend privacy-first. In questa preview non inviamo credenziali a nessun server.'),
-          const SizedBox(height: 18),
-          WildPrimaryButton(label: 'Continua come ospite', icon: Icons.arrow_forward, onPressed: () {
-            Navigator.pop(context);
-            Navigator.of(this.context).pushReplacement(MaterialPageRoute<void>(builder: (_) => widget.home));
-          }),
-        ]),
-      ),
-    );
+  Future<void> submit() async {
+    if (busy) return;
+    final user = username.text.trim();
+    final pass = password.text;
+    if (user.isEmpty || pass.isEmpty) {
+      setState(() => error = 'Inserisci nome utente e password.');
+      return;
+    }
+    setState(() { busy = true; error = null; });
+    try {
+      if (register) {
+        await AuthService.instance.register(user, pass);
+      } else {
+        await AuthService.instance.signIn(user, pass);
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => widget.home));
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
+
+  void guest() => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => widget.home));
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -75,27 +82,48 @@ class _AccessScreenState extends State<AccessScreen> {
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(color: WildColors.cream, borderRadius: BorderRadius.circular(19)),
                 child: Row(children: [
-                  Expanded(child: _Tab(label: 'Accedi', active: !register, onTap: () => setState(() => register = false))),
-                  Expanded(child: _Tab(label: 'Registrati', active: register, onTap: () => setState(() => register = true))),
+                  Expanded(child: _Tab(label: 'Accedi', active: !register, onTap: () => setState(() { register = false; error = null; }))),
+                  Expanded(child: _Tab(label: 'Registrati', active: register, onTap: () => setState(() { register = true; error = null; }))),
                 ]),
               ),
               const SizedBox(height: 24),
               Text(register ? 'Crea il tuo account' : 'Bentornato su WildTrack', style: WildText.h1),
               const SizedBox(height: 5),
-              Text(register ? 'Un’identità pseudonima, senza profilazione.' : 'Continua la tua esplorazione', style: const TextStyle(color: WildColors.muted, fontSize: 16)),
+              Text(register ? 'Ti basta un nome utente. Nessuna email obbligatoria.' : 'Continua la tua esplorazione', style: const TextStyle(color: WildColors.muted, fontSize: 16)),
               const SizedBox(height: 22),
-              TextField(controller: identity, decoration: const InputDecoration(prefixIcon: Icon(Icons.mail_outline), hintText: 'Email o nickname')),
+              TextField(
+                controller: username,
+                autocorrect: false,
+                textCapitalization: TextCapitalization.none,
+                decoration: const InputDecoration(prefixIcon: Icon(Icons.person_outline), hintText: 'Nome utente'),
+              ),
               const SizedBox(height: 12),
-              TextField(controller: password, obscureText: hidden, decoration: InputDecoration(prefixIcon: const Icon(Icons.lock_outline), hintText: 'Password', suffixIcon: IconButton(onPressed: () => setState(() => hidden = !hidden), icon: Icon(hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined)))),
-              const SizedBox(height: 15),
-              WildPrimaryButton(label: register ? 'Registrati con passkey' : 'Accedi con passkey', icon: Icons.key, onPressed: unavailable),
+              TextField(
+                controller: password,
+                obscureText: hidden,
+                onSubmitted: (_) => submit(),
+                decoration: InputDecoration(prefixIcon: const Icon(Icons.lock_outline), hintText: 'Password', suffixIcon: IconButton(onPressed: () => setState(() => hidden = !hidden), icon: Icon(hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined))),
+              ),
+              if (register) ...[
+                const SizedBox(height: 8),
+                const Text('Minimo 8 caratteri. Il nome utente deve essere unico.', style: TextStyle(fontSize: 11, color: WildColors.muted)),
+              ],
+              if (error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: const Color(0xFFFFE8E1), borderRadius: BorderRadius.circular(16)),
+                  child: Text(error!, style: const TextStyle(color: Color(0xFF7A2E25), fontSize: 12)),
+                ),
+              ],
+              const SizedBox(height: 16),
+              WildPrimaryButton(label: busy ? 'Attendi…' : register ? 'Crea account' : 'Accedi', icon: register ? Icons.person_add_alt_1 : Icons.login, onPressed: busy ? null : submit),
               const SizedBox(height: 12),
-              const Row(children: [Expanded(child: Divider()), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('oppure', style: TextStyle(color: WildColors.muted))), Expanded(child: Divider())]),
+              WildOutlineButton(label: register ? 'Ho già un account' : 'Registrati', onPressed: busy ? null : () => setState(() { register = !register; error = null; })),
               const SizedBox(height: 12),
-              WildPrimaryButton(label: register ? 'Registrati' : 'Accedi', icon: Icons.arrow_forward, onPressed: unavailable),
-              const SizedBox(height: 12),
-              WildOutlineButton(label: register ? 'Ho già un account' : 'Registrati', onPressed: () => setState(() => register = !register)),
-              const SizedBox(height: 18),
+              TextButton(onPressed: busy ? null : guest, child: const Center(child: Text('Continua come ospite', style: TextStyle(color: WildColors.forest, fontWeight: FontWeight.w700)))),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(20)),
@@ -105,7 +133,7 @@ class _AccessScreenState extends State<AccessScreen> {
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('La tua privacy è importante', style: TextStyle(fontWeight: FontWeight.w800, color: WildColors.forest)),
                     SizedBox(height: 3),
-                    Text('Raccogliamo solo i dati minimi necessari. Nessuna pubblicità comportamentale e nessuna vendita dei dati.', style: TextStyle(fontSize: 12, color: WildColors.muted)),
+                    Text('Usiamo un identificativo tecnico interno per l’account. Non chiediamo il tuo indirizzo email per registrarti.', style: TextStyle(fontSize: 12, color: WildColors.muted)),
                   ])),
                   Icon(Icons.shield_outlined, color: WildColors.forest),
                 ]),
