@@ -24,7 +24,9 @@ class NatureTrail {
     double n = 0;
     const d = Distance();
     for (final s in segments) {
-      for (var i = 1; i < s.length; i++) n += d(s[i - 1], s[i]);
+      for (var i = 1; i < s.length; i++) {
+        n += d(s[i - 1], s[i]);
+      }
     }
     return n;
   }
@@ -130,8 +132,8 @@ class ExplorationService {
     final south = p.latitude - 0.045, north = p.latitude + 0.045;
     final west = p.longitude - 0.065, east = p.longitude + 0.065;
     final filter = caiOnly
-        ? '(relation["route"~"^(hiking|foot)$"]["operator"~"CAI|Club Alpino Italiano",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)$"]["network"~"CAI|cai",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)$"]["name"~"CAI|Sentiero Italia",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)$"]["description"~"CAI|Club Alpino Italiano",i](around:8000,${p.latitude},${p.longitude}););'
-        : 'relation["route"~"^(hiking|foot)$"](around:5000,${p.latitude},${p.longitude});';
+        ? '(relation["route"~"^(hiking|foot)\$"]["operator"~"CAI|Club Alpino Italiano",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)\$"]["network"~"CAI|cai",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)\$"]["name"~"CAI|Sentiero Italia",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)\$"]["description"~"CAI|Club Alpino Italiano",i](around:8000,${p.latitude},${p.longitude}););'
+        : 'relation["route"~"^(hiking|foot)\$"](around:5000,${p.latitude},${p.longitude});';
     final query = '[out:json][timeout:18];$filter out body geom($south,$west,$north,$east);';
 
     Object? lastError;
