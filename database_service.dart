@@ -12,11 +12,12 @@ class DatabaseService {
   Database? _db;
   final changes = ValueNotifier<int>(0);
 
+  Future<String> get databasePath async => join(await getDatabasesPath(), 'wildtrack.db');
+
   Future<Database> get database async {
     if (_db != null) return _db!;
-    final path = join(await getDatabasesPath(), 'wildtrack.db');
     _db = await openDatabase(
-      path,
+      await databasePath,
       version: 2,
       onCreate: (db, version) async {
         await db.execute('''
@@ -75,11 +76,7 @@ class DatabaseService {
 
   Future<void> insertSighting(Sighting sighting) async {
     final db = await database;
-    await db.insert(
-      'sightings',
-      sighting.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('sightings', sighting.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     changes.value++;
   }
 
@@ -95,51 +92,73 @@ class DatabaseService {
     return rows.map(Sighting.fromMap).toList();
   }
 
-  Future<void> saveSession(
-    TrackSession session,
-    List<TrackPoint> points,
-  ) async {
+  Future<void> saveSession(TrackSession session, List<TrackPoint> points) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.insert(
-        'sessions',
-        session.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await txn.insert('sessions', session.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
       final batch = txn.batch();
       for (final p in points) {
         batch.insert('track_points', p.toMap(session.id));
       }
       await batch.commit(noResult: true);
     });
+    changes.value++;
   }
 
   Future<void> appendTrackPoint(TrackSession session, TrackPoint? point) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.insert(
-        'sessions',
-        session.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      if (point != null)
-        await txn.insert('track_points', point.toMap(session.id));
+      await txn.insert('sessions', session.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+      if (point != null) await txn.insert('track_points', point.toMap(session.id));
     });
+    changes.value++;
   }
 
   Future<List<Map<String, Object?>>> getTrackPoints(String id) async {
     final db = await database;
-    return db.query(
-      'track_points',
-      where: 'session_id=?',
-      whereArgs: [id],
-      orderBy: 'timestamp ASC,id ASC',
-    );
+    return db.query('track_points', where: 'session_id=?', whereArgs: [id], orderBy: 'timestamp ASC,id ASC');
   }
 
   Future<List<TrackSession>> getSessions() async {
     final db = await database;
     final rows = await db.query('sessions', orderBy: 'started_at DESC');
     return rows.map(TrackSession.fromMap).toList();
+  }
+
+  Future<Map<String, dynamic>> exportSnapshot() async {
+    final db = await database;
+    return {
+      'schemaVersion': 2,
+      'sightings': await db.query('sightings', orderBy: 'timestamp ASC'),
+      'sessions': await db.query('sessions', orderBy: 'started_at ASC'),
+      'trackPoints': await db.query('track_points', orderBy: 'session_id ASC,timestamp ASC,id ASC'),
+    };
+  }
+
+  Future<void> restoreSnapshot(Map<String, dynamic> snapshot) async {
+    final version = (snapshot['schemaVersion'] as num?)?.toInt() ?? 0;
+    if (version < 1 || version > 2) {
+      throw const FormatException('Versione backup database non supportata');
+    }
+    final sightings = (snapshot['sightings'] as List? ?? const []).cast<Map>();
+    final sessions = (snapshot['sessions'] as List? ?? const []).cast<Map>();
+    final trackPoints = (snapshot['trackPoints'] as List? ?? const []).cast<Map>();
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('track_points');
+      await txn.delete('sessions');
+      await txn.delete('sightings');
+      for (final raw in sightings) {
+        await txn.insert('sightings', Map<String, Object?>.from(raw), conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      for (final raw in sessions) {
+        await txn.insert('sessions', Map<String, Object?>.from(raw), conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      for (final raw in trackPoints) {
+        final row = Map<String, Object?>.from(raw)..remove('id');
+        await txn.insert('track_points', row);
+      }
+    });
+    changes.value++;
   }
 }
