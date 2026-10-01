@@ -22,6 +22,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
   late Future<RadarSnapshot> radar;
   List<NatureTrail> trails = [];
   List<NatureTrail> caiTrails = [];
+  NatureTrail? selectedCai;
   bool loading = false;
   bool loadingCai = false;
   bool showCai = false;
@@ -59,25 +60,113 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     }
   }
 
-  Future<void> toggleCai() async {
-    if (showCai) {
-      setState(() => showCai = false);
-      return;
-    }
+  Future<void> searchCaiHere({bool openResults = true}) async {
+    if (loadingCai) return;
+    final center = map.camera.center;
     setState(() {
-      showCai = true;
       loadingCai = true;
+      showCai = true;
+      selectedCai = null;
     });
     try {
-      final rows = await ExplorationService.instance.caiNearby(map.camera.center);
-      if (mounted) setState(() => caiTrails = rows);
+      final rows = await ExplorationService.instance.caiNearby(center);
+      if (!mounted) return;
+      setState(() => caiTrails = rows);
+      if (openResults) await _showCaiResults(rows);
     } catch (e) {
       if (mounted) {
-        setState(() => showCai = false);
+        setState(() {
+          showCai = false;
+          caiTrails = [];
+        });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => loadingCai = false);
+    }
+  }
+
+  Future<void> _showCaiResults(List<NatureTrail> rows) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: WildColors.ivory,
+      builder: (sheetContext) => SafeArea(
+        child: DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: .62,
+          minChildSize: .35,
+          maxChildSize: .88,
+          builder: (_, controller) => Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Sentieri CAI in questa zona', style: WildText.h1),
+              const SizedBox(height: 4),
+              Text('${rows.length} percorsi trovati attorno al centro della mappa', style: const TextStyle(color: WildColors.muted)),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  controller: controller,
+                  itemCount: rows.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) {
+                    final trail = rows[i];
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _selectCai(trail);
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                        child: Row(children: [
+                          const WildIconDisc(Icons.hiking, size: 50, background: Color(0xFFB3312D), foreground: Colors.white),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(trail.ref.isNotEmpty ? 'CAI ${trail.ref} · ${trail.name}' : trail.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', fontSize: 17, fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 4),
+                            Text('${(trail.length / 1000).toStringAsFixed(1)} km · ${trail.difficulty}', style: const TextStyle(fontSize: 11, color: WildColors.muted)),
+                            if (trail.operatorName.isNotEmpty || trail.network.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text([trail.operatorName, trail.network].where((e) => e.isNotEmpty).join(' · '), style: const TextStyle(fontSize: 9, color: WildColors.muted)),
+                            ],
+                          ])),
+                          const Icon(Icons.chevron_right),
+                        ]),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _selectCai(NatureTrail trail) {
+    setState(() {
+      selectedCai = trail;
+      showCai = true;
+    });
+    map.move(trail.center, 14.5);
+  }
+
+  Future<void> toggleCai() async {
+    if (showCai) {
+      setState(() {
+        showCai = false;
+        selectedCai = null;
+      });
+      return;
+    }
+    if (caiTrails.isEmpty) {
+      await searchCaiHere(openResults: false);
+    } else {
+      setState(() => showCai = true);
     }
   }
 
@@ -101,7 +190,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final active = trails.isEmpty ? null : trails.first;
+    final active = selectedCai ?? (trails.isEmpty ? null : trails.first);
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -112,24 +201,25 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
               options: const MapOptions(initialCenter: LatLng(46.061, 12.403), initialZoom: 12.3),
               children: [
                 TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.wildtrack_mvp'),
-                if (active != null)
+                if (selectedCai == null && active != null)
                   PolylineLayer(polylines: [for (final segment in active.segments) Polyline(points: segment, strokeWidth: 4, color: WildColors.forest)]),
                 if (showCai && caiTrails.isNotEmpty)
                   PolylineLayer(polylines: [
                     for (final trail in caiTrails)
                       for (final segment in trail.segments)
-                        Polyline(points: segment, strokeWidth: 5.5, color: const Color(0xFFB3312D), borderStrokeWidth: 2, borderColor: Colors.white),
+                        Polyline(
+                          points: segment,
+                          strokeWidth: identical(trail, selectedCai) ? 7 : 4.5,
+                          color: identical(trail, selectedCai) ? const Color(0xFF8F1F1B) : const Color(0xFFB3312D),
+                          borderStrokeWidth: identical(trail, selectedCai) ? 2.5 : 1.5,
+                          borderColor: Colors.white,
+                        ),
                   ]),
                 MarkerLayer(markers: [
                   ...wildlifeMarkers,
                   if (showCai)
                     for (final trail in caiTrails)
-                      Marker(
-                        point: trail.center,
-                        width: 82,
-                        height: 40,
-                        child: _CaiMarker(trail: trail),
-                      ),
+                      Marker(point: trail.center, width: 82, height: 40, child: _CaiMarker(trail: trail)),
                 ]),
                 const RichAttributionWidget(attributions: [TextSourceAttribution('© OpenStreetMap contributors')]),
               ],
@@ -138,80 +228,65 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
               top: 8,
               left: 14,
               right: 14,
-              child: Column(
-                children: [
-                  const Row(children: [WildLogo(compact: true), Spacer(), Icon(Icons.notifications_none, color: WildColors.forest), SizedBox(width: 10), CircleAvatar(radius: 18, backgroundImage: AssetImage('intro_cervo.jpg'))]),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: .96), borderRadius: BorderRadius.circular(22), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 15)]),
-                    child: TextField(
-                      controller: search,
-                      decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: 'Cerca sentieri, specie, luoghi…', suffixIcon: IconButton(onPressed: nearby, icon: const Icon(Icons.tune)), border: InputBorder.none),
+              child: Column(children: [
+                const Row(children: [WildLogo(compact: true), Spacer(), Icon(Icons.notifications_none, color: WildColors.forest), SizedBox(width: 10), CircleAvatar(radius: 18, backgroundImage: AssetImage('intro_cervo.jpg'))]),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: .96), borderRadius: BorderRadius.circular(22), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 15)]),
+                  child: TextField(
+                    controller: search,
+                    decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: 'Cerca sentieri, specie, luoghi…', suffixIcon: IconButton(onPressed: nearby, icon: const Icon(Icons.tune)), border: InputBorder.none),
+                  ),
+                ),
+                const SizedBox(height: 9),
+                _Filters(selected: filter, onTap: (i) => setState(() => filter = i)),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: loadingCai ? null : () => searchCaiHere(),
+                      icon: loadingCai ? const SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.travel_explore),
+                      label: const Text('Cerca CAI qui'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: .95), foregroundColor: const Color(0xFF8F2825), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
                     ),
                   ),
-                  const SizedBox(height: 9),
-                  _Filters(selected: filter, onTap: (i) => setState(() => filter = i)),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: loadingCai ? null : toggleCai,
-                        borderRadius: BorderRadius.circular(18),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          height: 42,
-                          padding: const EdgeInsets.symmetric(horizontal: 13),
-                          decoration: BoxDecoration(
-                            color: showCai ? const Color(0xFFB3312D) : Colors.white.withValues(alpha: .95),
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12)],
-                          ),
-                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            if (loadingCai)
-                              SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2, color: showCai ? Colors.white : WildColors.forest))
-                            else
-                              Icon(Icons.hiking, size: 18, color: showCai ? Colors.white : const Color(0xFFB3312D)),
-                            const SizedBox(width: 7),
-                            Text(showCai ? 'Sentieri CAI attivi' : 'Mostra sentieri CAI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: showCai ? Colors.white : WildColors.ink)),
-                            if (showCai && caiTrails.isNotEmpty) ...[
-                              const SizedBox(width: 7),
-                              Text('${caiTrails.length}', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)),
-                            ],
-                          ]),
-                        ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    onPressed: loadingCai ? null : toggleCai,
+                    tooltip: showCai ? 'Nascondi sentieri CAI' : 'Mostra sentieri CAI',
+                    icon: Icon(showCai ? Icons.visibility : Icons.visibility_off_outlined),
+                    style: IconButton.styleFrom(backgroundColor: showCai ? const Color(0xFFB3312D) : Colors.white, foregroundColor: showCai ? Colors.white : const Color(0xFF8F2825)),
+                  ),
+                ]),
+                const SizedBox(height: 9),
+                FutureBuilder<RadarSnapshot>(
+                  future: radar,
+                  builder: (context, snapshot) {
+                    final data = snapshot.data;
+                    final top = data?.species.take(2).map((e) => e.name.toLowerCase()).join(', ') ?? 'calcolo in corso';
+                    return InkWell(
+                      onTap: () => setState(() => radar = RadarService.instance.load()),
+                      child: Container(
+                        padding: const EdgeInsets.all(13),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: .95), borderRadius: BorderRadius.circular(22), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 15)]),
+                        child: Row(children: [
+                          const WildIconDisc(Icons.radar, size: 50, background: WildColors.forest, foreground: Colors.white),
+                          const SizedBox(width: 11),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('WildTrack Radar', style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800, fontSize: 18)),
+                            Text('Probabilità ${data?.activity.toLowerCase() ?? '…'}: $top', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                            const Text('Stima basata su ora, stagione, meteo e storico privato', style: TextStyle(fontSize: 9, color: WildColors.muted)),
+                          ])),
+                          const Icon(Icons.chevron_right),
+                        ]),
                       ),
-                    ),
-                  ]),
-                  const SizedBox(height: 9),
-                  FutureBuilder<RadarSnapshot>(
-                    future: radar,
-                    builder: (context, snapshot) {
-                      final data = snapshot.data;
-                      final top = data?.species.take(2).map((e) => e.name.toLowerCase()).join(', ') ?? 'calcolo in corso';
-                      return InkWell(
-                        onTap: () => setState(() => radar = RadarService.instance.load()),
-                        child: Container(
-                          padding: const EdgeInsets.all(13),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: .95), borderRadius: BorderRadius.circular(22), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 15)]),
-                          child: Row(children: [
-                            const WildIconDisc(Icons.radar, size: 50, background: WildColors.forest, foreground: Colors.white),
-                            const SizedBox(width: 11),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              const Text('WildTrack Radar', style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800, fontSize: 18)),
-                              Text('Probabilità ${data?.activity.toLowerCase() ?? '…'}: $top', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                              const Text('Stima basata su ora, stagione, meteo e storico privato', style: TextStyle(fontSize: 9, color: WildColors.muted)),
-                            ])),
-                            const Icon(Icons.chevron_right),
-                          ]),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
+                    );
+                  },
+                ),
+              ]),
             ),
             Positioned(right: 14, bottom: 215, child: Column(children: [_MapButton(icon: Icons.layers_outlined, onTap: nearby), const SizedBox(height: 8), _MapButton(icon: Icons.my_location, onTap: locate), const SizedBox(height: 8), _MapButton(icon: Icons.navigation, onTap: locate)])),
-            Positioned(left: 14, right: 14, bottom: 20, child: _TrailCard(trail: active, onRefresh: nearby)),
+            Positioned(left: 14, right: 14, bottom: 20, child: _TrailCard(trail: active, onRefresh: selectedCai != null ? () => searchCaiHere() : nearby)),
             if (loading) const Positioned(top: 0, left: 0, right: 0, child: LinearProgressIndicator()),
           ],
         ),
@@ -227,11 +302,7 @@ class _CaiMarker extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFB3312D), width: 1.5), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 8)]),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.hiking, size: 14, color: Color(0xFFB3312D)),
-      const SizedBox(width: 4),
-      Flexible(child: Text(trail.ref.isNotEmpty ? 'CAI ${trail.ref}' : 'CAI', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFF8F2825)))),
-    ]),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.hiking, size: 14, color: Color(0xFFB3312D)), const SizedBox(width: 4), Flexible(child: Text(trail.ref.isNotEmpty ? 'CAI ${trail.ref}' : 'CAI', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFF8F2825))))]),
   );
 }
 
