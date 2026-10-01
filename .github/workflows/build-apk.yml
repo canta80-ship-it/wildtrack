@@ -39,9 +39,9 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Restore source folders
+      - name: Restore source folders and approved artwork
         run: |
-          mkdir -p lib/screens lib/services lib/models tool
+          mkdir -p lib/screens lib/services lib/models tool assets/approved
           for file in *_screen.dart *_widget.dart; do [ ! -f "$file" ] || mv "$file" lib/screens/; done
           for file in *_service.dart; do [ ! -f "$file" ] || mv "$file" lib/services/; done
           for file in sighting.dart track_point.dart track_session.dart; do [ ! -f "$file" ] || mv "$file" lib/models/; done
@@ -52,6 +52,7 @@ jobs:
           fi
           [ ! -f main.dart ] || mv main.dart lib/
           [ ! -f prepare_android.py ] || mv prepare_android.py tool/
+          unzip -o approved_assets.zip -d assets/approved
           find lib -name '*.dart' -type f -print0 | xargs -0 sed -i 's/Icons\.binoculars_outlined/Icons.visibility_outlined/g; s/Icons\.binoculars/Icons.visibility/g; s/Icons\.feather_outlined/Icons.article_outlined/g; s/Icons\.offline_map_outlined/Icons.map_outlined/g; s/CommunityService\.instance\.preferences\.token/""/g'
           sed -i "1i import 'premium_animal_screen.dart';" lib/screens/species_screen.dart
           sed -i 's/AnimalScreen(a)/PremiumAnimalScreen(a)/g' lib/screens/species_screen.dart
@@ -62,7 +63,6 @@ jobs:
           sed -i 's/PremiumExploreScreen(species: animal.name)/PremiumExploreScreen()/g' lib/screens/premium_animal_screen.dart
           python3 normalize_ui.py
           python3 final_fixes.py
-          python3 bookify_ui.py
       - name: Generate Android project
         run: |
           flutter create --platforms=android --org it.wildtrack --project-name wildtrack_mvp --no-pub .
