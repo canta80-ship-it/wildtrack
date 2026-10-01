@@ -106,10 +106,17 @@ class PremiumAnimalScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: _InfoCard(
-                          icon: Icons.eco_outlined,
-                          title: 'Specie autoctona',
-                          body: animal.description,
+                        child: InkWell(
+                          onTap: () => showExplanation(
+                            context,
+                            'Specie autoctona',
+                            animal.description,
+                          ),
+                          child: _InfoCard(
+                            icon: Icons.eco_outlined,
+                            title: 'Specie autoctona',
+                            body: animal.description,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 7),
@@ -198,12 +205,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                                 : null,
                             title: signs[i].$1,
                             body: signs[i].$2,
-                            icon: [
-                              Icons.pets_outlined,
-                              Icons.blur_circular,
-                              Icons.park_outlined,
-                              Icons.account_tree_outlined,
-                            ][i],
+                            icon: signIcon(signs[i].$1),
                             asset: isDeer
                                 ? [
                                     'assets/approved/impronta.jpg',
@@ -374,6 +376,30 @@ class PremiumAnimalScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+IconData signIcon(String title) {
+  final text = title.toLowerCase();
+  if (text.contains('ulul') ||
+      text.contains('richiam') ||
+      text.contains('vers'))
+    return Icons.volume_up_outlined;
+  if (text.contains('pista') || text.contains('impront'))
+    return Icons.pets_outlined;
+  if (text.contains('pen') || text.contains('pium') || text.contains('peli'))
+    return Icons.air;
+  if (text.contains('tan') || text.contains('nido') || text.contains('rifug'))
+    return Icons.home_outlined;
+  if (text.contains('sfreg') ||
+      text.contains('tron') ||
+      text.contains('scorte'))
+    return Icons.park_outlined;
+  if (text.contains('rest') || text.contains('aliment'))
+    return Icons.restaurant_outlined;
+  if (text.contains('vol')) return Icons.flight;
+  if (text.contains('fatte') || text.contains('borre'))
+    return Icons.blur_circular;
+  return Icons.search;
 }
 
 class _Hero extends StatelessWidget {
@@ -556,40 +582,38 @@ class _InfoCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0x0D000000)),
     ),
-    child: Row(
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: WildColors.forest, size: 20),
-        const SizedBox(width: 5),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: WildColors.forest, size: 15),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
                 title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'serif',
-                  fontSize: 10,
-                  height: 1,
+                  fontSize: 8.5,
+                  height: 1.05,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: Text(
-                  badge == null ? body : '$badge · $body',
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 8.5,
-                    height: 1.05,
-                    color: WildColors.muted,
-                  ),
-                ),
-              ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: Text(
+            badge == null ? body : '$badge · $body',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 8.5,
+              height: 1.05,
+              color: WildColors.muted,
+            ),
           ),
         ),
       ],
@@ -611,7 +635,7 @@ class _SectionTitle extends StatelessWidget {
           title,
           style: const TextStyle(
             fontFamily: 'serif',
-            fontSize: 27,
+            fontSize: 17,
             height: 1,
             fontWeight: FontWeight.w800,
             color: WildColors.ink,
@@ -666,7 +690,7 @@ class _HabitatCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(13),
               child: SizedBox(
                 width: 145,
-                height: 92,
+                height: 64,
                 child: Image.asset(
                   asset,
                   fit: BoxFit.cover,
@@ -757,7 +781,7 @@ class _SignCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 214,
+    height: 158,
     padding: const EdgeInsets.all(8),
     decoration: BoxDecoration(
       color: const Color(0xFFFAF5EA),
@@ -769,7 +793,7 @@ class _SignCard extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: SizedBox(
-            height: 82,
+            height: 62,
             width: double.infinity,
             child: asset == null
                 ? Container(
@@ -793,8 +817,9 @@ class _SignCard extends StatelessWidget {
         const SizedBox(height: 2),
         Expanded(
           child: Text(
-            body,
-
+            body.split(RegExp(r'(?<=[.!?])\s')).first,
+            maxLines: 6,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 8.5,
               height: 1.15,
@@ -825,7 +850,7 @@ class _Season extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 112,
+    height: 86,
     padding: const EdgeInsets.all(8),
     decoration: BoxDecoration(
       color: best ? const Color(0xFFF7E6C9) : const Color(0xFFFFFEFA),
@@ -864,12 +889,14 @@ class _Season extends StatelessWidget {
             style: const TextStyle(fontSize: 8.5, color: WildColors.muted),
           ),
         ),
-        const Spacer(),
-        Text(
-          levelText,
-          style: TextStyle(
-            fontSize: 8.5,
-            color: best ? const Color(0xFF9A5421) : WildColors.muted,
+        const SizedBox(height: 5),
+        Expanded(
+          child: Text(
+            levelText,
+            style: TextStyle(
+              fontSize: 8.5,
+              color: best ? const Color(0xFF9A5421) : WildColors.muted,
+            ),
           ),
         ),
         const SizedBox(height: 3),
