@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
-import 'package:sqflite/sqflite.dart';
 
 import 'database_service.dart';
 import 'preferences_service.dart';
@@ -52,7 +52,6 @@ class WildTrackBackupService {
       'sightingNotifications': prefs.sightingNotifications,
       'fieldSilence': prefs.fieldSilence,
       'nickname': prefs.nickname,
-      // token intentionally excluded: regenerated locally after restore.
     };
   }
 
@@ -74,10 +73,7 @@ class WildTrackBackupService {
     await for (final entity in dir.list(followLinks: false)) {
       if (entity is! File) continue;
       final bytes = await entity.readAsBytes();
-      result.add({
-        'name': p.basename(entity.path),
-        'data': base64Encode(bytes),
-      });
+      result.add({'name': p.basename(entity.path), 'data': base64Encode(bytes)});
     }
     return result;
   }
@@ -120,7 +116,9 @@ class WildTrackBackupService {
 
   Future<void> restore(Uint8List bytes) async {
     final root = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-    if (root['format'] != 'wildtrack-backup') throw const FormatException('File non riconosciuto come backup WildTrack');
+    if (root['format'] != 'wildtrack-backup') {
+      throw const FormatException('File non riconosciuto come backup WildTrack');
+    }
     final version = (root['backupVersion'] as num?)?.toInt() ?? 0;
     if (version != backupVersion) throw const FormatException('Versione backup non supportata');
     final appData = Map<String, dynamic>.from(root['appData'] as Map? ?? const {});
@@ -150,7 +148,9 @@ class WildTrackBackupService {
     final mediaDir = await MediaStorageService.instance.mediaDirectory;
     if (await mediaDir.exists()) {
       await for (final entity in mediaDir.list(followLinks: false)) {
-        if (entity is File) await entity.delete().catchError((_) => entity);
+        if (entity is File) {
+          try { await entity.delete(); } catch (_) {}
+        }
       }
     }
     for (final raw in (appData['media'] as List? ?? const [])) {
