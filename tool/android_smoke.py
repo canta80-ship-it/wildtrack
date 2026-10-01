@@ -55,6 +55,10 @@ try:
     adb('shell','am','force-stop',package)
     adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
     result('Riapertura dopo arresto','PASS' if adb('shell','pidof',package,check=False).strip() else 'FAIL');shot('restart')
+    if tap('Continua come ospite',scroll=True) and tap('Diario'):
+        visible=' '.join(n.get('text','')+' '+n.get('content-desc','') for n in dump().iter('node')).lower()
+        result('Avvistamento privato presente dopo riavvio','PASS' if 'cervo' in visible else 'BLOCKED','Verifica del dato salvato nel diario dopo arresto e riapertura del processo');shot('persisted-diary')
+    else:result('Avvistamento privato presente dopo riavvio','BLOCKED','Percorso del diario non raggiunto automaticamente')
 except Exception as e:result('Esecuzione Android','BLOCKED',str(e))
 finally:
     logs=adb('logcat','-d','-v','brief',check=False)

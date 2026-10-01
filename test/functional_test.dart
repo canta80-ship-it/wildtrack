@@ -14,6 +14,7 @@ import 'package:wildtrack_mvp/services/location_service.dart';
 import 'package:wildtrack_mvp/services/tracking_service.dart';
 import 'package:wildtrack_mvp/services/radar_service.dart';
 import 'package:wildtrack_mvp/screens/sos_screen.dart';
+import 'package:wildtrack_mvp/screens/real_geo_stats_widget.dart';
 import 'package:wildtrack_mvp/main.dart' show wildTrackTheme;
 import 'package:wildtrack_mvp/models/sighting.dart';
 import 'package:wildtrack_mvp/models/track_point.dart';
@@ -674,7 +675,9 @@ void main() {
       ),
       throwsFormatException,
     );
-    expect((await db.getSightings()).single.id, 'keep');
+    final remaining = await db.getSightings();
+    expect(remaining, hasLength(1));
+    expect(remaining.single.id, 'keep');
   });
   test('AUDIO stop cancels pending requests through native bridge', () async {
     var stops = 0;
@@ -799,4 +802,37 @@ void main() {
       findsWidgets,
     );
   });
+  testWidgets(
+    'UI HEATMAP coordinate edits must repaint even with unchanged record count',
+    (tester) async {
+      final initial = [row('first'), row('second')];
+      await mount(tester, RealHeatmap(sightings: initial));
+      final finder = find.descendant(
+        of: find.byType(RealHeatmap),
+        matching: find.byType(CustomPaint),
+      );
+      final oldPainter = tester.widget<CustomPaint>(finder).painter!;
+      final changed = [
+        initial.first,
+        Sighting(
+          id: 'second',
+          species: 'Cervo',
+          count: 1,
+          notes: '',
+          latitude: 47,
+          longitude: 13,
+          timestamp: DateTime(2026),
+        ),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: wildTrackTheme(Brightness.light),
+          home: RealHeatmap(sightings: changed),
+        ),
+      );
+      await tester.pump();
+      final next = tester.widget<CustomPaint>(finder).painter!;
+      expect(next.shouldRepaint(oldPainter), true);
+    },
+  );
 }
