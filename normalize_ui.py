@@ -20,6 +20,14 @@ if private_maps.exists():
     )
     private_maps.write_text(text)
 
+field_tools = Path('lib/screens/field_tools_screen.dart')
+if field_tools.exists():
+    text = field_tools.read_text()
+    if "import 'camera_assistant_screen.dart';" not in text:
+        text = text.replace("import '../premium_ui.dart';", "import '../premium_ui.dart';\nimport 'camera_assistant_screen.dart';")
+    text = text.replace("_PhotoMode(snapshot: snapshot),", "CameraAssistantCard(snapshot: snapshot),")
+    field_tools.write_text(text)
+
 replacements = {
     Path('lib/screens/premium_explore_screen.dart'): [
         (
