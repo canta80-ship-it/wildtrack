@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/community_service.dart';
+import '../services/did_you_know_service.dart';
+import '../services/preferences_service.dart';
+import '../services/push_service.dart';
 import 'community_screen.dart';
 import 'private_maps_screen.dart';
+import 'settings_screen.dart';
 import '../premium_ui.dart';
 
 class PremiumCommunityScreen extends StatefulWidget {
@@ -14,6 +19,32 @@ class PremiumCommunityScreen extends StatefulWidget {
 class _PremiumCommunityScreenState extends State<PremiumCommunityScreen> {
   int tab = 0;
 
+  Future<void> _toggleMute() async {
+    final p = PreferencesService.instance;
+    p.chatNotifications = !p.chatNotifications;
+    await p.save();
+    await PushService.instance.syncPreferences();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _menu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: WildColors.ivory,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(leading: const Icon(Icons.refresh), title: const Text('Aggiorna Community'), onTap: () async { Navigator.pop(sheet); await CommunityService.instance.refresh(); if (mounted) setState(() {}); }),
+            ListTile(leading: const Icon(Icons.lock_outline), title: const Text('Spedizioni private'), onTap: () { Navigator.pop(sheet); Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PrivateMapsScreen())); }),
+            ListTile(leading: const Icon(Icons.tune), title: const Text('Impostazioni e privacy'), onTap: () { Navigator.pop(sheet); Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())); }),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: WildColors.ivory,
@@ -21,7 +52,7 @@ class _PremiumCommunityScreenState extends State<PremiumCommunityScreen> {
       SliverToBoxAdapter(child: WildHero(
         image: '', height: 265,
         child: SafeArea(bottom: false, child: Padding(padding: const EdgeInsets.fromLTRB(18, 12, 18, 22), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [const WildLogo(compact: true, light: true), const Spacer(), const Icon(Icons.notifications_none, color: Colors.white), const SizedBox(width: 12), Container(width: 36, height: 36, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .15), border: Border.all(color: Colors.white54)), child: const Icon(Icons.person_outline, color: Colors.white))]),
+          Row(children: [const WildLogo(compact: true, light: true), const Spacer(), IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())), icon: const Icon(Icons.notifications_none, color: Colors.white)), const SizedBox(width: 4), Container(width: 36, height: 36, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .15), border: Border.all(color: Colors.white54)), child: const Icon(Icons.person_outline, color: Colors.white))]),
           const Spacer(),
           const Text('Community', style: TextStyle(fontFamily: 'serif', fontSize: 39, fontWeight: FontWeight.w800, color: Colors.white)),
           const SizedBox(height: 5),
@@ -34,10 +65,10 @@ class _PremiumCommunityScreenState extends State<PremiumCommunityScreen> {
   );
 
   Widget _content() {
-    if (tab == 0) return const _ChatAndFeed();
+    if (tab == 0) return _ChatAndFeed(onMute: _toggleMute, onMenu: _menu);
     if (tab == 1) return _Groups(onPrivate: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PrivateMapsScreen())));
-    if (tab == 2) return const _Placeholder(icon: Icons.people_outline, title: 'Persone vicino a te', body: 'Qui compariranno solo gli utenti che hanno scelto esplicitamente di condividere la posizione e che si trovano entro il raggio consentito.');
-    return const _Placeholder(icon: Icons.event_outlined, title: 'Eventi naturalistici', body: 'Una sezione per escursioni, osservazioni e iniziative della community. Verranno mostrati solo contenuti realmente disponibili.');
+    if (tab == 2) return const _People();
+    return const _Events();
   }
 }
 
@@ -54,7 +85,9 @@ class _Tabs extends StatelessWidget {
 }
 
 class _ChatAndFeed extends StatelessWidget {
-  const _ChatAndFeed();
+  const _ChatAndFeed({required this.onMute, required this.onMenu});
+  final VoidCallback onMute;
+  final VoidCallback onMenu;
   @override
   Widget build(BuildContext context) => Column(children: [
     Container(
@@ -64,8 +97,8 @@ class _ChatAndFeed extends StatelessWidget {
         const WildAnimalIllustration('Community', size: 56),
         const SizedBox(width: 12),
         const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Community WildTrack', style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800, fontSize: 20)), Text('Avvistamenti reali della community', style: TextStyle(fontSize: 11, color: WildColors.muted))])),
-        IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_off_outlined)),
-        IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
+        IconButton(tooltip: PreferencesService.instance.chatNotifications ? 'Silenzia chat' : 'Riattiva chat', onPressed: onMute, icon: Icon(PreferencesService.instance.chatNotifications ? Icons.notifications_off_outlined : Icons.notifications_active_outlined)),
+        IconButton(onPressed: onMenu, icon: const Icon(Icons.more_vert)),
       ]),
     ),
     const SizedBox(height: 10),
@@ -73,7 +106,7 @@ class _ChatAndFeed extends StatelessWidget {
       final c = CommunityService.instance;
       return Column(children: [
         if (c.syncing) const LinearProgressIndicator(),
-        if (c.error != null) const _Info(text: 'Aggiornamento non riuscito. Riapri la sezione per riprovare.'),
+        if (c.error != null) _Info(text: 'Aggiornamento non riuscito: ${c.error}'),
         if (c.sightings.isEmpty) const _Info(text: 'Nessun avvistamento pubblico caricato in questo momento.'),
         for (final s in c.sightings.take(5)) _FeedSighting(s: s),
       ]);
@@ -112,6 +145,73 @@ class _FeedSighting extends StatelessWidget {
   );
 }
 
+class _People extends StatefulWidget {
+  const _People();
+  @override
+  State<_People> createState() => _PeopleState();
+}
+
+class _PeopleState extends State<_People> {
+  @override
+  void initState() {
+    super.initState();
+    CommunityService.instance.updatePresence();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: CommunityService.instance,
+    builder: (context, _) {
+      final c = CommunityService.instance;
+      if (!PreferencesService.instance.visible) {
+        return const _Placeholder(icon: Icons.location_off_outlined, title: 'Posizione non condivisa', body: 'Per vedere persone vicine devi attivare volontariamente la condivisione posizione nelle impostazioni.');
+      }
+      if (c.people.isEmpty) {
+        return Column(children: [const _Placeholder(icon: Icons.people_outline, title: 'Nessuno nelle vicinanze', body: 'Non risultano altri utenti entro il raggio consentito che abbiano scelto di condividere la posizione.'), const SizedBox(height: 10), OutlinedButton.icon(onPressed: () => c.updatePresence(), icon: const Icon(Icons.refresh), label: const Text('Aggiorna'))]);
+      }
+      return Column(children: [for (final p in c.people) Container(
+        margin: const EdgeInsets.only(bottom: 9),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+        child: ListTile(
+          leading: CircleAvatar(backgroundColor: WildColors.sage, child: Text('${p['nickname'] ?? '?'}'.characters.first.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, color: WildColors.forest))),
+          title: Text('${p['nickname'] ?? 'Esploratore'}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: const Text('Posizione approssimata condivisa volontariamente'),
+          trailing: const Icon(Icons.chat_bubble_outline),
+          onTap: () {
+            final id = '${p['id'] ?? p['token'] ?? ''}';
+            if (id.isEmpty) return;
+            Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: id, nickname: '${p['nickname'] ?? 'Esploratore'}')));
+          },
+        ),
+      )]);
+    },
+  );
+}
+
+class _Events extends StatefulWidget {
+  const _Events();
+  @override
+  State<_Events> createState() => _EventsState();
+}
+
+class _EventsState extends State<_Events> {
+  late Future<DidYouKnowFeed> feed = DidYouKnowService.instance.load();
+  @override
+  Widget build(BuildContext context) => FutureBuilder<DidYouKnowFeed>(
+    future: feed,
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()));
+      final rows = snapshot.data!.items.where((e) => e.category == 'EVENTI').toList();
+      if (rows.isEmpty) return const _Placeholder(icon: Icons.event_outlined, title: 'Nessun evento aggiornato', body: 'Non ci sono eventi verificati nel feed in questo momento. Riprova più tardi.');
+      return Column(children: [for (final e in rows) InkWell(
+        onTap: e.link == null ? null : () => launchUrl(Uri.parse(e.link!), mode: LaunchMode.externalApplication),
+        borderRadius: BorderRadius.circular(22),
+        child: Container(margin: const EdgeInsets.only(bottom: 9), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)), child: Row(children: [const WildIconDisc(Icons.event_outlined, size: 52), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: const TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text('${e.source} · ${e.body}', maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: WildColors.muted))])), const Icon(Icons.open_in_new, size: 18)])),
+      )]);
+    },
+  );
+}
+
 class _Groups extends StatelessWidget {
   const _Groups({required this.onPrivate});
   final VoidCallback onPrivate;
@@ -127,20 +227,7 @@ class _GroupCard extends StatelessWidget {
   const _GroupCard({required this.title, required this.body, required this.icon, required this.animal, required this.onTap});
   final String title,body,animal; final IconData icon; final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(24),
-    child: Container(
-      height: 155,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
-      child: Stack(fit: StackFit.expand, children: [
-        WildLandscape(height: 155, animal: animal),
-        const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors:[Color(0xE8173F2B),Color(0x55173F2B)]))),
-        Padding(padding: const EdgeInsets.all(18), child: Row(children:[Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children:[Icon(icon,color:Colors.white),const SizedBox(height:8),Text(title,style:const TextStyle(fontFamily:'serif',fontSize:22,fontWeight:FontWeight.w800,color:Colors.white)),const SizedBox(height:5),Text(body,style:const TextStyle(color:Colors.white,fontSize:11,height:1.25))])),const Icon(Icons.chevron_right,color:Colors.white,size:30)])),
-      ]),
-    ),
-  );
+  Widget build(BuildContext context) => InkWell(onTap: onTap, borderRadius: BorderRadius.circular(24), child: Container(height: 155, clipBehavior: Clip.antiAlias, decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)), child: Stack(fit: StackFit.expand, children: [WildLandscape(height: 155, animal: animal), const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors:[Color(0xE8173F2B),Color(0x55173F2B)]))), Padding(padding: const EdgeInsets.all(18), child: Row(children:[Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children:[Icon(icon,color:Colors.white),const SizedBox(height:8),Text(title,style:const TextStyle(fontFamily:'serif',fontSize:22,fontWeight:FontWeight.w800,color:Colors.white)),const SizedBox(height:5),Text(body,style:const TextStyle(color:Colors.white,fontSize:11,height:1.25))])),const Icon(Icons.chevron_right,color:Colors.white,size:30)]))])));
 }
 
 class _Placeholder extends StatelessWidget {
