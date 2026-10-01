@@ -253,14 +253,18 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
                           ],
                         ),
                         const Spacer(),
-                        const Text(
-                          'Nuovo avvistamento',
-                          style: TextStyle(
-                            fontFamily: 'serif',
-                            fontSize: 27,
-                            height: 1,
-                            fontWeight: FontWeight.w800,
-                            color: WildColors.ink,
+                        const FittedBox(
+                          alignment: Alignment.centerLeft,
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Nuovo avvistamento',
+                            style: TextStyle(
+                              fontFamily: 'serif',
+                              fontSize: 27,
+                              height: 1,
+                              fontWeight: FontWeight.w800,
+                              color: WildColors.ink,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -546,10 +550,26 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
                         style: const TextStyle(color: WildColors.muted),
                       ),
                     ),
-                    FilledButton.tonalIcon(
-                      onPressed: locating ? null : locate,
-                      icon: const Icon(Icons.map_outlined),
-                      label: Text(locating ? 'GPS…' : 'Usa posizione attuale'),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
+                          minimumSize: const Size(0, 44),
+                        ),
+                        onPressed: locating ? null : locate,
+                        icon: const Icon(Icons.map_outlined, size: 18),
+                        label: Text(
+                          locating ? 'GPS…' : 'Usa posizione attuale',
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -694,7 +714,7 @@ class _KindCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: Image.asset(
                 'assets/approved/$asset',
-                height: 60,
+                height: 52,
                 width: 65,
                 fit: BoxFit.contain,
               ),
@@ -705,11 +725,17 @@ class _KindCard extends StatelessWidget {
               size: 40,
               color: active ? WildColors.forest : WildColors.earth,
             ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 5),
           Text(
             label,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.w800, height: 1.05),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              height: 1.05,
+            ),
           ),
         ],
       ),
@@ -739,24 +765,24 @@ class _Panel extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 5,
+          runSpacing: 3,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               title,
               style: const TextStyle(
                 fontFamily: 'serif',
-                fontSize: 19,
+                fontSize: 17,
                 fontWeight: FontWeight.w800,
               ),
             ),
-            if (subtitle != null) ...[
-              const SizedBox(width: 5),
+            if (subtitle != null)
               Text(
                 '($subtitle)',
                 style: const TextStyle(fontSize: 11, color: WildColors.muted),
               ),
-            ],
-            const Spacer(),
             if (trailing != null)
               Text(
                 trailing!,

@@ -112,7 +112,7 @@ class _AccessScreenState extends State<AccessScreen> {
                     padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
                     child: Column(
                       children: [
-                        const WildLogo(),
+                        const FittedBox(child: WildLogo()),
                         const SizedBox(height: 9),
                         const Text(
                           'N A T U R A   •   S C O P E R T A   •   C O N S E R V A Z I O N E',

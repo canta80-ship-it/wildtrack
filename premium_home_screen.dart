@@ -462,7 +462,7 @@ class _ActionCard extends StatelessWidget {
       child: SizedBox(
         height: 123,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -507,8 +507,8 @@ class _ActionCard extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 10.5,
-                  height: 1.25,
+                  fontSize: 9.5,
+                  height: 1.15,
                   color: dark ? const Color(0xFFE5EEE6) : WildColors.muted,
                 ),
               ),
