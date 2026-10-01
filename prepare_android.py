@@ -1,7 +1,7 @@
 from pathlib import Path
 p = Path('android/app/src/main/AndroidManifest.xml')
 s = p.read_text()
-for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK']:
+for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK','POST_NOTIFICATIONS']:
     if 'android.permission.'+permission not in s:
         s=s.replace('<application', f'<uses-permission android:name="android.permission.{permission}" />\n    <application',1)
 s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack"')
