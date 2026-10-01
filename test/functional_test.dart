@@ -783,6 +783,7 @@ void main() {
 
   Future<void> click(WidgetTester tester, Finder finder) async {
     await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
     await tester.tap(finder);
     await tester.pumpAndSettle();
   }
@@ -969,12 +970,16 @@ void main() {
       PremiumAnimalScreen(animals.firstWhere((a) => a.name == 'Cervo')),
     );
     await click(tester, find.byIcon(Icons.favorite_border));
-    await tester.runAsync(() => prefs.save());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
     await tester.pumpAndSettle();
     expect(prefs.favoriteSpecies, contains('Cervo'));
     expect(find.byIcon(Icons.favorite), findsOneWidget);
     await click(tester, find.byIcon(Icons.favorite));
-    await tester.runAsync(() => prefs.save());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
     await tester.pumpAndSettle();
     expect(prefs.favoriteSpecies, isNot(contains('Cervo')));
   });

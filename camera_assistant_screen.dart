@@ -230,6 +230,14 @@ class _CameraAssistantScreenState extends State<CameraAssistantScreen> {
     return Scaffold(
       backgroundColor: WildColors.ivory,
       appBar: AppBar(title: const Text('Assistente fotocamera')),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+        child: WildPrimaryButton(
+          label: saving ? 'Salvataggio…' : 'Salva profilo',
+          icon: Icons.save_outlined,
+          onPressed: saving ? null : _save,
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 36),
         children: [
@@ -441,11 +449,6 @@ class _CameraAssistantScreenState extends State<CameraAssistantScreen> {
               onPressed: _applySuggested,
             ),
           const SizedBox(height: 10),
-          WildPrimaryButton(
-            label: saving ? 'Salvataggio…' : 'Salva profilo',
-            icon: Icons.save_outlined,
-            onPressed: saving ? null : _save,
-          ),
           const SizedBox(height: 12),
           const Text(
             'WildTrack modifica il proprio profilo di assistenza, non i comandi fisici della fotocamera. Il controllo remoto diretto richiederebbe protocolli specifici del produttore.',

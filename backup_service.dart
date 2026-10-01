@@ -186,9 +186,7 @@ class WildTrackBackupService {
     );
     final prefs = PreferencesService.instance;
     final mediaDir = await MediaStorageService.instance.mediaDirectory;
-    final stage = await Directory(
-      p.join(mediaDir.parent.path, '.restore-stage-'),
-    ).createTemp();
+    final stage = await mediaDir.parent.createTemp('.restore-stage-');
     final previousMedia = Directory('${stage.path}-previous');
     final expeditionFile = await ExpeditionService.instance.file;
     final previousDatabase = await DatabaseService.instance.exportSnapshot();

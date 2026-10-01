@@ -114,7 +114,11 @@ class AuthService {
   }
 
   Future<String> register(String username, String password) async {
-    final normalized = normalizeUsername(username);
+    final normalized = normalizeUsername(
+      usesCloudAccounts && username.contains('@')
+          ? username.split('@').first
+          : username,
+    );
     if (password.length < 8)
       throw Exception('La password deve avere almeno 8 caratteri.');
 
@@ -149,7 +153,11 @@ class AuthService {
   }
 
   Future<String> signIn(String username, String password) async {
-    final normalized = normalizeUsername(username);
+    final normalized = normalizeUsername(
+      usesCloudAccounts && username.contains('@')
+          ? username.split('@').first
+          : username,
+    );
 
     if (!usesCloudAccounts) {
       final account = await _readLocalAccount();
@@ -223,7 +231,11 @@ class AuthService {
     }
     if (newPassword.length < 8)
       throw StateError('La password deve avere almeno 8 caratteri.');
-    final normalized = normalizeUsername(username);
+    final normalized = normalizeUsername(
+      usesCloudAccounts && username.contains('@')
+          ? username.split('@').first
+          : username,
+    );
     final account = await _readLocalAccount();
     final salt = account?['recoverySalt'] as String? ?? '';
     if (account == null ||
