@@ -807,7 +807,10 @@ void main() {
   Future<void> click(WidgetTester tester, Finder finder) async {
     await tester.ensureVisible(finder);
     await tester.pumpAndSettle();
-    await tester.tap(finder);
+    await tester.runAsync(() async {
+      await tester.tap(finder);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
     await tester.pumpAndSettle();
   }
 
@@ -960,6 +963,10 @@ void main() {
   testWidgets('UI CAMERA assistant saves edited profile', (tester) async {
     await mount(tester, const CameraAssistantScreen());
     await tester.enterText(find.byType(TextField), 'Corpo test + 300 mm');
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Corpo test + 300 mm',
+    );
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
@@ -967,7 +974,12 @@ void main() {
       400,
       scrollable: find.byType(Scrollable).first,
     );
-    await click(tester, find.text('Salva profilo'));
+    final saveButton = find.ancestor(
+      of: find.text('Salva profilo'),
+      matching: find.byType(FilledButton),
+    );
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
+    await click(tester, saveButton);
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
         try {

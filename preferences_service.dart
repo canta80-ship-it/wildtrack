@@ -87,6 +87,7 @@ class PreferencesService extends ChangeNotifier {
   Future<void> toggleFavorite(String species) async {
     final previous = Set<String>.from(favoriteSpecies);
     if (!favoriteSpecies.add(species)) favoriteSpecies.remove(species);
+    notifyListeners();
     try {
       await save();
     } catch (_) {
