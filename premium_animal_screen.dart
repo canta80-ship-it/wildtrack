@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../premium_ui.dart';
+import '../services/preferences_service.dart';
 import 'premium_explore_screen.dart';
 import 'species_screen.dart';
 import 'species_detail_screen.dart';
@@ -450,7 +451,32 @@ class _Hero extends StatelessWidget {
                     const Spacer(),
                     const WildLogo(compact: true),
                     const Spacer(),
-                    const _CircleButton(icon: Icons.favorite_border),
+                    ListenableBuilder(
+                      listenable: PreferencesService.instance,
+                      builder: (context, _) => _CircleButton(
+                        icon:
+                            PreferencesService.instance.favoriteSpecies
+                                .contains(animal.name)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        onTap: () async {
+                          try {
+                            await PreferencesService.instance.toggleFavorite(
+                              animal.name,
+                            );
+                          } catch (_) {
+                            if (context.mounted)
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Preferito non salvato. Riprova.',
+                                  ),
+                                ),
+                              );
+                          }
+                        },
+                      ),
+                    ),
                   ],
                 ),
                 const Spacer(),

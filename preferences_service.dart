@@ -17,6 +17,7 @@ class PreferencesService extends ChangeNotifier {
   bool fieldSilence = false;
   String nickname = 'Esploratore';
   String token = '';
+  Set<String> favoriteSpecies = {};
 
   // Generic camera assistant profile. Brand/model are optional labels only.
   String cameraLabel = '';
@@ -41,7 +42,10 @@ class PreferencesService extends ChangeNotifier {
     await file.parent.create(recursive: true);
     try {
       final p = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      theme = ThemeMode.values.firstWhere((x) => x.name == p['theme'], orElse: () => ThemeMode.light);
+      theme = ThemeMode.values.firstWhere(
+        (x) => x.name == p['theme'],
+        orElse: () => ThemeMode.light,
+      );
       soundPanel = p['soundPanel'] == true;
       repeats = ((p['repeats'] as int?) ?? 1).clamp(1, 5);
       visible = p['visible'] == true;
@@ -51,13 +55,17 @@ class PreferencesService extends ChangeNotifier {
       fieldSilence = p['fieldSilence'] == true;
       nickname = p['nickname'] as String? ?? nickname;
       token = p['token'] as String? ?? '';
+      favoriteSpecies = (p['favoriteSpecies'] as List? ?? const [])
+          .whereType<String>()
+          .toSet();
       cameraLabel = p['cameraLabel'] as String? ?? cameraLabel;
       cameraMode = p['cameraMode'] as String? ?? cameraMode;
       cameraShutter = p['cameraShutter'] as String? ?? cameraShutter;
       cameraAperture = p['cameraAperture'] as String? ?? cameraAperture;
       cameraAutoIso = p['cameraAutoIso'] != false;
       cameraIso = (p['cameraIso'] as num?)?.toInt() ?? cameraIso;
-      cameraAutoIsoMax = (p['cameraAutoIsoMax'] as num?)?.toInt() ?? cameraAutoIsoMax;
+      cameraAutoIsoMax =
+          (p['cameraAutoIsoMax'] as num?)?.toInt() ?? cameraAutoIsoMax;
       cameraFocus = p['cameraFocus'] as String? ?? cameraFocus;
       cameraAfArea = p['cameraAfArea'] as String? ?? cameraAfArea;
       cameraSubject = p['cameraSubject'] as String? ?? cameraSubject;
@@ -68,8 +76,23 @@ class PreferencesService extends ChangeNotifier {
     } catch (_) {}
     if (token.isEmpty) {
       final r = Random.secure();
-      token = List.generate(32, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+      token = List.generate(
+        32,
+        (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0'),
+      ).join();
       await save();
+    }
+  }
+
+  Future<void> toggleFavorite(String species) async {
+    final previous = Set<String>.from(favoriteSpecies);
+    if (!favoriteSpecies.add(species)) favoriteSpecies.remove(species);
+    try {
+      await save();
+    } catch (_) {
+      favoriteSpecies = previous;
+      notifyListeners();
+      rethrow;
     }
   }
 
@@ -87,6 +110,7 @@ class PreferencesService extends ChangeNotifier {
         'fieldSilence': fieldSilence,
         'nickname': nickname,
         'token': token,
+        'favoriteSpecies': favoriteSpecies.toList()..sort(),
         'cameraLabel': cameraLabel,
         'cameraMode': cameraMode,
         'cameraShutter': cameraShutter,

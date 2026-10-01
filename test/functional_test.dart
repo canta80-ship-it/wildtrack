@@ -415,6 +415,37 @@ void main() {
     await AuthService.instance.signOut();
     expect(await AuthService.instance.currentUsername(), null);
   });
+  test(
+    'AUTH recovery requires secret code and preserves account after logout',
+    () async {
+      final auth = AuthService.instance;
+      await auth.register('test.user', 'old-password');
+      final code = await auth.createRecoveryCode();
+      await auth.signOut();
+      await expectLater(
+        auth.recoverPassword('test.user', 'wrong-code', 'new-password'),
+        throwsA(anything),
+      );
+      await auth.recoverPassword('test.user', code, 'new-password');
+      expect(await auth.currentUsername(), null);
+      await expectLater(
+        auth.signIn('test.user', 'old-password'),
+        throwsA(anything),
+      );
+      expect(await auth.signIn('test.user', 'new-password'), 'test.user');
+      expect(await auth.currentUsername(), 'test.user');
+    },
+  );
+  test('PREF species favorites survive reload and toggle off', () async {
+    prefs.favoriteSpecies = {};
+    await prefs.toggleFavorite('Cervo');
+    prefs.favoriteSpecies = {};
+    await prefs.load();
+    expect(prefs.favoriteSpecies, contains('Cervo'));
+    await prefs.toggleFavorite('Cervo');
+    await prefs.load();
+    expect(prefs.favoriteSpecies, isNot(contains('Cervo')));
+  });
   test('MEDIA missing photos are handled without exception', () async {
     expect(await MediaStorageService.instance.persistPhoto(null, 'x'), null);
     expect(
@@ -682,6 +713,46 @@ void main() {
     expect(remaining, hasLength(1));
     expect(remaining.single.id, 'keep');
   });
+  test('BACKUP SQL failure rolls back database, photos and settings', () async {
+    await db.insertSighting(row('keep'));
+    final media = await MediaStorageService.instance.mediaDirectory;
+    final photo = File('${media.path}/keep.jpg');
+    await photo.writeAsBytes([9, 8, 7]);
+    prefs.cameraLabel = 'Keep';
+    await prefs.save();
+    final backup = jsonDecode(
+      utf8.decode(await WildTrackBackupService.instance.buildBackup()),
+    ) as Map;
+    backup['appData']['database']['sightings'] = [
+      {'id': 'bad', 'unknown_column': 'invalid'},
+    ];
+    backup['appData']['profileAndSettings']['cameraLabel'] = 'Lose';
+    await expectLater(
+      WildTrackBackupService.instance.restore(
+        Uint8List.fromList(utf8.encode(jsonEncode(backup))),
+      ),
+      throwsA(anything),
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+    expect(await photo.readAsBytes(), [9, 8, 7]);
+    expect(prefs.cameraLabel, 'Keep');
+  });
+  test('BACKUP traversal names rejected before changing archive', () async {
+    await db.insertSighting(row('keep'));
+    final backup = jsonDecode(
+      utf8.decode(await WildTrackBackupService.instance.buildBackup()),
+    ) as Map;
+    backup['appData']['media'] = [
+      {'name': '../escape.jpg', 'data': 'AQI='},
+    ];
+    await expectLater(
+      WildTrackBackupService.instance.restore(
+        Uint8List.fromList(utf8.encode(jsonEncode(backup))),
+      ),
+      throwsFormatException,
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+  });
   test('AUDIO stop cancels pending requests through native bridge', () async {
     var stops = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -757,15 +828,12 @@ void main() {
       findsOneWidget,
     );
   });
-  testWidgets('UI ACCESS password recovery currently only displays message', (
+  testWidgets('UI ACCESS password recovery opens real recovery form', (
     tester,
   ) async {
     await mount(tester, const AccessScreen(home: SizedBox()));
     await click(tester, find.text('Hai dimenticato la password?'));
-    expect(
-      find.text('Recupero password disponibile con account cloud.'),
-      findsOneWidget,
-    );
+    expect(find.text('Codice di recupero'), findsOneWidget);
   });
   testWidgets('UI SIGHTING count starts at one and increments', (tester) async {
     await mount(tester, const PremiumSightingScreen());
@@ -891,6 +959,24 @@ void main() {
       () async => jsonDecode(await prefs.file.readAsString()) as Map,
     );
     expect(raw!['cameraLabel'], 'Corpo test + 300 mm');
+  });
+  testWidgets('UI species favorite button saves and removes species', (
+    tester,
+  ) async {
+    prefs.favoriteSpecies = {};
+    await mount(
+      tester,
+      PremiumAnimalScreen(animals.firstWhere((a) => a.name == 'Cervo')),
+    );
+    await click(tester, find.byIcon(Icons.favorite_border));
+    await tester.runAsync(() => prefs.save());
+    await tester.pumpAndSettle();
+    expect(prefs.favoriteSpecies, contains('Cervo'));
+    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    await click(tester, find.byIcon(Icons.favorite));
+    await tester.runAsync(() => prefs.save());
+    await tester.pumpAndSettle();
+    expect(prefs.favoriteSpecies, isNot(contains('Cervo')));
   });
   testWidgets('UI GUIDE offline checklist toggles selected item', (
     tester,

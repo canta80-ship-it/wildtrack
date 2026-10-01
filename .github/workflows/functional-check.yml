@@ -2,7 +2,7 @@ name: WildTrack functional diagnosis
 on:
   push:
     branches: [interface-reference]
-    paths: [test/functional_test.dart, tool/android_smoke.py, .github/workflows/functional-check.yml, pubspec.yaml]
+    paths: ['**.dart', tool/android_smoke.py, tool/wait_for_build.py, .github/workflows/functional-check.yml, pubspec.yaml]
   workflow_dispatch:
 permissions:
   contents: read
@@ -55,10 +55,15 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Wait for signed APK built from this commit
+        id: build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tool/wait_for_build.py
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 36934000179
+          run-id: ${{ steps.build.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: tested-apk
       - name: Enable Android emulator acceleration

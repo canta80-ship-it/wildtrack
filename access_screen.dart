@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../premium_ui.dart';
 import '../services/auth_service.dart';
@@ -45,6 +46,39 @@ class _AccessScreenState extends State<AccessScreen> {
       } else {
         await AuthService.instance.signIn(user, pass);
       }
+      if (!AuthService.instance.usesCloudAccounts &&
+          !await AuthService.instance.hasRecoveryCode() &&
+          mounted) {
+        final code = await AuthService.instance.createRecoveryCode();
+        if (mounted)
+          await showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('Conserva il codice di recupero'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Conserva questo codice in un luogo sicuro: serve per reimpostare la password locale. Non condividerlo.',
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(code),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Clipboard.setData(ClipboardData(text: code)),
+                  child: const Text('Copia codice'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Ho conservato il codice'),
+                ),
+              ],
+            ),
+          );
+      }
       if (!mounted) return;
       Navigator.of(
         context,
@@ -62,6 +96,13 @@ class _AccessScreenState extends State<AccessScreen> {
       register = value;
       error = null;
     });
+  }
+
+  Future<void> recoverPassword() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _RecoveryDialog(initialUsername: username.text),
+    );
   }
 
   void passkeyInfo() {
@@ -234,14 +275,7 @@ class _AccessScreenState extends State<AccessScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () => ScaffoldMessenger.of(context)
-                              .showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Recupero password disponibile con account cloud.',
-                                  ),
-                                ),
-                              ),
+                          onPressed: busy ? null : recoverPassword,
                           child: const Text(
                             'Hai dimenticato la password?',
                             style: TextStyle(color: WildColors.forest),
@@ -459,5 +493,109 @@ class _PrimaryButton extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+class _RecoveryDialog extends StatefulWidget {
+  const _RecoveryDialog({required this.initialUsername});
+  final String initialUsername;
+  @override
+  State<_RecoveryDialog> createState() => _RecoveryDialogState();
+}
+
+class _RecoveryDialogState extends State<_RecoveryDialog> {
+  late final user = TextEditingController(text: widget.initialUsername);
+  final code = TextEditingController();
+  final password = TextEditingController();
+  bool busy = false;
+  String? message;
+  bool done = false;
+  @override
+  void dispose() {
+    user.dispose();
+    code.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    setState(() {
+      busy = true;
+      message = null;
+    });
+    try {
+      await AuthService.instance.recoverPassword(
+        user.text,
+        code.text,
+        password.text,
+      );
+      if (mounted)
+        setState(() {
+          done = true;
+          message = AuthService.instance.usesCloudAccounts
+              ? 'Richiesta inviata. Controlla la tua email.'
+              : 'Password aggiornata. Accedi con la nuova password.';
+        });
+    } catch (e) {
+      if (mounted)
+        setState(
+          () => message = e.toString().replaceFirst(
+            RegExp(r'^(Exception|Bad state): '),
+            '',
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Recupera password'),
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!done) ...[
+            TextField(
+              controller: user,
+              decoration: InputDecoration(
+                labelText: AuthService.instance.usesCloudAccounts
+                    ? 'Email dell’account'
+                    : 'Nickname',
+              ),
+            ),
+            if (!AuthService.instance.usesCloudAccounts) ...[
+              TextField(
+                controller: code,
+                decoration: const InputDecoration(
+                  labelText: 'Codice di recupero',
+                ),
+              ),
+              TextField(
+                controller: password,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Nuova password'),
+              ),
+              const Text(
+                'Per gli account locali precedenti senza codice, la password non può essere recuperata da questa schermata.',
+              ),
+            ],
+          ],
+          if (message != null) Text(message!),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: busy ? null : () => Navigator.pop(context),
+        child: Text(done ? 'Chiudi' : 'Annulla'),
+      ),
+      if (!done)
+        TextButton(
+          onPressed: busy ? null : submit,
+          child: Text(busy ? 'Attendi…' : 'Reimposta password'),
+        ),
+    ],
   );
 }
