@@ -9,6 +9,7 @@ import 'sightings_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
 import 'field_tools_screen.dart';
+import 'did_you_know_widget.dart';
 import '../premium_ui.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -81,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return Row(children: [
                         Expanded(child: _HeroPill(icon: Icons.bar_chart_rounded, label: 'Attività fauna: $activity', green: true)),
                         const SizedBox(width: 10),
-                        Expanded(child: _HeroPill(icon: Icons.wb_twilight_outlined, label: data?.weatherAvailable == true ? '${data!.temperature?.toStringAsFixed(0) ?? '—'}° · alba ideale' : 'Alba ideale per osservazione')),
+                        Expanded(child: _HeroPill(icon: Icons.wb_twilight_outlined, label: data?.weatherAvailable == true ? '${data!.temperature?.toStringAsFixed(0) ?? '—'}° · ${data.habitat}' : 'Alba ideale per osservazione')),
                       ]);
                     },
                   ),
@@ -107,21 +108,23 @@ class _HomeScreenState extends State<HomeScreen> {
               future: radar,
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
-                final rows = snapshot.data!.species;
+                final rows = snapshot.data!.species.take(8).toList();
                 return SizedBox(
-                  height: 190,
+                  height: 202,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: rows.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 9),
+                    separatorBuilder: (_, __) => const SizedBox(width: 9),
                     itemBuilder: (context, i) {
                       final s = rows[i];
-                      return _SpeciesCard(name: s.name, score: s.score, asset: _assetFor(s.name));
+                      return _SpeciesCard(name: s.name, score: s.score, confidence: s.confidence, asset: _assetFor(s.name));
                     },
                   ),
                 );
               },
             ),
+            const SizedBox(height: 24),
+            const DidYouKnowCarousel(),
             const SizedBox(height: 24),
             WildSectionTitle('Ultima uscita', action: 'Vedi dettagli', onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const StatsScreen()))),
             const SizedBox(height: 8),
@@ -134,17 +137,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Cansiglio', style: TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w800)),
+                      const Text('Ultima uscita registrata', style: TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 2),
-                      const Text('Ultima attività registrata', style: TextStyle(fontSize: 11, color: WildColors.muted)),
+                      Text(sightings.isEmpty ? 'Il diario crescerà con le tue attività' : '${sightings.length} osservazioni nel tuo archivio', style: const TextStyle(fontSize: 11, color: WildColors.muted)),
                       const Spacer(),
                       const Wrap(spacing: 12, runSpacing: 8, children: [
-                        _MiniMetric(Icons.route_outlined, '8,4 km'),
-                        _MiniMetric(Icons.schedule_outlined, '3 h 12m'),
-                        _MiniMetric(Icons.pets_outlined, '6 specie'),
+                        _MiniMetric(Icons.route_outlined, 'GPS'),
+                        _MiniMetric(Icons.schedule_outlined, 'Diario'),
+                        _MiniMetric(Icons.pets_outlined, 'Lifer'),
                       ]),
                       const Spacer(),
-                      Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7), decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(10)), child: const Row(children: [Icon(Icons.workspace_premium, size: 16, color: WildColors.forest), SizedBox(width: 6), Expanded(child: Text('Nuovo lifer: Picchio nero', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)))])),
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7), decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(10)), child: const Row(children: [Icon(Icons.auto_stories_outlined, size: 16, color: WildColors.forest), SizedBox(width: 6), Expanded(child: Text('Apri il Diario per il riepilogo automatico', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)))])),
                     ]),
                   )),
                 ]),
@@ -154,9 +157,9 @@ class _HomeScreenState extends State<HomeScreen> {
             WildSectionTitle('Il tuo diario', action: 'Vedi tutto', onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const StatsScreen()))),
             const SizedBox(height: 8),
             Row(children: [
-              Expanded(child: _DiaryMetric(icon: Icons.eco_outlined, label: 'Specie uniche', value: '${sightings.map((e) => e.species).where((e) => e.isNotEmpty).toSet().length}')),
+              Expanded(child: _DiaryMetric(icon: Icons.eco_outlined, label: 'Specie uniche', value: '${sightings.map((e) => e.species).where((e) => e.isNotEmpty && e != 'Specie non identificata').toSet().length}')),
               const SizedBox(width: 9),
-              const Expanded(child: _DiaryMetric(icon: Icons.schedule_outlined, label: 'Tempo sul campo', value: '64 h')),
+              Expanded(child: _DiaryMetric(icon: Icons.visibility_outlined, label: 'Osservazioni', value: '${sightings.length}')),
             ]),
             const SizedBox(height: 14),
             InkWell(
@@ -228,13 +231,14 @@ class _QuickAction extends StatelessWidget {
 }
 
 class _SpeciesCard extends StatelessWidget {
-  const _SpeciesCard({required this.name, required this.score, required this.asset});
+  const _SpeciesCard({required this.name, required this.score, required this.confidence, required this.asset});
   final String name;
   final int score;
+  final int confidence;
   final String asset;
   @override
   Widget build(BuildContext context) => Container(
-    width: 135,
+    width: 142,
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 16, offset: Offset(0, 5))]),
     child: ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -243,7 +247,7 @@ class _SpeciesCard extends StatelessWidget {
         Padding(padding: const EdgeInsets.fromLTRB(11, 9, 11, 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', fontSize: 15, fontWeight: FontWeight.w800)),
           const SizedBox(height: 3),
-          Text('$score%', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          Row(children: [Text('$score%', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)), const Spacer(), Text('conf. $confidence%', style: const TextStyle(fontSize: 8, color: WildColors.muted))]),
           const SizedBox(height: 5),
           ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(value: score / 100, minHeight: 6, color: score > 65 ? const Color(0xFF5E9B55) : score > 45 ? const Color(0xFF8EAA63) : WildColors.amber, backgroundColor: const Color(0xFFE8E6DF))),
         ])),
