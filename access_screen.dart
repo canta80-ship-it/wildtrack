@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'auth_service.dart';
+import '../services/auth_service.dart';
+import '../premium_ui.dart';
 import 'book_widget.dart';
-import 'premium_ui.dart';
 
 class AccessScreen extends StatefulWidget {
   const AccessScreen({super.key, required this.home, this.register = false});
@@ -239,10 +239,14 @@ class _AccessScreenState extends State<AccessScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(register ? 'Ho già un account' : 'Registrati', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                            const Spacer(),
+                            Expanded(
+                              child: Text(
+                                register ? 'Ho già un account' : 'Registrati',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                              ),
+                            ),
                             const Icon(Icons.chevron_right),
                           ],
                         ),
@@ -298,9 +302,7 @@ class _Tab extends StatelessWidget {
           duration: const Duration(milliseconds: 170),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            gradient: active
-                ? const LinearGradient(colors: [Color(0xFF244F38), Color(0xFF173F2B)])
-                : null,
+            gradient: active ? const LinearGradient(colors: [Color(0xFF244F38), Color(0xFF173F2B)]) : null,
             borderRadius: BorderRadius.circular(15),
           ),
           child: Text(
