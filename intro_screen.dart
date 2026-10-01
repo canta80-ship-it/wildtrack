@@ -14,14 +14,14 @@ class IntroScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: WildColors.ivory,
     body: Stack(fit: StackFit.expand, children: [
-      Image.asset('intro_cervo.jpg', fit: BoxFit.cover, alignment: const Alignment(.25, -.12)),
+      const WildLandscape(height: 900, darkBottom: true, animal: 'Cervo'),
       const DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0x08FFFFFF), Color(0x00121F16), Color(0x2D0C1C13), Color(0xD20C1C13), WildColors.ivory],
-            stops: [0, .36, .56, .77, 1],
+            colors: [Color(0x08FFFFFF), Color(0x00121F16), Color(0x24121F16), Color(0xC9173325), WildColors.ivory],
+            stops: [0, .34, .54, .78, 1],
           ),
         ),
       ),
@@ -33,8 +33,8 @@ class IntroScreen extends StatelessWidget {
             const SizedBox(height: 8),
             const Text('Osserva. Registra. Esplora.', style: TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w700, color: WildColors.ink)),
             const Spacer(),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-              Expanded(child: _Benefit(icon: Icons.binoculars_outlined, title: 'Scopri la fauna', body: 'Esplora sentieri, habitat e specie nel tuo territorio.')),
+            const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: _Benefit(icon: Icons.visibility_outlined, title: 'Scopri la fauna', body: 'Esplora sentieri, habitat e specie nel tuo territorio.')),
               SizedBox(width: 8),
               Expanded(child: _Benefit(icon: Icons.description_outlined, title: 'Registra avvistamenti', body: 'Costruisci il tuo diario naturalistico.')),
               SizedBox(width: 8),
@@ -43,7 +43,7 @@ class IntroScreen extends StatelessWidget {
             const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: .78), borderRadius: BorderRadius.circular(20)),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: .84), borderRadius: BorderRadius.circular(20)),
               child: const Row(children: [
                 WildIconDisc(Icons.lock_outline, size: 42, background: Color(0xFFE2EADC)),
                 SizedBox(width: 12),
@@ -68,9 +68,7 @@ class IntroScreen extends StatelessWidget {
               style: TextButton.styleFrom(foregroundColor: WildColors.forest),
             ),
             const SizedBox(height: 2),
-            const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _Dot(active: true), SizedBox(width: 9), _Dot(), SizedBox(width: 9), _Dot(),
-            ]),
+            const Row(mainAxisAlignment: MainAxisAlignment.center, children: [_Dot(active: true), SizedBox(width: 9), _Dot(), SizedBox(width: 9), _Dot()]),
           ]),
         ),
       ),
