@@ -85,6 +85,50 @@ class BookHero extends StatelessWidget {
       );
 }
 
+class BookLandscape extends StatelessWidget {
+  const BookLandscape({super.key, this.height = 220, this.darkBottom = false, this.animal});
+  final double height;
+  final bool darkBottom;
+  final String? animal;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            BookPhoto(
+              asset: wildBookAssetFor(animal ?? 'Cervo'),
+              alignment: animal == null ? Alignment.topCenter : Alignment.center,
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: darkBottom
+                      ? const [Color(0x06000000), Color(0x20000000), Color(0xB6172F22)]
+                      : const [Color(0x0AFFFFFF), Color(0x00FFFFFF), Color(0x44FFFDF8)],
+                  stops: const [0, .58, 1],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class BookAnimalIllustration extends StatelessWidget {
+  const BookAnimalIllustration(this.name, {super.key, this.size = 96, this.light = false});
+  final String name;
+  final double size;
+  final bool light;
+
+  @override
+  Widget build(BuildContext context) => BookAnimalThumb(name, width: size, height: size);
+}
+
 class BookAnimalThumb extends StatelessWidget {
   const BookAnimalThumb(this.name, {super.key, this.width = 132, this.height = 116});
   final String name;
