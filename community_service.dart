@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'preferences_service.dart';
 import 'database_service.dart';
 import 'location_service.dart';
+import 'privacy_service.dart';
 
 const communityUrl = 'https://wildtrack-community.canta80.chatgpt.site';
 
@@ -26,6 +27,7 @@ class CommunityService extends ChangeNotifier {
   StreamSubscription<Position>? backgroundLocation;
   bool presenceBusy = false;
   Future<void> queueWrites = Future<void>.value();
+
   bool get canShare =>
       PreferencesService.instance.visible &&
       (foreground ||
@@ -41,51 +43,43 @@ class CommunityService extends ChangeNotifier {
     }
     if (!foreground || backgroundLocation != null) return;
     if (!await LocationService.ensurePermission()) {
-      throw Exception(
-        'Autorizza la posizione per attivare la condivisione a schermo spento.',
-      );
+      throw Exception('Autorizza la posizione per attivare la condivisione a schermo spento.');
     }
-    // Start while the activity is visible. Android then keeps the location
-    // foreground service alive when the user switches apps or locks the screen.
-    backgroundLocation =
-        Geolocator.getPositionStream(
-          locationSettings: AndroidSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 0,
-            intervalDuration: const Duration(seconds: 15),
-            foregroundNotificationConfig: const ForegroundNotificationConfig(
-              notificationTitle: 'WildTrack · posizione condivisa',
-              notificationText: 'Condivisione attiva anche a schermo spento. Apri WildTrack per disattivarla.',
-              enableWakeLock: true,
-              setOngoing: true,
-            ),
-          ),
-        ).listen(
-          (p) {
-            if (!canShare) return;
-            position = p;
-            notifyListeners();
-            unawaited(updatePresence());
-          },
-          onError: (Object e) {
-            error = 'Condivisione GPS interrotta: $e';
-            final stream = backgroundLocation;
-            backgroundLocation = null;
-            unawaited(stream?.cancel());
-            notifyListeners();
-          },
-        );
+    backgroundLocation = Geolocator.getPositionStream(
+      locationSettings: AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 15),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'WildTrack · posizione condivisa',
+          notificationText: 'Condivisione attiva anche a schermo spento. Apri WildTrack per disattivarla.',
+          enableWakeLock: true,
+          setOngoing: true,
+        ),
+      ),
+    ).listen(
+      (p) {
+        if (!canShare) return;
+        position = p;
+        notifyListeners();
+        unawaited(updatePresence());
+      },
+      onError: (Object e) {
+        error = 'Condivisione GPS interrotta: $e';
+        final stream = backgroundLocation;
+        backgroundLocation = null;
+        unawaited(stream?.cancel());
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> load() async {
-    queueFile = File(
-      '${PreferencesService.instance.file.parent.path}/wildtrack_outbox.json',
-    );
+    queueFile = File('${PreferencesService.instance.file.parent.path}/wildtrack_outbox.json');
     try {
       pending.addAll(
-        (jsonDecode(await queueFile.readAsString()) as List).map(
-          (x) => Map<String, dynamic>.from(x as Map),
-        ),
+        (jsonDecode(await queueFile.readAsString()) as List)
+            .map((x) => Map<String, dynamic>.from(x as Map)),
       );
     } catch (_) {}
   }
@@ -106,31 +100,19 @@ class CommunityService extends ChangeNotifier {
     String method = 'GET',
     Map<String, dynamic>? body,
   }) async {
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
     try {
-      final req = await client.openUrl(
-        method,
-        Uri.parse('$communityUrl/api/$path'),
-      );
-      req.headers.set(
-        'Authorization',
-        'Bearer ${PreferencesService.instance.token}',
-      );
+      final req = await client.openUrl(method, Uri.parse('$communityUrl/api/$path'));
+      req.headers.set('Authorization', 'Bearer ${PreferencesService.instance.token}');
       req.headers.set('Accept', 'application/json');
       if (body != null) {
         req.headers.contentType = ContentType.json;
         req.write(jsonEncode(body));
       }
       final res = await req.close().timeout(const Duration(seconds: 40));
-      final text = await res
-          .transform(utf8.decoder)
-          .join()
-          .timeout(const Duration(seconds: 40));
+      final text = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 40));
       final data = jsonDecode(text) as Map<String, dynamic>;
-      if (res.statusCode >= 400) {
-        throw Exception(data['error'] ?? 'Servizio non disponibile');
-      }
+      if (res.statusCode >= 400) throw Exception(data['error'] ?? 'Servizio non disponibile');
       return data;
     } finally {
       client.close(force: true);
@@ -140,12 +122,10 @@ class CommunityService extends ChangeNotifier {
   void start() {
     timer?.cancel();
     foreground = true;
-    unawaited(
-      configureBackgroundSharing().catchError((Object e) {
-        error = e.toString();
-        notifyListeners();
-      }),
-    );
+    unawaited(configureBackgroundSharing().catchError((Object e) {
+      error = e.toString();
+      notifyListeners();
+    }));
     unawaited(refresh());
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (foreground) {
@@ -174,8 +154,7 @@ class CommunityService extends ChangeNotifier {
     try {
       await api('community', method: 'DELETE');
     } catch (_) {
-      error =
-          'Rimozione della posizione non confermata: scadrà entro 3 minuti.';
+      error = 'Rimozione della posizione non confermata: scadrà entro 3 minuti.';
       notifyListeners();
     }
   }
@@ -186,15 +165,10 @@ class CommunityService extends ChangeNotifier {
     presenceBusy = true;
     final generation = presenceGeneration;
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw Exception('GPS disattivato');
-      }
+      if (!await Geolocator.isLocationServiceEnabled()) throw Exception('GPS disattivato');
       var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission != LocationPermission.always &&
-          permission != LocationPermission.whileInUse) {
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
         throw Exception('Autorizza il GPS per condividere la posizione');
       }
       final p = backgroundLocation != null
@@ -205,29 +179,20 @@ class CommunityService extends ChangeNotifier {
                 timeLimit: Duration(seconds: 15),
               ),
             );
-      if (generation != presenceGeneration || !canShare) {
-        return;
-      }
-      if (p == null || DateTime.now().difference(p.timestamp).inSeconds > 90)
-        return;
+      if (generation != presenceGeneration || !canShare) return;
+      if (p == null || DateTime.now().difference(p.timestamp).inSeconds > 90) return;
       position = p;
-      await api(
-        'community',
-        method: 'POST',
-        body: {
-          'nickname': prefs.nickname,
-          'lat': p.latitude,
-          'lng': p.longitude,
-        },
-      );
+      await api('community', method: 'POST', body: {
+        'nickname': prefs.nickname,
+        'lat': p.latitude,
+        'lng': p.longitude,
+      });
       if (generation != presenceGeneration || !canShare) {
         await hide();
         return;
       }
       final data = await api('community');
-      people = (data['items'] as List)
-          .map((x) => Map<String, dynamic>.from(x as Map))
-          .toList();
+      people = (data['items'] as List).map((x) => Map<String, dynamic>.from(x as Map)).toList();
       notifyListeners();
     } catch (e) {
       error = 'Persone vicine: ${e.toString().replaceFirst('Exception: ', '')}';
@@ -239,18 +204,18 @@ class CommunityService extends ChangeNotifier {
   }
 
   Future<void> add(Map<String, dynamic> item) async {
-    final index = pending.indexWhere((s) => s['id'] == item['id']);
+    final protected = item['groupId'] == null
+        ? WildlifePrivacyService.instance.protectPayload(item)
+        : Map<String, dynamic>.from(item);
+    final index = pending.indexWhere((s) => s['id'] == protected['id']);
     if (index >= 0 && syncing) {
-      throw Exception(
-        'Invio in corso. Attendi che termini prima di modificare la segnalazione.',
-      );
+      throw Exception('Invio in corso. Attendi che termini prima di modificare la segnalazione.');
     }
     final previous = index >= 0 ? pending[index] : null;
-    final replacement = Map<String, dynamic>.from(item);
     if (index >= 0) {
-      pending[index] = replacement;
+      pending[index] = protected;
     } else {
-      pending.add(replacement);
+      pending.add(protected);
     }
     try {
       await saveQueue();
@@ -258,14 +223,29 @@ class CommunityService extends ChangeNotifier {
       if (previous != null) {
         pending[index] = previous;
       } else {
-        pending.remove(replacement);
+        pending.remove(protected);
       }
       rethrow;
     }
     error = null;
     notifyListeners();
-    // Saving never waits for Internet. Publishing resumes after durable storage.
     unawaited(refresh());
+  }
+
+  bool _readyForPublication(Map<String, dynamic> item) {
+    final value = item['publishAfter'];
+    if (value == null) return true;
+    final due = DateTime.tryParse('$value')?.toLocal();
+    return due == null || !DateTime.now().isBefore(due);
+  }
+
+  Duration? get nextPendingDelay {
+    DateTime? next;
+    for (final item in pending) {
+      final due = DateTime.tryParse('${item['publishAfter'] ?? ''}')?.toLocal();
+      if (due != null && due.isAfter(DateTime.now()) && (next == null || due.isBefore(next))) next = due;
+    }
+    return next == null ? null : next.difference(DateTime.now());
   }
 
   Future<void> refresh({bool more = false}) async {
@@ -273,26 +253,19 @@ class CommunityService extends ChangeNotifier {
     syncing = true;
     try {
       while (pending.isNotEmpty) {
-        final item = pending.first;
-        await api('sightings', method: 'POST', body: item);
+        final readyIndex = pending.indexWhere(_readyForPublication);
+        if (readyIndex < 0) break;
+        final item = pending[readyIndex];
+        final payload = Map<String, dynamic>.from(item)..remove('publishAfter');
+        await api('sightings', method: 'POST', body: payload);
         if (item['groupId'] == null) {
-          // Only a successful server response converts the private observation.
           await DatabaseService.instance.deleteSighting(item['id'] as String);
         }
-        pending.removeAt(0);
-        try {
-          await saveQueue();
-        } catch (_) {
-          pending.insert(0, item);
-          rethrow;
-        }
+        pending.removeAt(readyIndex);
+        await saveQueue();
       }
-      final data = await api(
-        'sightings?offset=${more ? (nextOffset ?? 0) : 0}',
-      );
-      final rows = (data['items'] as List)
-          .map((x) => Map<String, dynamic>.from(x as Map))
-          .toList();
+      final data = await api('sightings?offset=${more ? (nextOffset ?? 0) : 0}');
+      final rows = (data['items'] as List).map((x) => Map<String, dynamic>.from(x as Map)).toList();
       if (more) {
         final ids = sightings.map((x) => x['id']).toSet();
         sightings.addAll(rows.where((x) => !ids.contains(x['id'])));
