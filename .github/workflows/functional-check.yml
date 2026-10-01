@@ -50,6 +50,7 @@ jobs:
           path: functional-results.json
           if-no-files-found: warn
   android:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[android]')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -82,3 +83,15 @@ jobs:
           name: WildTrack-Android-functional-results
           path: android-results/
           if-no-files-found: warn
+  online:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only checks of public service endpoints
+        run: python3 tool/online_checks.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WildTrack-online-results
+          path: online-results.json

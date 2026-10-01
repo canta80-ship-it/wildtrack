@@ -6,6 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'dart:async';
+
+import 'package:geolocator/geolocator.dart';
+import 'package:wildtrack_mvp/services/location_service.dart';
+import 'package:wildtrack_mvp/services/tracking_service.dart';
+import 'package:wildtrack_mvp/services/radar_service.dart';
+import 'package:wildtrack_mvp/screens/sos_screen.dart';
 import 'package:wildtrack_mvp/main.dart' show wildTrackTheme;
 import 'package:wildtrack_mvp/models/sighting.dart';
 import 'package:wildtrack_mvp/models/track_point.dart';
@@ -73,6 +81,43 @@ List<TrackPoint> points() => [
     timestamp: DateTime(2026, 9, 20, 8, 1),
   ),
 ];
+
+class TestGps extends GeolocatorPlatform {
+  TestGps({this.enabled = true});
+  final bool enabled;
+  final stream = StreamController<Position>.broadcast();
+  @override
+  Future<bool> isLocationServiceEnabled() async => enabled;
+  @override
+  Future<LocationPermission> checkPermission() async => enabled
+      ? LocationPermission.whileInUse
+      : LocationPermission.deniedForever;
+  @override
+  Future<LocationPermission> requestPermission() async => enabled
+      ? LocationPermission.whileInUse
+      : LocationPermission.deniedForever;
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      stream.stream;
+}
+
+Position gps(
+  double lat,
+  DateTime at, {
+  double accuracy = 5,
+  double altitude = 500,
+}) => Position(
+  latitude: lat,
+  longitude: 12,
+  timestamp: at,
+  accuracy: accuracy,
+  altitude: altitude,
+  altitudeAccuracy: 1,
+  heading: 0,
+  headingAccuracy: 1,
+  speed: 1,
+  speedAccuracy: 1,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -161,6 +206,63 @@ void main() {
       ascentMeters: 0,
     );
     expect(s.averageSpeedMps, 0);
+  });
+  test('GPS disabled prevents start and returns missing position', () async {
+    final old = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+    GeolocatorPlatform.instance = fake;
+    try {
+      expect(await LocationService.currentPosition(), null);
+      expect(await TrackingService.instance.start(), false);
+      expect(TrackingService.instance.isTracking, false);
+    } finally {
+      GeolocatorPlatform.instance = old;
+      await fake.stream.close();
+    }
+  });
+  test(
+    'TRACKING simulated GPS records chronological accurate points and distance',
+    () async {
+      final old = GeolocatorPlatform.instance, fake = TestGps();
+      GeolocatorPlatform.instance = fake;
+      try {
+        final track = TrackingService.instance;
+        expect(await track.start(), true);
+        final at = DateTime.now();
+        fake.stream.add(gps(46, at));
+        fake.stream.add(
+          gps(46.0005, at.add(const Duration(seconds: 10)), altitude: 510),
+        );
+        fake.stream.add(
+          gps(47, at.add(const Duration(seconds: 20)), accuracy: 200),
+        );
+        fake.stream.add(gps(46, at.subtract(const Duration(seconds: 10))));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final saved = await track.stop();
+        expect(saved, isNotNull);
+        expect(track.points, hasLength(2));
+        expect(saved!.distanceMeters, inInclusiveRange(50, 60));
+        expect(saved.ascentMeters, 10);
+        expect(await db.getTrackPoints(saved.id), hasLength(2));
+        expect(track.isTracking, false);
+      } finally {
+        GeolocatorPlatform.instance = old;
+        await fake.stream.close();
+      }
+    },
+  );
+  test('RADAR missing GPS does not claim live weather or position', () async {
+    final old = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+    GeolocatorPlatform.instance = fake;
+    try {
+      final radar = await RadarService.instance.load();
+      expect(radar.hasPosition, false);
+      expect(radar.weatherAvailable, false);
+      expect(radar.species, isNotEmpty);
+      for (final s in radar.species) expect(s.score, inInclusiveRange(0, 100));
+    } finally {
+      GeolocatorPlatform.instance = old;
+      await fake.stream.close();
+    }
   });
   test('DB sightings insert update chronological order', () async {
     await db.insertSighting(row('old', at: DateTime(2020)));
@@ -387,7 +489,7 @@ void main() {
     );
     expect(s.approximate, true);
     expect(s.radiusMeters, 10000);
-    expect(s.publishAfter, notNull);
+    expect(s.publishAfter, isNotNull);
     expect(s.latitude, isNot(46));
   });
   test('PRIVACY older sensitive sighting remains approximate', () {
@@ -613,6 +715,20 @@ void main() {
     await click(tester, find.text('Accedi').last);
     expect(find.text('Inserisci nome utente e password.'), findsOneWidget);
   });
+  testWidgets(
+    'UI SOS opens and handles GPS disabled without calling emergency services',
+    (tester) async {
+      final old = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+      GeolocatorPlatform.instance = fake;
+      try {
+        await mount(tester, const SosScreen());
+        expect(find.text('Attiva la posizione del telefono.'), findsOneWidget);
+      } finally {
+        GeolocatorPlatform.instance = old;
+        await fake.stream.close();
+      }
+    },
+  );
   testWidgets('UI ACCESS password visibility can toggle', (tester) async {
     await mount(tester, const AccessScreen(home: SizedBox()));
     expect(
