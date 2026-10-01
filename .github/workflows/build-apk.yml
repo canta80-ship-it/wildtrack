@@ -48,7 +48,13 @@ jobs:
         run: python3 prepare_nature.py
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - run: flutter build apk --release
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --dart-define=WILDTRACK_FIREBASE_API_KEY='${{ secrets.WILDTRACK_FIREBASE_API_KEY }}' \
+            --dart-define=WILDTRACK_FIREBASE_APP_ID='${{ secrets.WILDTRACK_FIREBASE_APP_ID }}' \
+            --dart-define=WILDTRACK_FIREBASE_PROJECT_ID='${{ secrets.WILDTRACK_FIREBASE_PROJECT_ID }}' \
+            --dart-define=WILDTRACK_FIREBASE_SENDER_ID='${{ secrets.WILDTRACK_FIREBASE_SENDER_ID }}'
       - name: Prepare APK
         run: cp build/app/outputs/flutter-apk/app-release.apk WildTrack-release.apk
       - uses: actions/upload-artifact@v4
