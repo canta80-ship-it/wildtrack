@@ -62,12 +62,7 @@ class ExpeditionState {
             .toList(),
       );
 
-  ExpeditionState copyWith({
-    DateTime? expiresAt,
-    bool? positionSharing,
-    List<ExpeditionEvent>? events,
-  }) =>
-      ExpeditionState(
+  ExpeditionState copyWith({DateTime? expiresAt, bool? positionSharing, List<ExpeditionEvent>? events}) => ExpeditionState(
         mapId: mapId,
         name: name,
         startedAt: startedAt,
@@ -88,12 +83,19 @@ class ExpeditionService {
   Future<void> _load() async {
     if (_loaded) return;
     _loaded = true;
+    _states.clear();
     try {
       final raw = jsonDecode(await (await file).readAsString()) as Map<String, dynamic>;
       for (final entry in raw.entries) {
         _states[entry.key] = ExpeditionState.fromJson(Map<String, dynamic>.from(entry.value as Map));
       }
     } catch (_) {}
+  }
+
+  Future<void> reloadFromDisk() async {
+    _loaded = false;
+    _states.clear();
+    await _load();
   }
 
   Future<void> _save() async {
@@ -134,10 +136,7 @@ class ExpeditionService {
     final max = duration > const Duration(days: 14) ? const Duration(days: 14) : duration;
     final next = current.copyWith(
       expiresAt: DateTime.now().add(max),
-      events: [
-        ...current.events,
-        ExpeditionEvent(type: 'expiry', text: 'Durata aggiornata a ${max.inHours} ore', at: DateTime.now()),
-      ],
+      events: [...current.events, ExpeditionEvent(type: 'expiry', text: 'Durata aggiornata a ${max.inHours} ore', at: DateTime.now())],
     );
     _states[mapId] = next;
     await _save();
@@ -151,14 +150,7 @@ class ExpeditionService {
     if (current.expired && enabled) throw StateError('La spedizione è scaduta');
     final next = current.copyWith(
       positionSharing: enabled,
-      events: [
-        ...current.events,
-        ExpeditionEvent(
-          type: 'location',
-          text: enabled ? 'Condivisione posizione attivata' : 'Condivisione posizione disattivata',
-          at: DateTime.now(),
-        ),
-      ],
+      events: [...current.events, ExpeditionEvent(type: 'location', text: enabled ? 'Condivisione posizione attivata' : 'Condivisione posizione disattivata', at: DateTime.now())],
     );
     _states[mapId] = next;
     await _save();
@@ -169,10 +161,7 @@ class ExpeditionService {
     await _load();
     final current = _states[mapId];
     if (current == null) throw StateError('Spedizione non trovata');
-    final next = current.copyWith(events: [
-      ...current.events,
-      ExpeditionEvent(type: type, text: text, at: DateTime.now()),
-    ]);
+    final next = current.copyWith(events: [...current.events, ExpeditionEvent(type: type, text: text, at: DateTime.now())]);
     _states[mapId] = next;
     await _save();
     return next;
@@ -185,10 +174,7 @@ class ExpeditionService {
     _states[mapId] = current.copyWith(
       expiresAt: DateTime.now(),
       positionSharing: false,
-      events: [
-        ...current.events,
-        ExpeditionEvent(type: 'ended', text: 'Spedizione terminata', at: DateTime.now()),
-      ],
+      events: [...current.events, ExpeditionEvent(type: 'ended', text: 'Spedizione terminata', at: DateTime.now())],
     );
     await _save();
   }
