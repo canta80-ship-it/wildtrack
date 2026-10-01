@@ -4,7 +4,7 @@ s = p.read_text()
 for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK']:
     if 'android.permission.'+permission not in s:
         s=s.replace('<application', f'<uses-permission android:name="android.permission.{permission}" />\n    <application',1)
-s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack 0.5"')
+s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack"')
 p.write_text(s)
 k=Path('android/app/src/main/kotlin/it/wildtrack/wildtrack_mvp/MainActivity.kt')
 k.parent.mkdir(parents=True,exist_ok=True)
@@ -80,18 +80,18 @@ class MainActivity: FlutterActivity() {
 }
 ''')
 
-# Green brand mark for the Android launcher as well as the in-app header.
 d=Path('android/app/src/main/res/drawable/wildtrack_logo.xml')
 d.parent.mkdir(parents=True,exist_ok=True)
 d.write_text('''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-<path android:fillColor="#294A34" android:pathData="M0,0H108V108H0Z"/>
-<path android:fillColor="#647A3F" android:pathData="M0,0H108V22L0,88Z"/>
-<path android:fillColor="#D4E1B9" android:pathData="M54,47C43,47 42,61 34,67C25,77 32,86 42,83C49,79 59,79 66,83C77,87 84,76 75,67C66,61 65,47 54,47Z M30,32a7,10 0,1 0,0.1,0Z M46,23a7,10 0,1 0,0.1,0Z M63,23a7,10 0,1 0,0.1,0Z M79,32a7,10 0,1 0,0.1,0Z"/>
+<path android:fillColor="#254D38" android:pathData="M0,0H108V108H0Z"/>
+<path android:fillColor="#5F7A61" android:pathData="M0,0H108V22L0,88Z"/>
+<path android:fillColor="#DDE8DA" android:pathData="M54,47C43,47 42,61 34,67C25,77 32,86 42,83C49,79 59,79 66,83C77,87 84,76 75,67C66,61 65,47 54,47Z M30,32a7,10 0,1 0,0.1,0Z M46,23a7,10 0,1 0,0.1,0Z M63,23a7,10 0,1 0,0.1,0Z M79,32a7,10 0,1 0,0.1,0Z"/>
 </vector>''')
 s=p.read_text().replace('android:icon="@mipmap/ic_launcher"','android:icon="@drawable/wildtrack_logo"')
 p.write_text(s)
-# Install alongside earlier test APKs; their signing keys were not retained.
-# The launcher name stays WildTrack; version numbers are internal metadata.
+
+# The package id changes because historical test signing keys were not retained;
+# the launcher label deliberately remains simply "WildTrack".
 build=Path('android/app/build.gradle.kts')
-s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v5"')
+s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v6"')
 build.write_text(s)
