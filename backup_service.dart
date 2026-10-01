@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
 
 import 'database_service.dart';
 import 'preferences_service.dart';
@@ -21,6 +22,9 @@ class WildTrackBackupService {
   static final instance = WildTrackBackupService();
   static const MethodChannel _channel = MethodChannel('wildtrack/backup');
   static const int backupVersion = 1;
+  static const Duration automaticInterval = Duration(hours: 12);
+
+  Future<File> get _stateFile async => File('${await getDatabasesPath()}/wildtrack_backup_state.json');
 
   Future<BackupFolderInfo?> folderInfo() async {
     final result = await _channel.invokeMapMethod<String, dynamic>('folderInfo');
@@ -38,6 +42,21 @@ class WildTrackBackupService {
       label: '${result['label'] ?? 'Cartella backup'}',
       uri: '${result['uri'] ?? ''}',
     );
+  }
+
+  Future<DateTime?> lastBackupAt() async {
+    try {
+      final raw = jsonDecode(await (await _stateFile).readAsString()) as Map<String, dynamic>;
+      return DateTime.tryParse('${raw['lastBackupAt'] ?? ''}')?.toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _markBackup(DateTime value) async {
+    final f = await _stateFile;
+    await f.parent.create(recursive: true);
+    await f.writeAsString(jsonEncode({'lastBackupAt': value.toUtc().toIso8601String()}), flush: true);
   }
 
   Future<Map<String, dynamic>> _preferencesSnapshot() async {
@@ -101,7 +120,16 @@ class WildTrackBackupService {
     String two(int v) => v.toString().padLeft(2, '0');
     final name = 'WildTrack-${now.year}${two(now.month)}${two(now.day)}-${two(now.hour)}${two(now.minute)}${two(now.second)}.wildtrack';
     await _channel.invokeMethod('writeBackup', {'name': name, 'data': bytes});
+    await _markBackup(DateTime.now());
     return name;
+  }
+
+  Future<bool> autoBackupIfDue() async {
+    if (await folderInfo() == null) return false;
+    final last = await lastBackupAt();
+    if (last != null && DateTime.now().difference(last) < automaticInterval) return false;
+    await backupNow();
+    return true;
   }
 
   Future<void> restoreLatest() async {
