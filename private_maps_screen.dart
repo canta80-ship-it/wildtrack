@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -187,7 +188,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
         SliverToBoxAdapter(
           child: WildHero(
             image: 'intro_marmotta.jpg',
-            height: 355,
+            height: 246,
             alignment: const Alignment(.05, -.18),
             child: SafeArea(
               bottom: false,
@@ -196,7 +197,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
                     IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white)),
-                    const WildLogo(compact: true, light: true),
+                    const WildLogo(compact: true),
                     const Spacer(),
                     IconButton(onPressed: load, icon: const Icon(Icons.refresh, color: Colors.white)),
                   ]),
@@ -257,7 +258,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
                   children: [
                     _ExpeditionCard(icon: Icons.location_on, title: 'Posizione\ndel gruppo', body: state?.positionSharing == true ? 'Condivisione attiva fino alla scadenza.' : 'Attiva la posizione solo durante l’uscita.', tint: WildColors.sageSoft, onTap: state == null || state.expired ? null : () => _toggleSharing(!(state.positionSharing))),
                     const _ExpeditionCard(icon: Icons.chat_bubble_outline, title: 'Messaggi', body: 'Comunica con il gruppo durante la spedizione.', tint: Color(0xFFEAF2F3)),
-                    const _ExpeditionCard(icon: Icons.visibility_outlined, title: 'Avvistamenti\ndel gruppo', body: 'Tutti gli avvistamenti condivisi.', tint: Color(0xFFF4E9D9)),
+                    const _ExpeditionCard(icon: WildIcons.binoculars, title: 'Avvistamenti\ndel gruppo', body: 'Tutti gli avvistamenti condivisi.', tint: Color(0xFFF4E9D9)),
                     _ExpeditionCard(icon: Icons.person_add_alt, title: 'Invita membri', body: 'Aggiungi altri compagni di spedizione.', tint: WildColors.sageSoft, onTap: current['mine'] == 1 ? () => action({'action': 'invite', 'mapId': current['id']}) : null),
                   ],
                 ),

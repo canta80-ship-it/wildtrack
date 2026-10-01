@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -23,7 +24,7 @@ class RealHeatmap extends StatelessWidget {
         child: Stack(children: [
           const Positioned.fill(child: ColoredBox(color: WildColors.sageSoft)),
           Positioned.fill(child: CustomPaint(painter: _HeatPainter(rows))),
-          const Positioned(left: 10, bottom: 8, child: Row(children: [Icon(Icons.visibility, size: 13, color: WildColors.forest), SizedBox(width: 4), Text('Solo tu puoi vederla', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700))])),
+          const Positioned(left: 10, bottom: 8, child: Row(children: [Icon(WildIcons.binoculars, size: 13, color: WildColors.forest), SizedBox(width: 4), Text('Solo tu puoi vederla', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700))])),
         ]),
       ),
     );

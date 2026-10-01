@@ -1,7 +1,7 @@
 name: Build WildTrack APK
 on:
   push:
-    branches: [main, next-release]
+    branches: [main, next-release, interface-reference]
   workflow_dispatch:
 permissions:
   contents: read
@@ -52,7 +52,9 @@ jobs:
           fi
           [ ! -f main.dart ] || mv main.dart lib/
           [ ! -f prepare_android.py ] || mv prepare_android.py tool/
+          python3 -m zipfile -t approved_assets.zip
           unzip -o approved_assets.zip -d assets/approved
+          python3 tool/verify_interface_assets.py
           find lib -name '*.dart' -type f -print0 | xargs -0 sed -i 's/Icons\.binoculars_outlined/Icons.visibility_outlined/g; s/Icons\.binoculars/Icons.visibility/g; s/Icons\.feather_outlined/Icons.article_outlined/g; s/Icons\.offline_map_outlined/Icons.map_outlined/g; s/CommunityService\.instance\.preferences\.token/""/g'
           sed -i "1i import 'premium_animal_screen.dart';" lib/screens/species_screen.dart
           sed -i 's/AnimalScreen(a)/PremiumAnimalScreen(a)/g' lib/screens/species_screen.dart

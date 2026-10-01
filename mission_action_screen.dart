@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/wildtrack_intelligence_service.dart';
@@ -15,7 +16,7 @@ class MissionActionCard extends StatelessWidget {
     'forest' => Icons.forest_outlined,
     'season' => Icons.calendar_month_outlined,
     'map' => Icons.map_outlined,
-    _ => Icons.visibility_outlined,
+    _ => WildIcons.binoculars,
   };
 
   @override
@@ -72,7 +73,7 @@ class MissionActionScreen extends StatelessWidget {
         const Text('Azioni utili', style: WildText.h2),
         const SizedBox(height: 9),
         _Action(icon: Icons.hiking, title: 'Avvia un’uscita', body: 'Registra percorso, tempo, quota e dislivello mentre svolgi la missione.', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecordScreen()))),
-        _Action(icon: Icons.visibility_outlined, title: 'Registra un avvistamento', body: 'Aggiungi specie, traccia, foto e note al tuo diario.', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PremiumSightingScreen()))),
+        _Action(icon: WildIcons.binoculars, title: 'Registra un avvistamento', body: 'Aggiungi specie, traccia, foto e note al tuo diario.', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PremiumSightingScreen()))),
         _Action(icon: Icons.map_outlined, title: 'Esplora la zona', body: 'Apri la mappa per sentieri, CAI, Radar e avvistamenti.', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PremiumExploreScreen()))),
         const SizedBox(height: 8),
         const Text('Il progresso viene ricalcolato dai dati reali salvati in WildTrack. Non serve premere un pulsante “completata”: quando soddisfi i criteri, la missione avanza.', style: TextStyle(fontSize: 10, color: WildColors.muted, height: 1.35)),

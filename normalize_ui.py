@@ -33,8 +33,8 @@ if private_maps.exists():
         "_ExpeditionCard(icon: Icons.chat_bubble_outline, title: 'Messaggi', body: 'Comunica con il gruppo durante la spedizione.', tint: const Color(0xFFEAF2F3), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ExpeditionMessagesScreen(mapId: '${current['id']}', mapName: '${current['name'] ?? 'Spedizione'}')))),",
     )
     text = text.replace(
-        "const _ExpeditionCard(icon: Icons.visibility_outlined, title: 'Avvistamenti\\ndel gruppo', body: 'Tutti gli avvistamenti condivisi.', tint: Color(0xFFF4E9D9)),",
-        "_ExpeditionCard(icon: Icons.visibility_outlined, title: 'Avvistamenti\\ndel gruppo', body: 'Tutti gli avvistamenti condivisi.', tint: const Color(0xFFF4E9D9), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ExpeditionSightingsScreen(mapId: '${current['id']}', mapName: '${current['name'] ?? 'Spedizione'}')))),",
+        "const _ExpeditionCard(icon: WildIcons.binoculars, title: 'Avvistamenti\\ndel gruppo', body: 'Tutti gli avvistamenti condivisi.', tint: Color(0xFFF4E9D9)),",
+        "_ExpeditionCard(icon: WildIcons.binoculars, title: 'Avvistamenti\\ndel gruppo', body: 'Tutti gli avvistamenti condivisi.', tint: const Color(0xFFF4E9D9), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ExpeditionSightingsScreen(mapId: '${current['id']}', mapName: '${current['name'] ?? 'Spedizione'}')))),",
     )
     private_maps.write_text(text)
 

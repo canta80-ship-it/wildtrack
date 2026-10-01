@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -153,7 +154,7 @@ class _Mission extends StatelessWidget {
     'forest' => Icons.forest_outlined,
     'season' => Icons.calendar_month_outlined,
     'map' => Icons.map_outlined,
-    _ => Icons.visibility_outlined,
+    _ => WildIcons.binoculars,
   };
   @override
   Widget build(BuildContext context) => Container(

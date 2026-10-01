@@ -1,117 +1,258 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'access_screen.dart';
-import 'book_widget.dart';
+import 'settings_screen.dart';
 import '../premium_ui.dart';
 
 class IntroScreen extends StatelessWidget {
   const IntroScreen({super.key, required this.home});
   final Widget home;
-
-  void openAccess(BuildContext context, {bool register = false}) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AccessScreen(home: home, register: register)));
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: WildColors.ivory,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            const BookPhoto(asset: 'intro_cervo.jpg', alignment: Alignment.center),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x10FFFFFF),
-                    Color(0x00121F16),
-                    Color(0x30121F16),
-                    Color(0xE0173325),
-                  ],
-                  stops: [0, .35, .58, 1],
-                ),
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 30, 24, 20),
-                child: Column(
-                  children: [
-                    const WildLogo(light: true),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'NATURA  •  SCOPERTA  •  CONSERVAZIONE',
-                      style: TextStyle(fontSize: 9, letterSpacing: 1.7, fontWeight: FontWeight.w700, color: Colors.white),
-                    ),
-                    const Spacer(),
-                    const Text(
-                      'Osserva. Riconosci. Ricorda.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: 'serif', fontSize: 30, height: 1, fontWeight: FontWeight.w800, color: Colors.white),
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xEFFFFEF9),
-                        borderRadius: BorderRadius.circular(26),
-                        boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 24, offset: Offset(0, 8))],
-                      ),
-                      child: const Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _Benefit(icon: Icons.visibility_outlined, title: 'Scopri', body: 'Fauna, habitat e sentieri'),
-                          SizedBox(width: 8),
-                          _Benefit(icon: Icons.photo_camera_outlined, title: 'Avvista', body: 'Registra foto e posizione'),
-                          SizedBox(width: 8),
-                          _Benefit(icon: Icons.menu_book_outlined, title: 'Ricorda', body: 'Costruisci il tuo diario'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    WildPrimaryButton(label: 'Accedi', icon: Icons.arrow_forward, onPressed: () => openAccess(context)),
-                    const SizedBox(height: 10),
-                    WildOutlineButton(label: 'Crea account', icon: Icons.arrow_forward, onPressed: () => openAccess(context, register: true)),
-                    const SizedBox(height: 7),
-                    TextButton.icon(
-                      onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => home)),
-                      iconAlignment: IconAlignment.end,
-                      icon: const Icon(Icons.arrow_forward, size: 18),
-                      label: const Text('Continua come ospite', style: TextStyle(fontSize: 15, decoration: TextDecoration.underline)),
-                      style: TextButton.styleFrom(foregroundColor: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+  void openAccess(BuildContext context, {bool register = false}) =>
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AccessScreen(home: home, register: register),
         ),
       );
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: WildColors.ivory,
+    body: LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight),
+          child: IntrinsicHeight(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/approved/welcome_scene.jpg',
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+                const Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xCCF8F6EF),
+                          Color(0x00F8F6EF),
+                          Color(0xB01D3526),
+                          WildColors.ivory,
+                        ],
+                        stops: [0, .32, .66, 1],
+                      ),
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 55, 20, 20),
+                    child: Column(
+                      children: [
+                        const FittedBox(child: WildLogo()),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Osserva. Registra. Esplora.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'serif',
+                            fontSize: 21,
+                            fontWeight: FontWeight.w700,
+                            color: WildColors.forest,
+                          ),
+                        ),
+                        const Spacer(),
+                        const SizedBox(height: 240),
+                        const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _Benefit(
+                              icon: WildIcons.binoculars,
+                              title: 'Scopri la fauna',
+                              body: 'Esplora sentieri, habitat e specie nel tuo territorio.',
+                            ),
+                            SizedBox(width: 10),
+                            _Benefit(
+                              icon: CupertinoIcons.doc_text,
+                              title: 'Registra avvistamenti',
+                              body: 'Contribuisci alla conoscenza della biodiversità.',
+                            ),
+                            SizedBox(width: 10),
+                            _Benefit(
+                              icon: CupertinoIcons.leaf_arrow_circlepath,
+                              title: 'Proteggi la natura',
+                              body: 'I tuoi dati aiutano la ricerca e la conservazione.',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        InkWell(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const SettingsScreen(),
+                            ),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(13),
+                            decoration: BoxDecoration(
+                              color: const Color(0xDAEEF0E3),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: const Row(
+                              children: [
+                                WildIconDisc(Icons.lock, size: 37),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'I tuoi dati sono al sicuro',
+                                        style: TextStyle(
+                                          fontFamily: 'serif',
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      SizedBox(height: 3),
+                                      Text(
+                                        'La tua privacy è la nostra priorità.\nCondividi solo ciò che desideri.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: WildColors.muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(Icons.chevron_right),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        WildPrimaryButton(
+                          label: 'Accedi',
+                          icon: Icons.arrow_forward,
+                          onPressed: () => openAccess(context),
+                        ),
+                        const SizedBox(height: 7),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 46,
+                          child: FilledButton(
+                            onPressed: () =>
+                                openAccess(context, register: true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: WildColors.ivory,
+                              foregroundColor: WildColors.forest,
+                            ),
+                            child: const Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Crea account',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'serif',
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                Icon(Icons.arrow_forward),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        TextButton.icon(
+                          onPressed: () => Navigator.of(context)
+                              .pushReplacement(
+                                MaterialPageRoute<void>(builder: (_) => home),
+                              ),
+                          iconAlignment: IconAlignment.end,
+                          icon: const Icon(Icons.arrow_forward, size: 17),
+                          label: const Text(
+                            'Continua come ospite',
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: WildColors.forest,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.circle,
+                              size: 8,
+                              color: WildColors.forest,
+                            ),
+                            SizedBox(width: 12),
+                            Icon(Icons.circle, size: 8, color: WildColors.sand),
+                            SizedBox(width: 12),
+                            Icon(Icons.circle, size: 8, color: WildColors.sand),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _Benefit extends StatelessWidget {
   const _Benefit({required this.icon, required this.title, required this.body});
   final IconData icon;
-  final String title;
-  final String body;
-
+  final String title, body;
   @override
   Widget build(BuildContext context) => Expanded(
-        child: Column(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: const BoxDecoration(color: WildColors.sageSoft, shape: BoxShape.circle),
-              child: Icon(icon, color: WildColors.forest),
-            ),
-            const SizedBox(height: 8),
-            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800, fontSize: 15, color: WildColors.ink)),
-            const SizedBox(height: 3),
-            Text(body, textAlign: TextAlign.center, style: const TextStyle(color: WildColors.muted, fontSize: 10, height: 1.25)),
-          ],
+    child: Column(
+      children: [
+        WildIconDisc(
+          icon,
+          size: 43,
+          background: const Color(0xB045664A),
+          foreground: WildColors.ivory,
         ),
-      );
+        const SizedBox(height: 8),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'serif',
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: WildColors.ivory,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          body,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 11,
+            height: 1.2,
+            color: Color(0xFFE5E7D7),
+          ),
+        ),
+      ],
+    ),
+  );
 }

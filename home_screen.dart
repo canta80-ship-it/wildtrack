@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/radar_service.dart';
@@ -164,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(children: [
                 Expanded(child: _QuickAction(background: WildColors.sageSoft, icon: Icons.map_outlined, title: 'Esplora zona', body: 'Sentieri, punti di interesse e attività fauna', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ExplorationScreen())))),
                 const SizedBox(width: 9),
-                Expanded(child: _QuickAction(background: const Color(0xFFF4E9D7), icon: Icons.visibility_outlined, title: 'Registra\navvistamento', body: 'Aggiungi una specie, foto e posizione', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen())))),
+                Expanded(child: _QuickAction(background: const Color(0xFFF4E9D7), icon: WildIcons.binoculars, title: 'Registra\navvistamento', body: 'Aggiungi una specie, foto e posizione', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen())))),
                 const SizedBox(width: 9),
                 Expanded(child: _QuickAction(background: WildColors.forest, icon: Icons.hiking, title: 'Avvia uscita', body: 'Traccia il percorso e monitora l’attività', dark: true, onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecordScreen())))),
               ]),
