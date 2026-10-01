@@ -37,10 +37,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final p = PreferencesService.instance;
     return Scaffold(
+      backgroundColor: WildColors.ivory,
       body: CustomScrollView(slivers: [
         SliverToBoxAdapter(child: SizedBox(height: 315, child: Stack(fit: StackFit.expand, children: [
-          Image.asset('intro_cervo.jpg', fit: BoxFit.cover, alignment: const Alignment(.2, -.25)),
-          const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x28FFFFFF), Color(0x99F8F6EF), WildColors.ivory], stops: [0, .58, 1]))),
+          const WildLandscape(height: 315),
+          const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x22FFFFFF), Color(0xB8F8F6EF), WildColors.ivory], stops: [0, .58, 1]))),
           SafeArea(bottom: false, child: Padding(padding: const EdgeInsets.fromLTRB(18, 12, 18, 20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back, color: WildColors.forest)), const WildLogo(compact: true)]),
             const Spacer(),
@@ -58,12 +59,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
             _PermissionCard(icon: Icons.camera_alt, title: 'Fotocamera e foto', body: 'Ti consente di scattare foto degli avvistamenti e caricarle nel tuo diario personale.', tint: WildColors.sageSoft, trailing: Switch(value: true, onChanged: (_) {})),
             const SizedBox(height: 10),
-            _PermissionCard(icon: Icons.navigation, title: 'Posizione in background', body: 'Migliora il tracciamento delle tue uscite, anche quando l’app è chiusa.', tint: const Color(0xFFF5EADB), foot: 'Usata solo durante le uscite', trailing: OutlinedButton(onPressed: saving ? null : () async { p.backgroundSharing = !p.backgroundSharing; await CommunityService.instance.configureBackgroundSharing(); await save(); }, child: Text(p.backgroundSharing ? 'Attiva' : 'Attiva'))),
+            _PermissionCard(icon: Icons.navigation, title: 'Posizione in background', body: 'Migliora il tracciamento delle tue uscite, anche quando l’app è chiusa.', tint: const Color(0xFFF5EADB), foot: 'Usata solo durante le uscite', trailing: OutlinedButton(onPressed: saving ? null : () async { p.backgroundSharing = !p.backgroundSharing; await CommunityService.instance.configureBackgroundSharing(); await save(); }, child: const Text('Attiva'))),
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(24)),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+              child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 WildIconDisc(Icons.eco_outlined, size: 64, background: WildColors.forest, foreground: Colors.white),
                 SizedBox(width: 15),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
