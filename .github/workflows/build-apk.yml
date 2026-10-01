@@ -36,6 +36,9 @@ jobs:
           sed -i "1i import 'premium_animal_screen.dart';" lib/screens/species_screen.dart
           sed -i 's/AnimalScreen(a)/PremiumAnimalScreen(a)/g' lib/screens/species_screen.dart
           sed -i "/Yellowstone sound library - Grizzly Bears Roar - 001.mp3/d; /Vocalizzazione · orso bruno, registrazione nordamericana/d" lib/screens/species_screen.dart
+          sed -i "1i import 'premium_animal_screen.dart';" lib/screens/premium_explore_screen.dart
+          sed -i "1i import 'premium_explore_screen.dart';" lib/screens/home_screen.dart
+          sed -i 's/const ExplorationScreen()/const PremiumExploreScreen()/g' lib/screens/home_screen.dart
       - name: Generate Android project
         run: |
           flutter create --platforms=android --org it.wildtrack --project-name wildtrack_mvp --no-pub .
