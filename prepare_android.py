@@ -253,7 +253,8 @@ d.write_text('''<vector xmlns:android="http://schemas.android.com/apk/res/androi
 s=p.read_text().replace('android:icon="@mipmap/ic_launcher"','android:icon="@drawable/wildtrack_logo"')
 p.write_text(s)
 
-# Stable package identity for this release family. Keep this unchanged in future updates.
+# Fresh stable application id for the next-generation WildTrack family.
+# It avoids signature collisions with the earlier v5/v6 preview packages.
 build=Path('android/app/build.gradle.kts')
-s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.wildtrack_v6"')
+s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.app"')
 build.write_text(s)
