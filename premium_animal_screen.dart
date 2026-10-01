@@ -480,54 +480,40 @@ class _InfoCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0x0D000000)),
     ),
-    child: Column(
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, color: WildColors.forest, size: 23),
-            const Spacer(),
-            if (badge != null)
-              Container(
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: WildColors.forest,
-                  shape: BoxShape.circle,
+        Icon(icon, color: WildColors.forest, size: 20),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'serif',
+                  fontSize: 10,
+                  height: 1,
+                  fontWeight: FontWeight.w700,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Expanded(
                 child: Text(
-                  badge!,
+                  badge == null ? body : '$badge · $body',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 10,
+                    fontSize: 8.5,
+                    height: 1.05,
+                    color: WildColors.muted,
                   ),
                 ),
               ),
-          ],
-        ),
-        const Spacer(),
-        Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 10.5,
-            height: 1.05,
-            fontWeight: FontWeight.w800,
-            color: WildColors.ink,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          body,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 9.5,
-            height: 1.15,
-            color: WildColors.muted,
+            ],
           ),
         ),
       ],

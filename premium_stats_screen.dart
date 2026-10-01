@@ -586,7 +586,7 @@ class _TripRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                session.title ?? 'Uscita',
+                'Uscita del ${session.startedAt.day}/${session.startedAt.month}',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               Text(
