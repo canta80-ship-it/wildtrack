@@ -6,7 +6,7 @@ import 'screens/intro_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/premium_sighting_screen.dart';
 import 'screens/stats_screen.dart';
-import 'screens/community_screen.dart';
+import 'screens/premium_community_screen.dart';
 import 'services/preferences_service.dart';
 import 'services/community_service.dart';
 import 'screens/species_screen.dart';
@@ -117,7 +117,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
-  final pages = const [HomeScreen(), PremiumSightingScreen(), StatsScreen(), CommunityScreen()];
+  final pages = const [HomeScreen(), PremiumSightingScreen(), StatsScreen(), PremiumCommunityScreen()];
 
   @override
   Widget build(BuildContext context) => Scaffold(
