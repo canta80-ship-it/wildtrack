@@ -40,24 +40,16 @@ class _HomeScreenState extends State<HomeScreen> {
     await Future.wait([next, _loadSightings()]);
   }
 
-  String _assetFor(String name) {
-    final value = name.toLowerCase();
-    if (value.contains('lupo') || value.contains('volpe')) return 'intro_lupo.jpg';
-    if (value.contains('marmotta')) return 'intro_marmotta.jpg';
-    if (value.contains('gufo') || value.contains('allocco') || value.contains('poiana')) return 'intro_gufo.jpg';
-    return 'intro_cervo.jpg';
-  }
-
   @override
   Widget build(BuildContext context) => Scaffold(
+    backgroundColor: WildColors.ivory,
     body: RefreshIndicator(
       onRefresh: refresh,
       child: CustomScrollView(slivers: [
         SliverToBoxAdapter(
           child: WildHero(
-            image: 'intro_cervo.jpg',
+            image: '',
             height: 360,
-            alignment: const Alignment(.15, -.22),
             child: SafeArea(
               bottom: false,
               child: Padding(
@@ -67,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const WildLogo(compact: true, light: true),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())), icon: const Icon(Icons.notifications_none, color: Colors.white)),
-                    const CircleAvatar(radius: 19, backgroundImage: AssetImage('intro_cervo.jpg')),
+                    Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .18), border: Border.all(color: Colors.white54)), child: const Icon(Icons.person_outline, color: Colors.white)),
                   ]),
                   const Spacer(),
                   const Text('Buongiorno,\nStefano', style: TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 40, height: .92, fontWeight: FontWeight.w700, letterSpacing: -1.2)),
@@ -117,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     separatorBuilder: (_, __) => const SizedBox(width: 9),
                     itemBuilder: (context, i) {
                       final s = rows[i];
-                      return _SpeciesCard(name: s.name, score: s.score, confidence: s.confidence, asset: _assetFor(s.name));
+                      return _SpeciesCard(name: s.name, score: s.score, confidence: s.confidence);
                     },
                   ),
                 );
@@ -133,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: SizedBox(
                 height: 145,
                 child: Row(children: [
-                  ClipRRect(borderRadius: const BorderRadius.horizontal(left: Radius.circular(24)), child: Image.asset('intro_cervo.jpg', width: 145, height: 145, fit: BoxFit.cover)),
+                  const ClipRRect(borderRadius: BorderRadius.horizontal(left: Radius.circular(24)), child: SizedBox(width: 145, height: 145, child: Stack(children: [Positioned.fill(child: WildLandscape(height: 145, animal: 'Cervo'))]))),
                   Expanded(child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -141,11 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 2),
                       Text(sightings.isEmpty ? 'Il diario crescerà con le tue attività' : '${sightings.length} osservazioni nel tuo archivio', style: const TextStyle(fontSize: 11, color: WildColors.muted)),
                       const Spacer(),
-                      const Wrap(spacing: 12, runSpacing: 8, children: [
-                        _MiniMetric(Icons.route_outlined, 'GPS'),
-                        _MiniMetric(Icons.schedule_outlined, 'Diario'),
-                        _MiniMetric(Icons.pets_outlined, 'Lifer'),
-                      ]),
+                      const Wrap(spacing: 12, runSpacing: 8, children: [_MiniMetric(Icons.route_outlined, 'GPS'), _MiniMetric(Icons.schedule_outlined, 'Diario'), _MiniMetric(Icons.pets_outlined, 'Lifer')]),
                       const Spacer(),
                       Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7), decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(10)), child: const Row(children: [Icon(Icons.auto_stories_outlined, size: 16, color: WildColors.forest), SizedBox(width: 6), Expanded(child: Text('Apri il Diario per il riepilogo automatico', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)))])),
                     ]),
@@ -171,11 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const Row(children: [
                   WildIconDisc(Icons.auto_awesome_outlined, size: 48, background: Color(0x22FFFFFF), foreground: Colors.white),
                   SizedBox(width: 12),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Esplora+', style: TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-                    SizedBox(height: 3),
-                    Text('Missioni, biodiversità, passaporto, modalità fotografica e timeline.', style: TextStyle(color: Color(0xFFD7E2D8), fontSize: 10)),
-                  ])),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Esplora+', style: TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)), SizedBox(height: 3), Text('Missioni, biodiversità, passaporto, modalità fotografica e timeline.', style: TextStyle(color: Color(0xFFD7E2D8), fontSize: 10))])),
                   Icon(Icons.chevron_right, color: Colors.white),
                 ]),
               ),
@@ -231,11 +215,10 @@ class _QuickAction extends StatelessWidget {
 }
 
 class _SpeciesCard extends StatelessWidget {
-  const _SpeciesCard({required this.name, required this.score, required this.confidence, required this.asset});
+  const _SpeciesCard({required this.name, required this.score, required this.confidence});
   final String name;
   final int score;
   final int confidence;
-  final String asset;
   @override
   Widget build(BuildContext context) => Container(
     width: 142,
@@ -243,8 +226,8 @@ class _SpeciesCard extends StatelessWidget {
     child: ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(child: Image.asset(asset, width: double.infinity, fit: BoxFit.cover)),
-        Padding(padding: const EdgeInsets.fromLTRB(11, 9, 11, 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: Padding(padding: const EdgeInsets.all(8), child: WildAnimalIllustration(name, size: 126))),
+        Padding(padding: const EdgeInsets.fromLTRB(11, 6, 11, 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', fontSize: 15, fontWeight: FontWeight.w800)),
           const SizedBox(height: 3),
           Row(children: [Text('$score%', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)), const Spacer(), Text('conf. $confidence%', style: const TextStyle(fontSize: 8, color: WildColors.muted))]),
