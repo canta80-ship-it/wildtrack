@@ -40,6 +40,7 @@ jobs:
           sed -i 's/const ExplorationScreen()/const PremiumExploreScreen()/g' lib/screens/home_screen.dart
           sed -i "/import 'exploration_screen.dart';/d" lib/screens/home_screen.dart
           sed -i "/package:latlong2\/latlong.dart/d" lib/screens/outing_diary_screen.dart
+          python3 normalize_ui.py
       - name: Generate Android project
         run: |
           flutter create --platforms=android --org it.wildtrack --project-name wildtrack_mvp --no-pub .
