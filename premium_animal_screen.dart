@@ -824,7 +824,7 @@ class _Season extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 94,
+    height: 112,
     padding: const EdgeInsets.all(8),
     decoration: BoxDecoration(
       color: best ? const Color(0xFFF7E6C9) : const Color(0xFFFFFEFA),
@@ -855,9 +855,13 @@ class _Season extends StatelessWidget {
             ),
           ],
         ),
-        Text(
-          months,
-          style: const TextStyle(fontSize: 8.5, color: WildColors.muted),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            months,
+            style: const TextStyle(fontSize: 8.5, color: WildColors.muted),
+          ),
         ),
         const Spacer(),
         Text(

@@ -15,7 +15,7 @@ Implemented in this change:
 NOT YET CERTIFIED:
 - Pixel identity with all ten references on the installed Android APK.
 - Full landscape artwork hidden behind text in the supplied mockups is unavailable. The clean visible landscape was extracted; full-screen source artwork is not recreated or claimed identical.
-- Typography remains native serif/sans-serif; exact original font files are unavailable.
+- Editorial titles now use bundled Libre Baskerville regular/bold/italic, rather than an unresolved Android serif alias. The original mockup font remains unidentified, so exact typeface equality is not claimed. Font license is bundled with the app.
 - All 24 species now have individual generated naturalistic hero images, bundled at 1536×1024, and an explicit record of four signs, four seasonal notes, habitat tags and photo advice. These new illustrations follow the deer reference; they are not claimed to be identical original artwork.
 - Signs beyond the deer use native foot schematics and icons; matching naturalistic illustrations for every sign remain incomplete.
 - National conservation categories are displayed only where checked against a species source; remaining cards display species ecology and link the source rather than assigning a false LC category.

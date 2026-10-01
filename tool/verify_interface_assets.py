@@ -11,3 +11,9 @@ with zipfile.ZipFile('approved_assets.zip') as z:
  for name in required:
   assert (Path('assets/approved')/name).read_bytes()==z.read(name),f'Artwork mismatch: {name}'
 print('Verified reference artwork and 24 distinct species heroes; archive integrity passed')
+
+with zipfile.ZipFile('editorial_fonts.zip') as z:
+ assert z.testzip() is None
+ for name in ['editorial_serif.ttf','editorial_serif_italic.ttf','editorial_serif_OFL.txt']:
+  assert (Path('assets/approved')/name).read_bytes()==z.read(name)
+print('Verified bundled editorial serif family and license')
