@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/preferences_service.dart';
 import '../services/community_service.dart';
+import '../services/push_service.dart';
 import 'species_screen.dart';
 import 'guide_screen.dart';
 import '../premium_ui.dart';
@@ -24,6 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => saving = true);
     try {
       await PreferencesService.instance.save();
+      await PushService.instance.syncPreferences();
     } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impostazioni non salvate. Riprova.')));
     } finally {
