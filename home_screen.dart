@@ -8,6 +8,7 @@ import 'record_screen.dart';
 import 'sightings_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
+import 'field_tools_screen.dart';
 import '../premium_ui.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -95,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(children: [
               Expanded(child: _QuickAction(background: WildColors.sageSoft, icon: Icons.map_outlined, title: 'Esplora zona', body: 'Sentieri, punti di interesse e attività fauna', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ExplorationScreen())))),
               const SizedBox(width: 9),
-              Expanded(child: _QuickAction(background: const Color(0xFFF4E9D7), icon: Icons.binoculars_outlined, title: 'Registra\navvistamento', body: 'Aggiungi una specie, foto e posizione', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen())))),
+              Expanded(child: _QuickAction(background: const Color(0xFFF4E9D7), icon: Icons.visibility_outlined, title: 'Registra\navvistamento', body: 'Aggiungi una specie, foto e posizione', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen())))),
               const SizedBox(width: 9),
               Expanded(child: _QuickAction(background: WildColors.forest, icon: Icons.hiking, title: 'Avvia uscita', body: 'Traccia il percorso e monitora l’attività', dark: true, onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecordScreen())))),
             ]),
@@ -112,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: rows.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 9),
+                    separatorBuilder: (_, _) => const SizedBox(width: 9),
                     itemBuilder: (context, i) {
                       final s = rows[i];
                       return _SpeciesCard(name: s.name, score: s.score, asset: _assetFor(s.name));
@@ -157,6 +158,25 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 9),
               const Expanded(child: _DiaryMetric(icon: Icons.schedule_outlined, label: 'Tempo sul campo', value: '64 h')),
             ]),
+            const SizedBox(height: 14),
+            InkWell(
+              onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const FieldToolsScreen())),
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: WildColors.forest, borderRadius: BorderRadius.circular(22)),
+                child: const Row(children: [
+                  WildIconDisc(Icons.auto_awesome_outlined, size: 48, background: Color(0x22FFFFFF), foreground: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Esplora+', style: TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                    SizedBox(height: 3),
+                    Text('Missioni, biodiversità, passaporto, modalità fotografica e timeline.', style: TextStyle(color: Color(0xFFD7E2D8), fontSize: 10)),
+                  ])),
+                  Icon(Icons.chevron_right, color: Colors.white),
+                ]),
+              ),
+            ),
           ])),
         ),
       ]),
