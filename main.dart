@@ -10,6 +10,7 @@ import 'screens/community_screen.dart';
 import 'services/preferences_service.dart';
 import 'services/community_service.dart';
 import 'screens/species_screen.dart';
+import 'premium_ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,8 +25,7 @@ class WildTrackApp extends StatefulWidget {
   State<WildTrackApp> createState() => _WildTrackAppState();
 }
 
-class _WildTrackAppState extends State<WildTrackApp>
-    with WidgetsBindingObserver {
+class _WildTrackAppState extends State<WildTrackApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -44,8 +44,7 @@ class _WildTrackAppState extends State<WildTrackApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       CommunityService.instance.start();
-    } else if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       unawaited(AudioService.instance.stop());
       unawaited(CommunityService.instance.pause());
     }
@@ -53,65 +52,46 @@ class _WildTrackAppState extends State<WildTrackApp>
 
   ThemeData theme(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    const forest = Color(0xFF254D38);
-    const sage = Color(0xFFDDE8DA);
-    const ivory = Color(0xFFF8F6EF);
-    const ink = Color(0xFF203126);
-    final scheme = ColorScheme.fromSeed(
-      seedColor: forest,
-      brightness: brightness,
-    ).copyWith(
-      primary: dark ? const Color(0xFFB8D1AE) : forest,
-      onPrimary: dark ? const Color(0xFF17301F) : Colors.white,
-      surface: dark ? const Color(0xFF152019) : ivory,
-      surfaceContainerLow: dark ? const Color(0xFF202D24) : const Color(0xFFF3F0E7),
-      surfaceContainer: dark ? const Color(0xFF26342A) : sage,
-      onSurface: dark ? const Color(0xFFE7EDE5) : ink,
+    final scheme = ColorScheme.fromSeed(seedColor: WildColors.forest, brightness: brightness).copyWith(
+      primary: dark ? const Color(0xFFB8D1AE) : WildColors.forest,
+      onPrimary: dark ? WildColors.ink : Colors.white,
+      surface: dark ? const Color(0xFF142018) : WildColors.ivory,
+      surfaceContainerLow: dark ? const Color(0xFF202D24) : Colors.white,
+      surfaceContainer: dark ? const Color(0xFF26342A) : WildColors.sage,
+      onSurface: dark ? const Color(0xFFEAF0E7) : WildColors.ink,
     );
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
+      fontFamily: 'sans-serif',
       cardTheme: CardThemeData(
         color: scheme.surfaceContainerLow,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        margin: EdgeInsets.zero,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: scheme.surface,
+        backgroundColor: Colors.transparent,
         foregroundColor: scheme.onSurface,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
-          color: scheme.onSurface,
-          fontSize: 23,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -.4,
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: scheme.surface,
-        indicatorColor: dark ? const Color(0xFF365543) : sage,
-        height: 72,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
-          fontSize: 12,
-          fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
-        )),
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: TextStyle(fontFamily: 'serif', color: scheme.onSurface, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: -.5),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerLow,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: scheme.primary, width: 1.4)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        fillColor: dark ? const Color(0xFF202D24) : Colors.white.withValues(alpha: .94),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: dark ? Colors.white12 : const Color(0x16000000))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: scheme.primary, width: 1.4)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
       ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 48),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : null),
+        trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? WildColors.forest2 : null),
       ),
+      dividerColor: const Color(0x18000000),
     );
   }
 
@@ -137,25 +117,63 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
-  final pages = const [
-    HomeScreen(),
-    SightingsScreen(),
-    StatsScreen(),
-    CommunityScreen(),
-  ];
+  final pages = const [HomeScreen(), SightingsScreen(), StatsScreen(), CommunityScreen()];
 
   @override
   Widget build(BuildContext context) => Scaffold(
+    extendBody: true,
     body: IndexedStack(index: index, children: pages),
-    bottomNavigationBar: NavigationBar(
-      selectedIndex: index,
-      onDestinationSelected: (i) => setState(() => index = i),
-      destinations: const [
-        NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore), label: 'Esplora'),
-        NavigationDestination(icon: Icon(Icons.add_a_photo_outlined), selectedIcon: Icon(Icons.add_a_photo), label: 'Avvista'),
-        NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories), label: 'Diario'),
-        NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'Community'),
-      ],
+    bottomNavigationBar: SafeArea(
+      minimum: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: Container(
+        height: 70,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .96),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white),
+          boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 28, offset: Offset(0, 8))],
+        ),
+        child: Row(children: [
+          _NavItem(icon: Icons.explore_outlined, selected: Icons.explore, label: 'Esplora', active: index == 0, onTap: () => setState(() => index = 0)),
+          _NavItem(icon: Icons.binoculars_outlined, selected: Icons.binoculars, label: 'Avvista', active: index == 1, emphasized: true, onTap: () => setState(() => index = 1)),
+          _NavItem(icon: Icons.menu_book_outlined, selected: Icons.menu_book, label: 'Diario', active: index == 2, onTap: () => setState(() => index = 2)),
+          _NavItem(icon: Icons.groups_outlined, selected: Icons.groups, label: 'Community', active: index == 3, onTap: () => setState(() => index = 3)),
+        ]),
+      ),
+    ),
+  );
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({required this.icon, required this.selected, required this.label, required this.active, required this.onTap, this.emphasized = false});
+  final IconData icon;
+  final IconData selected;
+  final String label;
+  final bool active;
+  final bool emphasized;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(28),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: emphasized && active ? 45 : 36,
+          height: emphasized && active ? 45 : 34,
+          decoration: BoxDecoration(
+            color: active ? (emphasized ? WildColors.forest : WildColors.sageSoft) : Colors.transparent,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(active ? selected : icon, color: active && emphasized ? Colors.white : active ? WildColors.forest : const Color(0xFF333833), size: emphasized && active ? 26 : 23),
+        ),
+        if (!(emphasized && active)) ...[
+          const SizedBox(height: 1),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? WildColors.forest : const Color(0xFF333833))),
+        ],
+      ]),
     ),
   );
 }
