@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../services/radar_service.dart';
-import '../services/database_service.dart';
-import '../services/preferences_service.dart';
 import '../models/sighting.dart';
 import '../models/track_session.dart';
 import '../premium_ui.dart';
-import 'book_widget.dart';
+import '../services/database_service.dart';
+import '../services/preferences_service.dart';
+import '../services/radar_service.dart';
+import 'outing_diary_screen.dart';
 import 'premium_explore_screen.dart';
-import 'record_screen.dart';
 import 'premium_sighting_screen.dart';
+import 'record_screen.dart';
 import 'settings_screen.dart';
 import 'stats_screen.dart';
-import 'outing_diary_screen.dart';
 
 class PremiumHomeScreen extends StatefulWidget {
   const PremiumHomeScreen({super.key});
@@ -43,21 +42,31 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
   }
 
   Future<void> _reloadLocal() async {
-    final results = await Future.wait<dynamic>([
+    final values = await Future.wait<dynamic>([
       DatabaseService.instance.getSightings(),
       DatabaseService.instance.getSessions(),
     ]);
     if (!mounted) return;
     setState(() {
-      sightings = results[0] as List<Sighting>;
-      sessions = results[1] as List<TrackSession>;
+      sightings = values[0] as List<Sighting>;
+      sessions = values[1] as List<TrackSession>;
     });
   }
 
-  Future<void> refresh() async {
+  Future<void> _refresh() async {
     final next = RadarService.instance.load();
     setState(() => radar = next);
     await Future.wait([next, _reloadLocal()]);
+  }
+
+  void _openLastOuting() {
+    final s = lastSession;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => s == null ? const StatsScreen() : OutingDiaryScreen(session: s),
+      ),
+    );
   }
 
   String _duration(TrackSession s) {
@@ -65,383 +74,452 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
     return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
   }
 
-  void _openLastOuting() {
-    final session = lastSession;
-    if (session == null) {
-      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const StatsScreen()));
-    } else {
-      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => OutingDiaryScreen(session: session)));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final nickname = PreferencesService.instance.nickname.trim().isEmpty
-        ? 'Esploratore'
-        : PreferencesService.instance.nickname.trim();
+    final saved = PreferencesService.instance.nickname.trim();
+    final nickname = saved.isEmpty ? 'Esploratore' : saved;
 
     return Scaffold(
-      backgroundColor: WildColors.ivory,
+      backgroundColor: const Color(0xFFF8F5ED),
       body: RefreshIndicator(
-        onRefresh: refresh,
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: BookHero(
-                asset: 'intro_cervo.jpg',
-                height: 355,
-                alignment: Alignment.center,
-                bottomStrength: .66,
-                child: SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const WildLogo(compact: true, light: true),
-                            const Spacer(),
-                            IconButton(
-                              onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
-                              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
-                            ),
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white70, width: 1.3),
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: const BookPhoto(asset: 'intro_cervo.jpg', alignment: Alignment.topCenter),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Buongiorno,\n$nickname',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'serif',
-                            color: Colors.white,
-                            fontSize: 42,
-                            height: .91,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Row(
-                          children: [
-                            Icon(Icons.location_on, color: Colors.white, size: 20),
-                            SizedBox(width: 4),
-                            Text('La tua zona', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        FutureBuilder<RadarSnapshot>(
-                          future: radar,
-                          builder: (context, snapshot) {
-                            final data = snapshot.data;
-                            final activity = data?.activity ?? '…';
-                            return Row(
-                              children: [
-                                Expanded(child: _HeroPill(icon: Icons.bar_chart_rounded, label: 'Attività fauna: $activity', green: true)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _HeroPill(
-                                    icon: Icons.wb_twilight_outlined,
-                                    label: data?.weatherAvailable == true
-                                        ? '${data!.temperature?.toStringAsFixed(0) ?? '—'}° · alba ideale'
-                                        : 'Condizioni locali',
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
+        onRefresh: _refresh,
+        child: FutureBuilder<RadarSnapshot>(
+          future: radar,
+          builder: (context, radarSnapshot) {
+            final data = radarSnapshot.data;
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _Hero(
+                    nickname: nickname,
+                    activity: data?.activity ?? 'ALTA',
+                    temperature: data?.temperature,
+                    onBell: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
                     ),
                   ),
                 ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(15, 14, 15, 110),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _QuickAction(
-                          background: WildColors.sageSoft,
-                          icon: Icons.map_outlined,
-                          title: 'Esplora zona',
-                          body: 'Sentieri, punti di interesse e attività fauna',
-                          onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PremiumExploreScreen())),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 110),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      Transform.translate(
+                        offset: const Offset(0, -18),
+                        child: _ActionRow(
+                          onExplore: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PremiumExploreScreen())),
+                          onSighting: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PremiumSightingScreen())),
+                          onTrack: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecordScreen())),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _QuickAction(
-                          background: const Color(0xFFF4E9D7),
-                          icon: Icons.visibility_outlined,
-                          title: 'Registra\navvistamento',
-                          body: 'Aggiungi una specie, foto e posizione',
-                          onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PremiumSightingScreen())),
-                        ),
+                      const SizedBox(height: 4),
+                      _SectionHeader(
+                        title: 'Specie probabili adesso',
+                        action: 'Vedi tutte',
+                        onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PremiumExploreScreen())),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _QuickAction(
-                          background: WildColors.forest,
-                          icon: Icons.hiking,
-                          title: 'Avvia uscita',
-                          body: 'Traccia il percorso e monitora l’attività',
-                          dark: true,
-                          onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecordScreen())),
-                        ),
+                      const SizedBox(height: 10),
+                      _SpeciesStrip(snapshot: data),
+                      const SizedBox(height: 22),
+                      _SectionHeader(
+                        title: 'Ultima uscita',
+                        action: 'Vedi dettagli',
+                        onTap: _openLastOuting,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const BookSectionTitle('Specie probabili adesso'),
-                  const SizedBox(height: 10),
-                  FutureBuilder<RadarSnapshot>(
-                    future: radar,
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return const SizedBox(height: 160, child: Center(child: Text('Radar temporaneamente non disponibile')));
-                      }
-                      if (!snapshot.hasData) {
-                        return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
-                      }
-                      final rows = snapshot.data!.species.take(8).toList();
-                      return SizedBox(
-                        height: 210,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: rows.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 9),
-                          itemBuilder: (_, i) => _SpeciesCard(name: rows[i].name, score: rows[i].score),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  BookSectionTitle(
-                    'Ultima uscita',
-                    action: lastSession == null ? 'Diario' : 'Vedi dettagli',
-                    onAction: _openLastOuting,
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(24),
-                    onTap: _openLastOuting,
-                    child: BookCard(
-                      padding: EdgeInsets.zero,
-                      child: SizedBox(
-                        height: 145,
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.horizontal(left: Radius.circular(22)),
-                              child: const SizedBox(
-                                width: 145,
-                                height: 145,
-                                child: BookPhoto(asset: 'intro_cervo.jpg', alignment: Alignment.center),
-                              ),
+                      const SizedBox(height: 8),
+                      _LastOutingCard(session: lastSession, duration: lastSession == null ? null : _duration(lastSession!), onTap: _openLastOuting),
+                      const SizedBox(height: 22),
+                      _SectionHeader(
+                        title: 'Il tuo diario',
+                        action: 'Vedi tutto',
+                        onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const StatsScreen())),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _DiaryCard(
+                              icon: Icons.eco_outlined,
+                              label: 'Specie uniche',
+                              value: '${sightings.map((e) => e.species).where((e) => e.isNotEmpty && e != 'Specie non identificata').toSet().length}',
+                              tint: const Color(0xFFE7F0E1),
                             ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: lastSession == null
-                                    ? const Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Nessuna uscita registrata', style: TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w800)),
-                                          SizedBox(height: 5),
-                                          Text('Avvia una registrazione GPS e costruisci il tuo diario sul campo.', style: TextStyle(fontSize: 11, color: WildColors.muted)),
-                                          Spacer(),
-                                          Row(children: [Icon(Icons.play_circle_outline, size: 17, color: WildColors.forest), SizedBox(width: 6), Text('Avvia la prima uscita', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: WildColors.forest))]),
-                                        ],
-                                      )
-                                    : Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text('Ultima uscita registrata', style: TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w800)),
-                                          const SizedBox(height: 5),
-                                          Text('${(lastSession!.distanceMeters / 1000).toStringAsFixed(1)} km · ${_duration(lastSession!)} · +${lastSession!.ascentMeters.toStringAsFixed(0)} m', style: const TextStyle(fontSize: 11, color: WildColors.muted)),
-                                          const Spacer(),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-                                            decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(10)),
-                                            child: const Row(children: [Icon(Icons.auto_stories_outlined, size: 16, color: WildColors.forest), SizedBox(width: 6), Expanded(child: Text('Apri riepilogo e note dell’uscita', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)))]),
-                                          ),
-                                        ],
-                                      ),
-                              ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _DiaryCard(
+                              icon: Icons.schedule_outlined,
+                              label: 'Uscite',
+                              value: '${sessions.length}',
+                              tint: const Color(0xFFF3E7D5),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ),
+                    ]),
                   ),
-                  const SizedBox(height: 24),
-                  BookSectionTitle(
-                    'Il tuo diario',
-                    action: 'Vedi tutto',
-                    onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const StatsScreen())),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _DiaryMetric(
-                          icon: Icons.eco_outlined,
-                          label: 'Specie uniche',
-                          value: '${sightings.map((e) => e.species).where((e) => e.isNotEmpty && e != 'Specie non identificata').toSet().length}',
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(child: _DiaryMetric(icon: Icons.schedule_outlined, label: 'Uscite', value: '${sessions.length}')),
-                    ],
-                  ),
-                ]),
-              ),
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-class _HeroPill extends StatelessWidget {
-  const _HeroPill({required this.icon, required this.label, this.green = false});
+class _Hero extends StatelessWidget {
+  const _Hero({required this.nickname, required this.activity, required this.onBell, this.temperature});
+  final String nickname;
+  final String activity;
+  final double? temperature;
+  final VoidCallback onBell;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 390,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/approved/access_land2.jpg',
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.high,
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x10FFFFFF), Color(0x12000000), Color(0x7F102619)],
+                stops: [0, .55, 1],
+              ),
+            ),
+          ),
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const WildLogo(compact: true),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: onBell,
+                        icon: const Icon(Icons.notifications_none_rounded, color: WildColors.forest, size: 28),
+                      ),
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Image.asset('assets/approved/access_land2.jpg', fit: BoxFit.cover),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Buongiorno,\n$nickname',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'serif',
+                      color: Colors.white,
+                      fontSize: 46,
+                      height: .92,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1.2,
+                      shadows: [Shadow(color: Color(0x55000000), blurRadius: 8, offset: Offset(0, 2))],
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  const Row(
+                    children: [
+                      Icon(Icons.location_on, color: Colors.white, size: 21),
+                      SizedBox(width: 5),
+                      Text('La tua zona', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                  const SizedBox(height: 13),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _HeroChip(
+                          icon: Icons.bar_chart_rounded,
+                          iconColor: const Color(0xFF8DE67D),
+                          text: 'Attività fauna: ${activity.toUpperCase()}',
+                          fill: const Color(0xE51A4B35),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _HeroChip(
+                          icon: Icons.wb_twilight_outlined,
+                          iconColor: const Color(0xFFFFC65C),
+                          text: temperature == null ? 'Alba ideale\nper osservazione' : '${temperature!.round()}° · alba ideale',
+                          fill: const Color(0xA34B453A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.icon, required this.iconColor, required this.text, required this.fill});
   final IconData icon;
-  final String label;
-  final bool green;
+  final Color iconColor;
+  final String text;
+  final Color fill;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: green ? const Color(0xE0173F2B) : const Color(0xA64C463A),
+          color: fill,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: Colors.white38),
         ),
         child: Row(
           children: [
-            Icon(icon, color: green ? const Color(0xFF8BE278) : const Color(0xFFF3C96F), size: 21),
-            const SizedBox(width: 7),
-            Expanded(child: Text(label, maxLines: 2, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+            Icon(icon, color: iconColor, size: 29),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(text, maxLines: 2, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13, height: 1.1)),
+            ),
           ],
         ),
       );
 }
 
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({required this.background, required this.icon, required this.title, required this.body, required this.onTap, this.dark = false});
-  final Color background;
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({required this.onExplore, required this.onSighting, required this.onTrack});
+  final VoidCallback onExplore;
+  final VoidCallback onSighting;
+  final VoidCallback onTrack;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Expanded(child: _ActionCard(icon: Icons.map_outlined, title: 'Esplora zona', body: 'Sentieri, punti di interesse e attività fauna', tint: const Color(0xFFE6F0E0), onTap: onExplore)),
+          const SizedBox(width: 8),
+          Expanded(child: _ActionCard(icon: Icons.visibility_outlined, title: 'Registra\navvistamento', body: 'Aggiungi una specie, foto e posizione', tint: const Color(0xFFF4E7D3), onTap: onSighting)),
+          const SizedBox(width: 8),
+          Expanded(child: _ActionCard(icon: Icons.hiking, title: 'Avvia uscita', body: 'Traccia il percorso e monitora l’attività', tint: WildColors.forest, dark: true, onTap: onTrack)),
+        ],
+      );
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({required this.icon, required this.title, required this.body, required this.tint, required this.onTap, this.dark = false});
   final IconData icon;
   final String title;
   final String body;
+  final Color tint;
   final VoidCallback onTap;
   final bool dark;
 
   @override
   Widget build(BuildContext context) => Material(
-        color: background,
+        color: tint,
         borderRadius: BorderRadius.circular(22),
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: onTap,
-          child: Container(
-            height: 176,
-            padding: const EdgeInsets.all(13),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(color: dark ? Colors.white12 : Colors.white60, shape: BoxShape.circle),
-                  child: Icon(icon, color: dark ? Colors.white : WildColors.forest),
-                ),
-                const Spacer(),
-                Text(title, style: TextStyle(fontFamily: 'serif', color: dark ? Colors.white : WildColors.ink, fontSize: 17, height: 1, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 7),
-                Text(body, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, height: 1.25, color: dark ? const Color(0xFFDCE5DD) : WildColors.muted)),
-              ],
+          child: SizedBox(
+            height: 148,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(color: dark ? Colors.white12 : Colors.white70, shape: BoxShape.circle),
+                        child: Icon(icon, color: dark ? Colors.white : WildColors.forest, size: 25),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.chevron_right, color: dark ? Colors.white : WildColors.ink, size: 20),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(title, maxLines: 2, style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800, fontSize: 17, height: 1, color: dark ? Colors.white : WildColors.ink)),
+                  const SizedBox(height: 7),
+                  Text(body, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, height: 1.25, color: dark ? const Color(0xFFE5EEE6) : WildColors.muted)),
+                ],
+              ),
             ),
           ),
         ),
       );
 }
 
-class _SpeciesCard extends StatelessWidget {
-  const _SpeciesCard({required this.name, required this.score});
-  final String name;
-  final int score;
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.action, required this.onTap});
+  final String title;
+  final String action;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: 142,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 14, offset: Offset(0, 5))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            BookAnimalThumb(name, width: 126, height: 116),
-            const SizedBox(height: 8),
-            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', fontSize: 16, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 3),
-            Text('$score%', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 5),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: score / 100,
-                minHeight: 6,
-                color: score > 65 ? const Color(0xFF5E9B55) : score > 45 ? const Color(0xFF8EAA63) : WildColors.amber,
-                backgroundColor: const Color(0xFFE8E6DF),
+  Widget build(BuildContext context) => Row(
+        children: [
+          Expanded(child: Text(title, style: const TextStyle(fontFamily: 'serif', fontSize: 27, height: 1, fontWeight: FontWeight.w800, color: WildColors.ink, letterSpacing: -.6))),
+          TextButton(onPressed: onTap, child: Row(children: [Text(action, style: const TextStyle(color: WildColors.muted, fontWeight: FontWeight.w600)), const Icon(Icons.chevron_right, size: 18, color: WildColors.muted)])),
+        ],
+      );
+}
+
+class _SpeciesStrip extends StatelessWidget {
+  const _SpeciesStrip({required this.snapshot});
+  final RadarSnapshot? snapshot;
+
+  int _score(String name, int fallback) {
+    final rows = snapshot?.species ?? const [];
+    for (final row in rows) {
+      if (row.name.toLowerCase() == name.toLowerCase()) return row.score;
+    }
+    return fallback;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      ('Cervo', _score('Cervo', 82), 'assets/approved/cervo_thumb.jpg'),
+      ('Capriolo', _score('Capriolo', 64), 'assets/approved/capriolo_thumb.jpg'),
+      ('Volpe', _score('Volpe', 41), 'assets/approved/volpe_thumb.jpg'),
+      ('Poiana', _score('Poiana', 37), 'assets/approved/poiana_thumb.jpg'),
+    ];
+    return SizedBox(
+      height: 190,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final item = items[i];
+          return _SpeciesCard(name: item.$1, score: item.$2, asset: item.$3);
+        },
+      ),
+    );
+  }
+}
+
+class _SpeciesCard extends StatelessWidget {
+  const _SpeciesCard({required this.name, required this.score, required this.asset});
+  final String name;
+  final int score;
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    final bar = score >= 60 ? const Color(0xFF62A958) : const Color(0xFFB98233);
+    return Container(
+      width: 142,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: const Color(0xFFFEFCF7), borderRadius: BorderRadius.circular(18), boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4))]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: SizedBox(height: 108, width: double.infinity, child: Image.asset(asset, fit: BoxFit.cover, filterQuality: FilterQuality.high)),
+          ),
+          const SizedBox(height: 6),
+          Text(name, style: const TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800, fontSize: 16)),
+          Text('$score%', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 3),
+          ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: score / 100, minHeight: 6, color: bar, backgroundColor: const Color(0xFFE2E0D9))),
+        ],
+      ),
+    );
+  }
+}
+
+class _LastOutingCard extends StatelessWidget {
+  const _LastOutingCard({required this.session, required this.duration, required this.onTap});
+  final TrackSession? session;
+  final String? duration;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          height: 150,
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 14, offset: Offset(0, 4))]),
+          clipBehavior: Clip.antiAlias,
+          child: Row(
+            children: [
+              SizedBox(width: 148, height: 150, child: Image.asset('assets/approved/access_land2.jpg', fit: BoxFit.cover)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: session == null
+                      ? const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Nessuna uscita registrata', style: TextStyle(fontFamily: 'serif', fontSize: 17, fontWeight: FontWeight.w800)),
+                            SizedBox(height: 6),
+                            Text('Avvia una registrazione GPS per costruire il tuo diario sul campo.', style: TextStyle(fontSize: 11, height: 1.3, color: WildColors.muted)),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Ultima uscita', style: TextStyle(fontFamily: 'serif', fontSize: 17, fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 7),
+                            Text('${(session!.distanceMeters / 1000).toStringAsFixed(1)} km   ·   $duration', style: const TextStyle(fontSize: 11, color: WildColors.muted)),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                              decoration: BoxDecoration(color: const Color(0xFFE8F0E3), borderRadius: BorderRadius.circular(10)),
+                              child: const Row(children: [Icon(Icons.auto_stories_outlined, size: 16, color: WildColors.forest), SizedBox(width: 6), Expanded(child: Text('Apri diario uscita', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: WildColors.forest)))]),
+                            ),
+                          ],
+                        ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
 }
 
-class _DiaryMetric extends StatelessWidget {
-  const _DiaryMetric({required this.icon, required this.label, required this.value});
+class _DiaryCard extends StatelessWidget {
+  const _DiaryCard({required this.icon, required this.label, required this.value, required this.tint});
   final IconData icon;
   final String label;
   final String value;
+  final Color tint;
 
   @override
-  Widget build(BuildContext context) => BookCard(
-        tint: WildColors.sageSoft,
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+        decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(18)),
         child: Row(
           children: [
-            Icon(icon, color: WildColors.forest, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: const TextStyle(fontSize: 11, color: WildColors.muted)),
-                  Text(value, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-                ],
-              ),
-            ),
+            Icon(icon, color: WildColors.forest, size: 26),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, color: WildColors.muted)), Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800))])),
             const Icon(Icons.chevron_right, color: WildColors.forest),
           ],
         ),
