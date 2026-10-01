@@ -80,21 +80,13 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
     await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PublishScreen(initial: row)));
   }
 
-  String assetForSpecies(String name) {
-    final n = name.toLowerCase();
-    if (n.contains('lupo') || n.contains('volpe')) return 'intro_lupo.jpg';
-    if (n.contains('marmotta')) return 'intro_marmotta.jpg';
-    if (n.contains('gufo') || n.contains('poiana') || n.contains('allocco')) return 'intro_gufo.jpg';
-    return 'intro_cervo.jpg';
-  }
-
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: WildColors.ivory,
     body: CustomScrollView(slivers: [
       SliverToBoxAdapter(child: SizedBox(height: 245, child: Stack(fit: StackFit.expand, children: [
-        Image.asset('intro_cervo.jpg', fit: BoxFit.cover, alignment: const Alignment(.1, -.2)),
-        const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x15FFFFFF), Color(0xB8F8F6EF), WildColors.ivory], stops: [0, .67, 1]))),
+        const WildLandscape(height: 245),
+        const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x08FFFFFF), Color(0xC8F8F6EF), WildColors.ivory], stops: [0, .67, 1]))),
         SafeArea(bottom: false, child: Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [IconButton(onPressed: () => Navigator.maybePop(context), icon: const Icon(Icons.arrow_back_ios_new, color: WildColors.forest)), const WildLogo(compact: true), const Spacer(), const Icon(Icons.notifications_none, color: WildColors.forest)]),
           const Spacer(),
@@ -121,7 +113,7 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
             final result = await showModalBottomSheet<String>(context: context, showDragHandle: true, builder: (_) => ListView(children: [for (final a in animals) ListTile(leading: SpeciesIcon(a.name, size: 34), title: Text(a.name), subtitle: Text(a.latin), onTap: () => Navigator.pop(context, a.name))]));
             if (result != null && mounted) setState(() => selectedSpecies = result);
           },
-          child: Row(children: [ClipRRect(borderRadius: BorderRadius.circular(13), child: Image.asset(assetForSpecies(selectedSpecies), width: 66, height: 66, fit: BoxFit.cover)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(selectedSpecies, style: const TextStyle(fontFamily: 'serif', fontSize: 19, fontWeight: FontWeight.w800)), Text(animals.where((a) => a.name == selectedSpecies).map((a) => a.latin).firstOrNull ?? '', style: const TextStyle(fontStyle: FontStyle.italic, color: WildColors.muted))])), const Icon(Icons.chevron_right)]),
+          child: Row(children: [WildAnimalIllustration(selectedSpecies, size: 66), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(selectedSpecies, style: const TextStyle(fontFamily: 'serif', fontSize: 19, fontWeight: FontWeight.w800)), Text(animals.where((a) => a.name == selectedSpecies).map((a) => a.latin).firstOrNull ?? '', style: const TextStyle(fontStyle: FontStyle.italic, color: WildColors.muted))])), const Icon(Icons.chevron_right)]),
         )),
         const SizedBox(height: 10),
         _Panel(title: 'Numero di individui', child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
