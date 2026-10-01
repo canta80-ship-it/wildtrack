@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../services/radar_service.dart';
+import '../services/database_service.dart';
+import '../models/sighting.dart';
 import 'exploration_screen.dart';
-import 'map_screen.dart';
 import 'record_screen.dart';
 import 'sightings_screen.dart';
-import 'species_screen.dart';
+import 'stats_screen.dart';
 import 'settings_screen.dart';
+import '../premium_ui.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,214 +18,237 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<RadarSnapshot> radar;
+  List<Sighting> sightings = [];
 
   @override
   void initState() {
     super.initState();
     radar = RadarService.instance.load();
+    _loadSightings();
+  }
+
+  Future<void> _loadSightings() async {
+    final rows = await DatabaseService.instance.getSightings();
+    if (mounted) setState(() => sightings = rows);
   }
 
   Future<void> refresh() async {
     final next = RadarService.instance.load();
     setState(() => radar = next);
-    await next;
+    await Future.wait([next, _loadSightings()]);
   }
 
-  Color activityColor(String value) {
-    switch (value) {
-      case 'ALTA':
-        return const Color(0xFF28563C);
-      case 'MEDIA':
-        return const Color(0xFF9A6B34);
-      default:
-        return const Color(0xFF6E756B);
-    }
+  String _assetFor(String name) {
+    final value = name.toLowerCase();
+    if (value.contains('lupo') || value.contains('volpe')) return 'intro_lupo.jpg';
+    if (value.contains('marmotta')) return 'intro_marmotta.jpg';
+    if (value.contains('gufo') || value.contains('allocco') || value.contains('poiana')) return 'intro_gufo.jpg';
+    return 'intro_cervo.jpg';
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: RefreshIndicator(
-        onRefresh: refresh,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 110),
-          children: [
-            Row(children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(color: const Color(0xFF254D38), borderRadius: BorderRadius.circular(14)),
-                child: const Icon(Icons.pets, color: Color(0xFFF8F6EF)),
-              ),
-              const SizedBox(width: 10),
-              const Text('WildTrack', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: -.7)),
-              const Spacer(),
-              IconButton(
-                tooltip: 'Impostazioni',
-                onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
-                icon: const Icon(Icons.settings_outlined),
-              ),
-            ]),
-            const SizedBox(height: 18),
-            FutureBuilder<RadarSnapshot>(
-              future: radar,
-              builder: (context, snapshot) {
-                final data = snapshot.data;
-                final activity = data?.activity ?? '…';
-                final weather = data?.weatherAvailable == true
-                    ? '${data!.temperature?.toStringAsFixed(0) ?? '—'}° · vento ${data.wind?.toStringAsFixed(0) ?? '—'} km/h'
-                    : 'ora e stagione';
-                return Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF254D38), Color(0xFF678060)]),
-                  ),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Buongiorno', style: TextStyle(color: Color(0xFFDDE8DA), fontSize: 15)),
-                    const SizedBox(height: 4),
-                    const Text('Pronto a esplorare?', style: TextStyle(color: Colors.white, fontSize: 29, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 16),
-                    Wrap(spacing: 8, runSpacing: 8, children: [
-                      _Pill(icon: Icons.radar, label: 'Attività fauna: $activity', color: activityColor(activity)),
-                      _Pill(icon: Icons.cloud_outlined, label: 'Radar: $weather', color: const Color(0xFF6A5942)),
-                    ]),
-                    const SizedBox(height: 10),
-                    const Text('Indice indicativo, non localizzazione in tempo reale.', style: TextStyle(color: Color(0xFFDDE8DA), fontSize: 11)),
+    body: RefreshIndicator(
+      onRefresh: refresh,
+      child: CustomScrollView(slivers: [
+        SliverToBoxAdapter(
+          child: WildHero(
+            image: 'intro_cervo.jpg',
+            height: 360,
+            alignment: const Alignment(.15, -.22),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 13, 20, 22),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    const WildLogo(compact: true, light: true),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())), icon: const Icon(Icons.notifications_none, color: Colors.white)),
+                    const CircleAvatar(radius: 19, backgroundImage: AssetImage('intro_cervo.jpg')),
                   ]),
-                );
-              },
+                  const Spacer(),
+                  const Text('Buongiorno,\nStefano', style: TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 40, height: .92, fontWeight: FontWeight.w700, letterSpacing: -1.2)),
+                  const SizedBox(height: 8),
+                  const Row(children: [Icon(Icons.location_on, color: Colors.white, size: 20), SizedBox(width: 4), Text('Cansiglio', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700))]),
+                  const SizedBox(height: 14),
+                  FutureBuilder<RadarSnapshot>(
+                    future: radar,
+                    builder: (context, snapshot) {
+                      final data = snapshot.data;
+                      final activity = data?.activity ?? '…';
+                      return Row(children: [
+                        Expanded(child: _HeroPill(icon: Icons.bar_chart_rounded, label: 'Attività fauna: $activity', green: true)),
+                        const SizedBox(width: 10),
+                        Expanded(child: _HeroPill(icon: Icons.wb_twilight_outlined, label: data?.weatherAvailable == true ? '${data!.temperature?.toStringAsFixed(0) ?? '—'}° · alba ideale' : 'Alba ideale per osservazione')),
+                      ]);
+                    },
+                  ),
+                ]),
+              ),
             ),
-            const SizedBox(height: 22),
-            const Text('Azioni rapide', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+          sliver: SliverList(delegate: SliverChildListDelegate([
             Row(children: [
-              Expanded(child: _ActionCard(icon: Icons.travel_explore, title: 'Esplora zona', subtitle: 'Mappa, sentieri e fauna', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ExplorationScreen())))),
-              const SizedBox(width: 10),
-              Expanded(child: _ActionCard(icon: Icons.add_a_photo_outlined, title: 'Registra avvistamento', subtitle: 'Foto, specie e posizione', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen())))),
+              Expanded(child: _QuickAction(background: WildColors.sageSoft, icon: Icons.map_outlined, title: 'Esplora zona', body: 'Sentieri, punti di interesse e attività fauna', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ExplorationScreen())))),
+              const SizedBox(width: 9),
+              Expanded(child: _QuickAction(background: const Color(0xFFF4E9D7), icon: Icons.binoculars_outlined, title: 'Registra\navvistamento', body: 'Aggiungi una specie, foto e posizione', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen())))),
+              const SizedBox(width: 9),
+              Expanded(child: _QuickAction(background: WildColors.forest, icon: Icons.hiking, title: 'Avvia uscita', body: 'Traccia il percorso e monitora l’attività', dark: true, onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecordScreen())))),
             ]),
-            const SizedBox(height: 10),
-            _ActionCard(icon: Icons.route_outlined, title: 'Avvia uscita', subtitle: 'Registra percorso, distanza e tempo sul campo', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecordScreen())), horizontal: true),
             const SizedBox(height: 24),
-            Row(children: [
-              const Expanded(child: Text('Specie probabili adesso', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700))),
-              TextButton(onPressed: refresh, child: const Text('Aggiorna')),
-            ]),
+            WildSectionTitle('Specie probabili adesso', action: 'Vedi tutte', onAction: refresh),
+            const SizedBox(height: 8),
             FutureBuilder<RadarSnapshot>(
               future: radar,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) return const LinearProgressIndicator();
-                if (!snapshot.hasData) {
-                  return const Text('Radar non disponibile. Il resto di WildTrack continua a funzionare offline.');
-                }
+                if (!snapshot.hasData) return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
+                final rows = snapshot.data!.species;
                 return SizedBox(
-                  height: 112,
+                  height: 190,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: snapshot.data!.species.length,
+                    itemCount: rows.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 9),
                     itemBuilder: (context, i) {
-                      final s = snapshot.data!.species[i];
-                      return Container(
-                        width: 130,
-                        padding: const EdgeInsets.all(13),
-                        decoration: BoxDecoration(color: const Color(0xFFF3F0E7), borderRadius: BorderRadius.circular(20)),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Icon(Icons.pets_outlined, color: Color(0xFF254D38)),
-                          const Spacer(),
-                          Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text('${s.score}% indice', style: const TextStyle(fontSize: 12, color: Color(0xFF657064))),
-                        ]),
-                      );
+                      final s = rows[i];
+                      return _SpeciesCard(name: s.name, score: s.score, asset: _assetFor(s.name));
                     },
                   ),
                 );
               },
             ),
             const SizedBox(height: 24),
-            Row(children: [
-              const Expanded(child: Text('Scopri WildTrack', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700))),
-              TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const MapScreen())), child: const Text('Apri mappa')),
-            ]),
+            WildSectionTitle('Ultima uscita', action: 'Vedi dettagli', onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const StatsScreen()))),
             const SizedBox(height: 8),
-            _FeatureTile(icon: Icons.radar, title: 'WildTrack Radar', subtitle: 'Ora combina ora, stagione, meteo e storico locale senza pubblicare la tua cronologia.', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ExplorationScreen()))),
-            _FeatureTile(icon: Icons.pets_outlined, title: 'Catalogo specie', subtitle: 'Schede, impronte, habitat, versi e consigli fotografici.', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SpeciesScreen()))),
-            _FeatureTile(icon: Icons.menu_book_outlined, title: 'Taccuino offline', subtitle: 'Rivedi e completa gli avvistamenti salvati sul telefono.', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingsScreen()))),
-          ],
+            WildGlass(
+              padding: EdgeInsets.zero,
+              child: SizedBox(
+                height: 145,
+                child: Row(children: [
+                  ClipRRect(borderRadius: const BorderRadius.horizontal(left: Radius.circular(24)), child: Image.asset('intro_cervo.jpg', width: 145, height: 145, fit: BoxFit.cover)),
+                  Expanded(child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Cansiglio', style: TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      const Text('Ultima attività registrata', style: TextStyle(fontSize: 11, color: WildColors.muted)),
+                      const Spacer(),
+                      const Wrap(spacing: 12, runSpacing: 8, children: [
+                        _MiniMetric(Icons.route_outlined, '8,4 km'),
+                        _MiniMetric(Icons.schedule_outlined, '3 h 12m'),
+                        _MiniMetric(Icons.pets_outlined, '6 specie'),
+                      ]),
+                      const Spacer(),
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7), decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(10)), child: const Row(children: [Icon(Icons.workspace_premium, size: 16, color: WildColors.forest), SizedBox(width: 6), Expanded(child: Text('Nuovo lifer: Picchio nero', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)))])),
+                    ]),
+                  )),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 24),
+            WildSectionTitle('Il tuo diario', action: 'Vedi tutto', onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const StatsScreen()))),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: _DiaryMetric(icon: Icons.eco_outlined, label: 'Specie uniche', value: '${sightings.map((e) => e.species).where((e) => e.isNotEmpty).toSet().length}')),
+              const SizedBox(width: 9),
+              const Expanded(child: _DiaryMetric(icon: Icons.schedule_outlined, label: 'Tempo sul campo', value: '64 h')),
+            ]),
+          ])),
         ),
-      ),
+      ]),
     ),
   );
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill({required this.icon, required this.label, required this.color});
+class _HeroPill extends StatelessWidget {
+  const _HeroPill({required this.icon, required this.label, this.green = false});
   final IconData icon;
   final String label;
-  final Color color;
+  final bool green;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-    decoration: BoxDecoration(color: color.withValues(alpha: .92), borderRadius: BorderRadius.circular(18)),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 16, color: Colors.white), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))]),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+    decoration: BoxDecoration(color: green ? const Color(0xDD173F2B) : const Color(0x994C463A), borderRadius: BorderRadius.circular(22), border: Border.all(color: Colors.white38)),
+    child: Row(children: [Icon(icon, color: green ? const Color(0xFF8BE278) : const Color(0xFFF3C96F), size: 21), const SizedBox(width: 7), Expanded(child: Text(label, maxLines: 2, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)))]),
   );
 }
 
-class _ActionCard extends StatelessWidget {
-  const _ActionCard({required this.icon, required this.title, required this.subtitle, required this.onTap, this.horizontal = false});
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({required this.background, required this.icon, required this.title, required this.body, required this.onTap, this.dark = false});
+  final Color background;
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String body;
   final VoidCallback onTap;
-  final bool horizontal;
+  final bool dark;
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFFF3F0E7),
-    borderRadius: BorderRadius.circular(22),
+    color: background,
+    borderRadius: BorderRadius.circular(24),
     child: InkWell(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(24),
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(17),
-        child: horizontal
-            ? Row(children: [
-                _IconBox(icon), const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)), const SizedBox(height: 4), Text(subtitle, style: const TextStyle(color: Color(0xFF657064)))])),
-                const Icon(Icons.chevron_right),
-              ])
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _IconBox(icon), const SizedBox(height: 20),
-                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 5), Text(subtitle, style: const TextStyle(color: Color(0xFF657064), height: 1.3)),
-              ]),
+      child: Container(
+        height: 175,
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          WildIconDisc(icon, background: dark ? Colors.white12 : Colors.white54, foreground: dark ? Colors.white : WildColors.forest, size: 44),
+          const Spacer(),
+          Text(title, style: TextStyle(fontFamily: 'serif', color: dark ? Colors.white : WildColors.ink, fontSize: 16, height: 1, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 7),
+          Text(body, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, height: 1.25, color: dark ? const Color(0xFFDCE5DD) : WildColors.muted)),
+        ]),
       ),
     ),
   );
 }
 
-class _IconBox extends StatelessWidget {
-  const _IconBox(this.icon);
-  final IconData icon;
+class _SpeciesCard extends StatelessWidget {
+  const _SpeciesCard({required this.name, required this.score, required this.asset});
+  final String name;
+  final int score;
+  final String asset;
   @override
-  Widget build(BuildContext context) => Container(width: 42, height: 42, decoration: BoxDecoration(color: const Color(0xFFDDE8DA), borderRadius: BorderRadius.circular(13)), child: Icon(icon, color: const Color(0xFF254D38)));
+  Widget build(BuildContext context) => Container(
+    width: 135,
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 16, offset: Offset(0, 5))]),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: Image.asset(asset, width: double.infinity, fit: BoxFit.cover)),
+        Padding(padding: const EdgeInsets.fromLTRB(11, 9, 11, 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 3),
+          Text('$score%', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 5),
+          ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(value: score / 100, minHeight: 6, color: score > 65 ? const Color(0xFF5E9B55) : score > 45 ? const Color(0xFF8EAA63) : WildColors.amber, backgroundColor: const Color(0xFFE8E6DF))),
+        ])),
+      ]),
+    ),
+  );
 }
 
-class _FeatureTile extends StatelessWidget {
-  const _FeatureTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric(this.icon, this.label);
   final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+  final String label;
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 10),
-    child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: _IconBox(icon),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
-    ),
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 15, color: WildColors.ink), const SizedBox(width: 4), Text(label, style: const TextStyle(fontSize: 11))]);
+}
+
+class _DiaryMetric extends StatelessWidget {
+  const _DiaryMetric({required this.icon, required this.label, required this.value});
+  final IconData icon;
+  final String label;
+  final String value;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(color: WildColors.sageSoft, borderRadius: BorderRadius.circular(19)),
+    child: Row(children: [Icon(icon, color: WildColors.forest, size: 28), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, color: WildColors.muted)), Text(value, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800))])), const Icon(Icons.chevron_right, color: WildColors.forest)]),
   );
 }
