@@ -85,7 +85,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
         onEvent: (status) {
           if (!mounted) return;
           if (status is ml.InProgress) {
-            setState(() => progress = status.downloadProgress / 100);
+            setState(() => progress = (status.progress / 100).clamp(0, 1));
           } else if (status is ml.Success) {
             setState(() => progress = 1);
           }
