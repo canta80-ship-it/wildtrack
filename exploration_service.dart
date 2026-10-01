@@ -12,6 +12,11 @@ class NatureTrail {
   final Map<String, dynamic> data;
   String get id => '${data['id']}';
   String get name => data['name'] as String? ?? 'Itinerario';
+  String get ref => '${data['ref'] ?? ''}'.trim();
+  String get network => '${data['network'] ?? ''}'.trim();
+  String get operatorName => '${data['operator'] ?? ''}'.trim();
+  String get difficulty => '${data['difficulty'] ?? 'Non indicata'}';
+  bool get isCai => data['is_cai'] == true;
   List<List<LatLng>> get segments => (data['segments'] as List)
       .map((s) => (s as List).map((p) => LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble())).toList())
       .toList();
@@ -69,6 +74,16 @@ class ExplorationService {
     await tmp.rename(file.path);
   }
 
+  bool _isCaiTags(Map tags) {
+    final text = [
+      tags['operator'], tags['network'], tags['name'], tags['ref'], tags['symbol'],
+      tags['osmc:symbol'], tags['description'], tags['note'], tags['source'],
+    ].whereType<Object>().map((e) => '$e'.toLowerCase()).join(' ');
+    return text.contains('club alpino italiano') ||
+        RegExp(r'(^|[^a-z])cai([^a-z]|$)').hasMatch(text) ||
+        text.contains('sentiero italia cai');
+  }
+
   List<NatureTrail> _parse(Map<String, dynamic> data) {
     if (data['remark'] != null || data['elements'] is! List) return [];
     return (data['elements'] as List)
@@ -89,10 +104,16 @@ class ExplorationService {
             }
             if (part.length > 1) segments.add(part);
           }
+          final cai = _isCaiTags(tags);
+          final ref = '${tags['ref'] ?? ''}'.trim();
           return NatureTrail({
             'id': e['id'],
-            'name': tags['name'] ?? tags['ref'] ?? 'Itinerario OSM ${e['id']}',
+            'name': tags['name'] ?? (cai && ref.isNotEmpty ? 'Sentiero CAI $ref' : tags['ref'] ?? 'Itinerario OSM ${e['id']}'),
+            'ref': ref,
+            'network': tags['network'] ?? '',
+            'operator': tags['operator'] ?? '',
             'difficulty': tags['sac_scale'] ?? 'Non indicata',
+            'is_cai': cai,
             'segments': segments,
             'source': 'https://www.openstreetmap.org/relation/${e['id']}',
           });
@@ -101,14 +122,17 @@ class ExplorationService {
         .toList();
   }
 
-  Future<List<NatureTrail>> nearby(LatLng p) async {
+  Future<List<NatureTrail>> _nearbyInternal(LatLng p, {bool caiOnly = false}) async {
     if (p.latitude < 35 || p.latitude > 48 || p.longitude < 6 || p.longitude > 19) {
       throw Exception('Scegli un’area in Italia.');
     }
 
     final south = p.latitude - 0.045, north = p.latitude + 0.045;
     final west = p.longitude - 0.065, east = p.longitude + 0.065;
-    final query = '[out:json][timeout:18];relation["route"~"^(hiking|foot)\$"](around:5000,${p.latitude},${p.longitude});out body geom($south,$west,$north,$east);';
+    final filter = caiOnly
+        ? '(relation["route"~"^(hiking|foot)$"]["operator"~"CAI|Club Alpino Italiano",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)$"]["network"~"CAI|cai",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)$"]["name"~"CAI|Sentiero Italia",i](around:8000,${p.latitude},${p.longitude});relation["route"~"^(hiking|foot)$"]["description"~"CAI|Club Alpino Italiano",i](around:8000,${p.latitude},${p.longitude}););'
+        : 'relation["route"~"^(hiking|foot)$"](around:5000,${p.latitude},${p.longitude});';
+    final query = '[out:json][timeout:18];$filter out body geom($south,$west,$north,$east);';
 
     Object? lastError;
     for (final host in _overpassHosts) {
@@ -124,9 +148,10 @@ class ExplorationService {
           continue;
         }
         final text = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 15));
-        final trails = _parse(jsonDecode(text) as Map<String, dynamic>);
+        var trails = _parse(jsonDecode(text) as Map<String, dynamic>);
+        if (caiOnly) trails = trails.where((t) => t.isCai).toList();
         if (trails.isNotEmpty) return trails;
-        lastError = 'Nessun itinerario restituito da $host';
+        lastError = caiOnly ? 'Nessun sentiero CAI restituito da $host' : 'Nessun itinerario restituito da $host';
       } catch (e) {
         lastError = e;
       } finally {
@@ -134,14 +159,21 @@ class ExplorationService {
       }
     }
 
-    try {
-      final d = await CommunityService.instance.api('trails?lat=${p.latitude}&lng=${p.longitude}');
-      final rows = (d['items'] as List).map((x) => NatureTrail(Map<String, dynamic>.from(x as Map))).toList();
-      if (rows.isNotEmpty) return rows;
-    } catch (e) {
-      lastError = e;
+    if (!caiOnly) {
+      try {
+        final d = await CommunityService.instance.api('trails?lat=${p.latitude}&lng=${p.longitude}');
+        final rows = (d['items'] as List).map((x) => NatureTrail(Map<String, dynamic>.from(x as Map))).toList();
+        if (rows.isNotEmpty) return rows;
+      } catch (e) {
+        lastError = e;
+      }
     }
 
-    throw Exception('Ricerca sentieri temporaneamente non disponibile. I tracciati già presenti restano utilizzabili. Ultimo tentativo: ${lastError ?? 'provider non disponibile'}');
+    throw Exception(caiOnly
+        ? 'Sentieri CAI non disponibili in quest’area o provider temporaneamente non raggiungibile. Ultimo tentativo: ${lastError ?? 'nessun dato verificabile'}'
+        : 'Ricerca sentieri temporaneamente non disponibile. I tracciati già presenti restano utilizzabili. Ultimo tentativo: ${lastError ?? 'provider non disponibile'}');
   }
+
+  Future<List<NatureTrail>> nearby(LatLng p) => _nearbyInternal(p);
+  Future<List<NatureTrail>> caiNearby(LatLng p) => _nearbyInternal(p, caiOnly: true);
 }
