@@ -2,7 +2,8 @@
 import hashlib,json,re,subprocess,sys,time,xml.etree.ElementTree as ET
 from pathlib import Path
 out=Path('android-results');out.mkdir(exist_ok=True)
-apk=Path(sys.argv[1]); package='it.wildtrack.app'; results=[]
+apk=Path(sys.argv[1]); package=sys.argv[2] if len(sys.argv)>2 else 'it.wildtrack.app'; results=[]
+legacy_package='it.wildtrack.app'
 def adb(*args,check=True):
     return subprocess.run(['adb',*args],capture_output=True,check=check,text=True,timeout=40).stdout
 def shot(name):
@@ -35,6 +36,12 @@ def tap(label,scroll=False):
 def result(name,status,detail=''):
     results.append(dict(name=name,status=status,detail=detail));print(name+': '+status,flush=True)
 try:
+    if len(sys.argv)>3:
+        adb('install','-r',sys.argv[3]);result('Installazione copia precedente per verifica affiancamento','PASS')
+        adb('shell','am','start','-W','-n',legacy_package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(8)
+        if not tap('Continua come ospite',scroll=True) or not tap('Avvista') or not tap('Salva privato',scroll=True):
+            raise RuntimeError('Unable to seed legacy sighting for preservation check')
+        adb('shell','am','force-stop',legacy_package)
     adb('install','-r',str(apk));result('Installazione APK firmato','PASS')
     adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(12)
     pid=adb('shell','pidof',package,check=False).strip();result('Avvio nativo Android','PASS' if pid else 'FAIL');shot('01-welcome')
@@ -59,6 +66,18 @@ try:
         visible=' '.join(n.get('text','')+' '+n.get('content-desc','') for n in dump().iter('node')).lower()
         result('Avvistamento privato presente dopo riavvio','PASS' if 'cervo' in visible else 'BLOCKED','Verifica del dato salvato nel diario dopo arresto e riapertura del processo');shot('persisted-diary')
     else:result('Avvistamento privato presente dopo riavvio','BLOCKED','Percorso del diario non raggiunto automaticamente')
+    if len(sys.argv)>3:
+        adb('install','-r',str(apk));result('Reinstallazione aggiornamento con firma stabile','PASS')
+        adb('shell','am','force-stop',package)
+        adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
+        ok=tap('Continua come ospite',scroll=True) and tap('Diario')
+        visible=' '.join(n.get('text','')+' '+n.get('content-desc','') for n in dump().iter('node')).lower()
+        result('Dati Preview conservati dopo reinstallazione','PASS' if ok and 'cervo' in visible else 'FAIL')
+        adb('shell','am','force-stop',package)
+        adb('shell','am','start','-W','-n',legacy_package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
+        ok=tap('Continua come ospite',scroll=True) and tap('Diario')
+        visible=' '.join(n.get('text','')+' '+n.get('content-desc','') for n in dump().iter('node')).lower()
+        result('App precedente e suoi dati conservati','PASS' if ok and 'cervo' in visible else 'FAIL');shot('legacy-preserved')
 except Exception as e:result('Esecuzione Android','BLOCKED',str(e))
 finally:
     logs=adb('logcat','-d','-v','brief',check=False)

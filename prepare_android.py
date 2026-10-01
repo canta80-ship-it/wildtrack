@@ -4,7 +4,7 @@ s = p.read_text()
 for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK','POST_NOTIFICATIONS']:
     if 'android.permission.'+permission not in s:
         s=s.replace('<application', f'<uses-permission android:name="android.permission.{permission}" />\n    <application',1)
-s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack"')
+s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack Preview"')
 p.write_text(s)
 k=Path('android/app/src/main/kotlin/it/wildtrack/wildtrack_mvp/MainActivity.kt')
 k.parent.mkdir(parents=True,exist_ok=True)
@@ -256,5 +256,7 @@ p.write_text(s)
 # Fresh stable application id for the next-generation WildTrack family.
 # It avoids signature collisions with the earlier v5/v6 preview packages.
 build=Path('android/app/build.gradle.kts')
-s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.app"')
+s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','applicationId = "it.wildtrack.preview"')
+s=s.replace('    buildTypes {', '    signingConfigs {\n        create("wildtrackPreview") {\n            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")\n            storePassword = "android"\n            keyAlias = "androiddebugkey"\n            keyPassword = "android"\n        }\n    }\n    buildTypes {')
+s=s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("wildtrackPreview")')
 build.write_text(s)
