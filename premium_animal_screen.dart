@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../premium_ui.dart';
 import 'premium_explore_screen.dart';
 import 'species_screen.dart';
+import 'species_detail_screen.dart';
 
 class PremiumAnimalScreen extends StatelessWidget {
   const PremiumAnimalScreen(this.animal, {super.key});
@@ -11,38 +12,77 @@ class PremiumAnimalScreen extends StatelessWidget {
 
   bool get isDeer => animal.name.toLowerCase() == 'cervo';
 
-  String get heroAsset {
-    final n = animal.name.toLowerCase();
-    if (n == 'cervo') return 'assets/approved/cervo_hero.jpg';
-    if (n.contains('lupo') || n.contains('volpe') || n.contains('sciacallo'))
-      return 'intro_lupo.jpg';
-    if (n.contains('gufo') ||
-        n.contains('poiana') ||
-        n.contains('aquila') ||
-        n.contains('falco') ||
-        n.contains('civetta') ||
-        n.contains('allocco'))
-      return 'intro_gufo.jpg';
-    if (n.contains('marmotta') || n.contains('tasso') || n.contains('lepre'))
-      return 'intro_marmotta.jpg';
-    return 'intro_cervo.jpg';
+  SpeciesDetail get detail => speciesDetails[animal.name]!;
+  String get heroAsset => 'assets/approved/${detail.asset}_hero.jpg';
+  String get footprintType => switch (animal.name) {
+    'Volpe' || 'Lupo' || 'Sciacallo dorato' => 'canide',
+    'Orso bruno' || 'Tasso' || 'Ermellino' => 'cinque_dita',
+    'Marmotta' => 'roditore',
+    'Germano reale' => 'palmata',
+    'Picchio nero' || 'Allocco' || 'Gufo reale' || 'Barbagianni' => 'due_due',
+    _ => animal.group == 'Mammiferi' ? 'zoccolo' : 'uccello',
+  };
+  List<(String, String)> get signs => [
+    (
+      'Impronta',
+      animal.name == 'Marmotta'
+          ? 'Zampe anteriori e posteriori diverse; valuta habitat e sequenza della pista.'
+          : detail.signs.first.$1 == 'Impronta'
+          ? detail.signs.first.$2
+          : 'Osserva la forma del piede e documenta più orme con un riferimento metrico.',
+    ),
+    (
+      const ['Allocco', 'Gufo reale', 'Barbagianni'].contains(animal.name)
+          ? 'Borre'
+          : 'Fatte',
+      scatDescription(animal.name, animal.group),
+    ),
+    detail.signs[2],
+    detail.signs[3],
+  ];
+  String get sizeLine => detail.size;
+  String get weightLine => detail.mass;
+
+  void showExplanation(BuildContext context, String title, String body) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: WildColors.ivory,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'serif',
+                  fontSize: 27,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(body, style: const TextStyle(fontSize: 16, height: 1.5)),
+              const SizedBox(height: 16),
+              WildOutlineButton(
+                label: 'Fonte naturalistica',
+                icon: Icons.open_in_new,
+                onPressed: () => launchUrl(
+                  Uri.parse(detail.source),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
-
-  String get sizeLine => switch (animal.name) {
-    'Cervo' => '180–250 cm',
-    'Capriolo' => '95–135 cm',
-    'Lupo' => '100–140 cm',
-    'Volpe' => '60–90 cm',
-    _ => 'Varia per sesso/età',
-  };
-
-  String get weightLine => switch (animal.name) {
-    'Cervo' => '120–250 kg',
-    'Capriolo' => '15–35 kg',
-    'Lupo' => '25–45 kg',
-    'Volpe' => '4–10 kg',
-    _ => animal.group,
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +91,11 @@ class PremiumAnimalScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _Hero(animal: animal, asset: heroAsset, isDeer: isDeer),
+            child: _Hero(
+              animal: animal,
+              asset: heroAsset,
+              activity: detail.activity,
+            ),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 48),
@@ -65,18 +109,27 @@ class PremiumAnimalScreen extends StatelessWidget {
                         child: _InfoCard(
                           icon: Icons.eco_outlined,
                           title: 'Specie autoctona',
-                          body: isDeer
-                              ? 'Presente in gran parte delle Alpi e dell’Appennino.'
-                              : animal.group,
+                          body: animal.description,
                         ),
                       ),
                       const SizedBox(width: 7),
-                      const Expanded(
-                        child: _InfoCard(
-                          icon: Icons.groups_outlined,
-                          title: 'Stato di conservazione',
-                          body: 'Rischio minimo',
-                          badge: 'LC',
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => showExplanation(
+                            context,
+                            'Stato di conservazione',
+                            detail.badge == null
+                                ? animal.ecology
+                                : detail.status + '\n\n' + animal.ecology,
+                          ),
+                          child: _InfoCard(
+                            icon: Icons.groups_outlined,
+                            title: 'Stato di conservazione',
+                            body: detail.badge == null
+                                ? animal.ecology
+                                : detail.status,
+                            badge: detail.badge,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 7),
@@ -105,109 +158,107 @@ class PremiumAnimalScreen extends StatelessWidget {
                 _HabitatCard(
                   animal: animal,
                   asset: isDeer ? 'assets/approved/habitat.jpg' : heroAsset,
+                  tags: detail.tags,
                 ),
                 const SizedBox(height: 12),
-                const _SectionTitle(
+                _SectionTitle(
                   title: 'Segni e impronte',
                   action: 'Vedi tutti',
+                  onTap: () => showExplanation(
+                    context,
+                    'Segni e impronte · ${animal.name}',
+                    signs.map((s) => '${s.$1}\n${s.$2}').join('\n\n'),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _SignCard(
-                        title: 'Impronta',
-                        body: isDeer
-                            ? 'Zoccolo grande e ovale, con due unghioni ben evidenti.'
-                            : 'Osserva forma, dita e dimensioni.',
-                        asset: isDeer ? 'assets/approved/impronta.jpg' : null,
-                        icon: Icons.pets_outlined,
+                    for (var i = 0; i < signs.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 6),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => showExplanation(
+                            context,
+                            signs[i].$1,
+                            signs[i].$2,
+                          ),
+                          child: _SignCard(
+                            illustration: i == 0 && !isDeer
+                                ? Center(
+                                    child: CustomPaint(
+                                      size: const Size(54, 66),
+                                      painter: TrackPainter(
+                                        footprintType,
+                                        WildColors.earth,
+                                        animal.name == 'Cinghiale',
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            title: signs[i].$1,
+                            body: signs[i].$2,
+                            icon: [
+                              Icons.pets_outlined,
+                              Icons.blur_circular,
+                              Icons.park_outlined,
+                              Icons.account_tree_outlined,
+                            ][i],
+                            asset: isDeer
+                                ? [
+                                    'assets/approved/impronta.jpg',
+                                    'assets/approved/fatte.jpg',
+                                    'assets/approved/sfregamenti.jpg',
+                                    'assets/approved/palchi.jpg',
+                                  ][i]
+                                : null,
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _SignCard(
-                        title: 'Fatte',
-                        body: isDeer
-                            ? 'Escrementi ovali e scuri, spesso in piccoli ammassi.'
-                            : 'Forma e contesto aiutano il riconoscimento.',
-                        asset: isDeer ? 'assets/approved/fatte.jpg' : null,
-                        icon: Icons.blur_circular,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _SignCard(
-                        title: 'Sfregamenti',
-                        body: isDeer
-                            ? 'Tracce sui tronchi degli alberi, soprattutto nel periodo degli amori.'
-                            : 'Segni su tronchi e vegetazione.',
-                        asset: isDeer
-                            ? 'assets/approved/sfregamenti.jpg'
-                            : null,
-                        icon: Icons.park_outlined,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _SignCard(
-                        title: isDeer ? 'Palchi' : 'Altri segni',
-                        body: isDeer
-                            ? 'Cadono tra febbraio e aprile, cercali a terra nei boschi.'
-                            : 'Peli, piume, piste e resti alimentari.',
-                        asset: isDeer ? 'assets/approved/palchi.jpg' : null,
-                        icon: Icons.account_tree_outlined,
-                      ),
-                    ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 12),
                 const _SectionTitle(title: 'Periodo migliore'),
                 const SizedBox(height: 8),
-                const Row(
+                Row(
                   children: [
-                    Expanded(
-                      child: _Season(
-                        icon: Icons.local_florist_outlined,
-                        label: 'Primavera',
-                        months: 'Mar – Mag',
-                        level: .42,
-                        levelText: 'Medio',
+                    for (var i = 0; i < 4; i++) ...[
+                      if (i > 0) const SizedBox(width: 6),
+                      Expanded(
+                        child: _Season(
+                          icon: [
+                            Icons.local_florist_outlined,
+                            Icons.wb_sunny_outlined,
+                            Icons.eco_outlined,
+                            Icons.ac_unit,
+                          ][i],
+                          label: [
+                            'Primavera',
+                            'Estate',
+                            'Autunno',
+                            'Inverno',
+                          ][i],
+                          months: [
+                            'Mar – Mag',
+                            'Giu – Ago',
+                            'Set – Nov',
+                            'Dic – Feb',
+                          ][i],
+                          level: null,
+                          levelText: detail.seasons[i],
+                          best:
+                              (isDeer && i == 2) ||
+                              (animal.name == 'Marmotta' && i == 1),
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: _Season(
-                        icon: Icons.wb_sunny_outlined,
-                        label: 'Estate',
-                        months: 'Giu – Ago',
-                        level: .48,
-                        levelText: 'Medio',
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: _Season(
-                        icon: Icons.eco_outlined,
-                        label: 'Autunno',
-                        months: 'Set – Nov',
-                        level: .92,
-                        levelText: 'Molto alto',
-                        best: true,
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: _Season(
-                        icon: Icons.ac_unit,
-                        label: 'Inverno',
-                        months: 'Dic – Feb',
-                        level: .24,
-                        levelText: 'Basso',
-                      ),
-                    ),
+                    ],
                   ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Indicazioni stagionali: la possibilità di osservazione dipende dal luogo e dalle condizioni.',
+                  style: TextStyle(fontSize: 10, color: WildColors.muted),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -235,11 +286,8 @@ class PremiumAnimalScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 9),
-                            _Tip(
-                              isDeer
-                                  ? 'Momenti migliori all’alba e al tramonto.'
-                                  : animal.behaviour,
-                            ),
+                            _Tip(detail.activity),
+                            _Tip(detail.photo),
                             const _Tip(
                               'Mantieni distanza e usa un teleobiettivo.',
                             ),
@@ -272,6 +320,17 @@ class PremiumAnimalScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (detail.note.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      detail.note,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: WildColors.muted,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 14),
                 _Panel(
                   title: 'Ecologia e rispetto',
@@ -290,7 +349,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                   label: 'Fonte naturalistica',
                   icon: Icons.open_in_new,
                   onPressed: () => launchUrl(
-                    Uri.parse(animal.source),
+                    Uri.parse(detail.source),
                     mode: LaunchMode.externalApplication,
                   ),
                 ),
@@ -307,11 +366,11 @@ class _Hero extends StatelessWidget {
   const _Hero({
     required this.animal,
     required this.asset,
-    required this.isDeer,
+    required this.activity,
   });
   final Animal animal;
   final String asset;
-  final bool isDeer;
+  final String activity;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -322,7 +381,7 @@ class _Hero extends StatelessWidget {
         Image.asset(
           asset,
           fit: BoxFit.cover,
-          alignment: isDeer ? Alignment.centerRight : Alignment.center,
+          alignment: Alignment.centerRight,
           filterQuality: FilterQuality.high,
         ),
         const DecoratedBox(
@@ -355,15 +414,19 @@ class _Hero extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                Text(
-                  animal.name,
-                  style: const TextStyle(
-                    fontFamily: 'serif',
-                    fontSize: 38,
-                    height: .92,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -1,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    animal.name,
+                    style: const TextStyle(
+                      fontFamily: 'serif',
+                      fontSize: 38,
+                      height: .92,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: -1,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -411,16 +474,14 @@ class _Hero extends StatelessWidget {
                                 style: TextStyle(fontWeight: FontWeight.w800),
                               ),
                               const TextSpan(
-                                text: 'ALTA\n',
+                                text: 'ORARI\n',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w900,
                                   color: Color(0xFF8DE67D),
                                 ),
                               ),
                               TextSpan(
-                                text: isDeer
-                                    ? 'più attivo all’alba e al tramonto'
-                                    : 'osserva nelle ore più tranquille',
+                                text: activity,
                                 style: const TextStyle(fontSize: 10.5),
                               ),
                             ],
@@ -565,7 +626,12 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _HabitatCard extends StatelessWidget {
-  const _HabitatCard({required this.animal, required this.asset});
+  const _HabitatCard({
+    required this.animal,
+    required this.asset,
+    required this.tags,
+  });
+  final List<String> tags;
   final Animal animal;
   final String asset;
 
@@ -597,8 +663,7 @@ class _HabitatCard extends StatelessWidget {
             Expanded(
               child: Text(
                 animal.habitat,
-                maxLines: 6,
-                overflow: TextOverflow.ellipsis,
+
                 style: const TextStyle(
                   fontSize: 11.5,
                   height: 1.3,
@@ -609,17 +674,26 @@ class _HabitatCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 9),
-        const Wrap(
+        Wrap(
           spacing: 6,
           runSpacing: 6,
           children: [
-            _Tag(icon: Icons.park, label: 'Foreste'),
-            _Tag(icon: Icons.landscape, label: 'Aree montane'),
-            _Tag(icon: Icons.grass, label: 'Radure e pascoli'),
-            _Tag(
-              icon: Icons.water_drop_outlined,
-              label: 'Vicino a corsi d’acqua',
-            ),
+            for (final tag in tags)
+              _Tag(
+                icon:
+                    tag.contains('acq') ||
+                        tag.contains('umid') ||
+                        tag.contains('Palud') ||
+                        tag.contains('Cann') ||
+                        tag.contains('Fiumi')
+                    ? Icons.water_drop_outlined
+                    : tag.contains('Rocc') ||
+                          tag.contains('mont') ||
+                          tag.contains('quota')
+                    ? Icons.landscape
+                    : Icons.park,
+                label: tag,
+              ),
           ],
         ),
       ],
@@ -658,7 +732,9 @@ class _SignCard extends StatelessWidget {
     required this.body,
     required this.icon,
     this.asset,
+    this.illustration,
   });
+  final Widget? illustration;
   final String title;
   final String body;
   final IconData icon;
@@ -666,7 +742,7 @@ class _SignCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 170,
+    height: 214,
     padding: const EdgeInsets.all(8),
     decoration: BoxDecoration(
       color: const Color(0xFFFAF5EA),
@@ -683,7 +759,9 @@ class _SignCard extends StatelessWidget {
             child: asset == null
                 ? Container(
                     color: const Color(0xFFF1E8D8),
-                    child: Icon(icon, size: 40, color: WildColors.earth),
+                    child:
+                        illustration ??
+                        Icon(icon, size: 40, color: WildColors.earth),
                   )
                 : Image.asset(
                     asset!,
@@ -701,8 +779,7 @@ class _SignCard extends StatelessWidget {
         Expanded(
           child: Text(
             body,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
+
             style: const TextStyle(
               fontSize: 8.5,
               height: 1.15,
@@ -727,7 +804,7 @@ class _Season extends StatelessWidget {
   final IconData icon;
   final String label;
   final String months;
-  final double level;
+  final double? level;
   final String levelText;
   final bool best;
 
@@ -777,15 +854,16 @@ class _Season extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 3),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(5),
-          child: LinearProgressIndicator(
-            value: level,
-            minHeight: 5,
-            color: best ? WildColors.forest : const Color(0xFFE7B348),
-            backgroundColor: const Color(0xFFE6E3D9),
+        if (level != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: LinearProgressIndicator(
+              value: level ?? 0,
+              minHeight: 5,
+              color: best ? WildColors.forest : const Color(0xFFE7B348),
+              backgroundColor: const Color(0xFFE6E3D9),
+            ),
           ),
-        ),
       ],
     ),
   );

@@ -16,7 +16,9 @@ NOT YET CERTIFIED:
 - Pixel identity with all ten references on the installed Android APK.
 - Full landscape artwork hidden behind text in the supplied mockups is unavailable. The clean visible landscape was extracted; full-screen source artwork is not recreated or claimed identical.
 - Typography remains native serif/sans-serif; exact original font files are unavailable.
-- Other species beyond the four reference thumbnails need their own approved illustrations.
+- All 24 species now have individual generated naturalistic hero images, bundled at 1536×1024, and an explicit record of four signs, four seasonal notes, habitat tags and photo advice. These new illustrations follow the deer reference; they are not claimed to be identical original artwork.
+- Signs beyond the deer use native foot schematics and icons; matching naturalistic illustrations for every sign remain incomplete.
+- National conservation categories are displayed only where checked against a species source; remaining cards display species ecology and link the source rather than assigning a false LC category.
 - Live cartographic tiles and live chat/account data necessarily depend on current state. The frame and controls must match the reference; dates, names, counters and coordinates remain real data.
 
 Do not present a successful build as proof of visual equality. Capture the exact compiled APK before claiming compliance.

@@ -254,15 +254,40 @@ class WildAnimalIllustration extends StatelessWidget {
         : n.contains('poiana')
         ? 'poiana_thumb.jpg'
         : null;
+    const otherAssets = <String, String>{
+      'camoscio alpino': 'camoscio',
+      'stambecco': 'stambecco',
+      'cinghiale': 'cinghiale',
+      'aquila reale': 'aquila',
+      'grifone': 'grifone',
+      'allocco': 'allocco',
+      'picchio nero': 'picchio',
+      'airone cenerino': 'airone',
+      'germano reale': 'germano',
+      'falco di palude': 'falco',
+      'orso bruno': 'orso',
+      'lupo': 'lupo',
+      'sciacallo dorato': 'sciacallo',
+      'marmotta': 'marmotta',
+      'ermellino': 'ermellino',
+      'tasso': 'tasso',
+      'gracchio alpino': 'gracchio',
+      'gufo reale': 'gufo',
+      'barbagianni': 'barbagianni',
+      'ghiandaia': 'ghiandaia',
+    };
+    final imageAsset =
+        asset ?? (otherAssets[n] == null ? null : '${otherAssets[n]}_hero.jpg');
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: SizedBox(
         width: size,
         height: size,
-        child: asset != null
+        child: imageAsset != null
             ? Image.asset(
-                'assets/approved/$asset',
-                fit: BoxFit.contain,
+                'assets/approved/$imageAsset',
+                fit: asset != null ? BoxFit.contain : BoxFit.cover,
+                alignment: Alignment.centerRight,
                 filterQuality: FilterQuality.high,
               )
             : Semantics(
