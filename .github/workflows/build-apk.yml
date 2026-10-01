@@ -25,7 +25,11 @@ jobs:
           for file in *_screen.dart; do [ ! -f "$file" ] || mv "$file" lib/screens/; done
           for file in *_service.dart; do [ ! -f "$file" ] || mv "$file" lib/services/; done
           for file in sighting.dart track_point.dart track_session.dart; do [ ! -f "$file" ] || mv "$file" lib/models/; done
-          [ ! -f premium_ui.dart ] || mv premium_ui.dart lib/
+          if [ -f premium_ui.dart ]; then
+            cp premium_ui.dart lib/premium_ui.dart
+            cp premium_ui.dart lib/screens/premium_ui.dart
+            rm premium_ui.dart
+          fi
           [ ! -f main.dart ] || mv main.dart lib/
           [ ! -f prepare_android.py ] || mv prepare_android.py tool/
       - name: Generate Android project
