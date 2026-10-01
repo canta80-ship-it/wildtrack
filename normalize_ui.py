@@ -1,5 +1,25 @@
 from pathlib import Path
 
+# Imports and navigation wiring that must survive the generated Flutter layout.
+private_maps = Path('lib/screens/private_maps_screen.dart')
+if private_maps.exists():
+    text = private_maps.read_text()
+    if "import 'expedition_tools_screen.dart';" not in text:
+        text = text.replace("import 'community_screen.dart';", "import 'community_screen.dart';\nimport 'expedition_tools_screen.dart';")
+    text = text.replace(
+        "_MapPreview(memberCount: mapMembers.length),",
+        "InkWell(borderRadius: BorderRadius.circular(26), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ExpeditionMapScreen(mapId: '${current['id']}', mapName: '${current['name'] ?? 'Spedizione'}'))), child: _MapPreview(memberCount: mapMembers.length)),",
+    )
+    text = text.replace(
+        "const _ExpeditionCard(icon: Icons.chat_bubble_outline, title: 'Messaggi', body: 'Comunica con il gruppo durante la spedizione.', tint: Color(0xFFEAF2F3)),",
+        "_ExpeditionCard(icon: Icons.chat_bubble_outline, title: 'Messaggi', body: 'Comunica con il gruppo durante la spedizione.', tint: const Color(0xFFEAF2F3), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ExpeditionMessagesScreen(mapId: '${current['id']}', mapName: '${current['name'] ?? 'Spedizione'}')))),",
+    )
+    text = text.replace(
+        "const _ExpeditionCard(icon: Icons.visibility_outlined, title: 'Avvistamenti\\ndel gruppo', body: 'Tutti gli avvistamenti condivisi.', tint: Color(0xFFF4E9D9)),",
+        "_ExpeditionCard(icon: Icons.visibility_outlined, title: 'Avvistamenti\\ndel gruppo', body: 'Tutti gli avvistamenti condivisi.', tint: const Color(0xFFF4E9D9), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ExpeditionSightingsScreen(mapId: '${current['id']}', mapName: '${current['name'] ?? 'Spedizione'}')))),",
+    )
+    private_maps.write_text(text)
+
 replacements = {
     Path('lib/screens/premium_explore_screen.dart'): [
         (
@@ -33,8 +53,6 @@ for path, rules in replacements.items():
         text = text.replace(old, new)
     path.write_text(text)
 
-# Active premium UI must never use bundled intro JPGs as decoration.
-# User-provided/community photos are permitted because they are real content.
 active = [
     'home_screen.dart',
     'intro_screen.dart',
