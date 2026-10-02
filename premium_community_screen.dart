@@ -327,11 +327,11 @@ class _ChatAndFeed extends StatelessWidget {
         },
       ),
       const SizedBox(height: 10),
-      const Align(
+      Align(
         alignment: Alignment.centerLeft,
         child: Semantics(
           header: true,
-          child: Text('Chat', style: WildText.h2),
+          child: const Text('Chat', style: WildText.h2),
         ),
       ),
       const SizedBox(height: 10),
