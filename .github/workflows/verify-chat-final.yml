@@ -1,7 +1,5 @@
 name: Verify exact Chat heading on delivered APK
 on:
-  push:
-    branches: [verify-chat-final]
   workflow_dispatch:
 permissions:
   contents: read

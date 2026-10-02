@@ -13,7 +13,7 @@ def nodes():
 def exact(label):
     found = []
     for n in nodes():
-        if n.get('text', '').strip() == label or n.get('content-desc', '').strip() == label:
+        if label in n.get('text', '').strip().splitlines() or label in n.get('content-desc', '').strip().splitlines():
             b = list(map(int, re.findall(r'\d+', n.get('bounds', ''))))
             if len(b) == 4 and b[3] > b[1] and b[2] > b[0]: found.append(b)
     return max(found, key=lambda b: b[1]) if found else None
