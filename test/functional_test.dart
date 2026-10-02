@@ -803,9 +803,12 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      MaterialApp(theme: wildTrackTheme(Brightness.light), home: screen),
-    );
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MaterialApp(theme: wildTrackTheme(Brightness.light), home: screen),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    });
     await tester.pumpAndSettle();
   }
 
@@ -827,14 +830,17 @@ void main() {
       );
       Future<void> restart() async {
         await tester.pumpWidget(const SizedBox());
-        await tester.pumpWidget(
-          const MaterialApp(
-            home: SessionGate(
-              home: Text('RESTORED HOME'),
-              welcome: Text('WELCOME'),
+        await tester.runAsync(() async {
+          await tester.pumpWidget(
+            const MaterialApp(
+              home: SessionGate(
+                home: Text('RESTORED HOME'),
+                welcome: Text('WELCOME'),
+              ),
             ),
-          ),
-        );
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+        });
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 150)),
         );
@@ -944,7 +950,7 @@ void main() {
         expect(find.byType(DidYouKnowCarousel), findsOneWidget);
         await click(tester, find.text('Cervo').first);
         expect(find.byType(PremiumAnimalScreen), findsOneWidget);
-        await tester.pageBack();
+        await click(tester, find.byIcon(Icons.arrow_back_ios_new));
         await tester.pumpAndSettle();
         await click(tester, find.text('Vedi tutte').first);
         expect(find.byType(SpeciesScreen), findsOneWidget);
@@ -961,7 +967,7 @@ void main() {
                 .name,
             animal.name,
           );
-          await tester.pageBack();
+          await click(tester, find.byIcon(Icons.arrow_back_ios_new));
           await tester.pumpAndSettle();
         }
         expect(tester.takeException(), null);
