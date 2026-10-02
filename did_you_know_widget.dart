@@ -113,6 +113,47 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
     }
   }
 
+  double _cardHeight(BuildContext context) {
+    double measure(String text, TextStyle style, double width) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: width);
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    var height = 220.0;
+    for (final item in current.items) {
+      final needed =
+          100 +
+          measure(
+            item.title,
+            const TextStyle(
+              fontFamily: 'serif',
+              fontSize: 20,
+              height: 1.05,
+              fontWeight: FontWeight.w800,
+            ),
+            255,
+          ) +
+          measure(
+            item.body,
+            const TextStyle(fontSize: 10.5, height: 1.25),
+            255,
+          ) +
+          measure(
+            '${item.source} · ${DateFormat('d MMM').format(item.publishedAt)}',
+            const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+            238,
+          );
+      if (needed > height) height = needed;
+    }
+    return height;
+  }
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +180,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
         ),
       const SizedBox(height: 9),
       SizedBox(
-        height: 220,
+        height: _cardHeight(context),
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
@@ -285,8 +326,6 @@ class _FeedCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontFamily: 'serif',
                       color: WildColors.ink,
@@ -298,8 +337,6 @@ class _FeedCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     item.body,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: WildColors.muted,
                       fontSize: 10.5,
@@ -312,8 +349,6 @@ class _FeedCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           '${item.source} · ${DateFormat('d MMM').format(item.publishedAt)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: WildColors.forest,
                             fontSize: 9,

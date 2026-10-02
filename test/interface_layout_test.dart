@@ -12,6 +12,7 @@ import 'package:wildtrack_mvp/screens/intro_screen.dart';
 import 'package:wildtrack_mvp/screens/premium_animal_screen.dart';
 import 'package:wildtrack_mvp/screens/premium_sighting_screen.dart';
 import 'package:wildtrack_mvp/screens/species_screen.dart';
+import 'package:wildtrack_mvp/screens/species_detail_screen.dart';
 
 Future<void> capture(WidgetTester tester, String name) async {
   await tester.runAsync(() async {
@@ -92,6 +93,39 @@ void main() {
           expect(tester.takeException(), isNull);
           if (width == 411) await capture(tester, screen.key);
           if (screen.key.startsWith('species ')) {
+            final animal = (screen.value as PremiumAnimalScreen).animal;
+            expect(
+              tester
+                  .widgetList<Image>(find.byType(Image))
+                  .every((image) => image.fit != BoxFit.cover),
+              true,
+            );
+            await tester.scrollUntilVisible(
+              find.text(speciesDetails[animal.name]!.habitat),
+              300,
+              scrollable: find.byType(Scrollable).first,
+            );
+            expect(
+              find.text(speciesDetails[animal.name]!.habitat),
+              findsOneWidget,
+            );
+            await tester.scrollUntilVisible(
+              find.text('Periodo migliore'),
+              300,
+              scrollable: find.byType(Scrollable).first,
+            );
+            await settleImages(tester);
+            expect(find.byType(LinearProgressIndicator), findsNWidgets(4));
+
+            for (final text in tester.widgetList<Text>(find.byType(Text))) {
+              expect(text.overflow, isNot(TextOverflow.ellipsis));
+            }
+            if (width == 411) await capture(tester, '${screen.key}_seasons');
+            await tester.drag(
+              find.byType(CustomScrollView),
+              const Offset(0, 1500),
+            );
+            await settleImages(tester);
             await tester.drag(
               find.byType(CustomScrollView),
               const Offset(0, -550),

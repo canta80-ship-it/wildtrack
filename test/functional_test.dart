@@ -948,10 +948,19 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(DidYouKnowCarousel), findsOneWidget);
+        await click(tester, find.text('SOS'));
+        expect(find.byType(SosScreen), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
         await click(tester, find.text('Cervo').first);
         expect(find.byType(PremiumAnimalScreen), findsOneWidget);
         await click(tester, find.byIcon(Icons.arrow_back_ios_new));
         await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Vedi tutte').first,
+          -200,
+          scrollable: find.byType(Scrollable).first,
+        );
         await click(tester, find.text('Vedi tutte').first);
         expect(find.byType(SpeciesScreen), findsOneWidget);
         expect(find.text('Tutte le specie'), findsOneWidget);
@@ -978,6 +987,18 @@ void main() {
       }
     },
   );
+
+  test('SPECIES all catalogue records have detailed habitat and four seasonal levels', () {
+    expect(speciesDetails.keys.toSet(), animals.map((a) => a.name).toSet());
+    for (final detail in speciesDetails.values) {
+      expect(detail.habitat.split(' ').length, greaterThan(35));
+      expect(detail.seasonLevels, hasLength(4));
+      expect(
+        detail.seasonLevels.every((level) => level >= 0 && level <= 4),
+        true,
+      );
+    }
+  });
 
   testWidgets('UI ACCESS empty credentials show validation', (tester) async {
     await mount(tester, const AccessScreen(home: SizedBox()));

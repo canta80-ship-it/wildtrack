@@ -481,7 +481,7 @@ class _AnimalPhotoState extends State<AnimalPhoto> {
                 m.url,
                 height: 220,
                 width: double.infinity,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
                 errorBuilder: (_, e, st) => const SizedBox(
                   height: 160,
                   child: Center(child: Text('Foto non disponibile')),
@@ -604,7 +604,7 @@ class _SpeciesScreenState extends State<SpeciesScreen> {
                         'assets/approved/${speciesDetails[a.name]!.asset}_hero.jpg',
                         width: 56,
                         height: 56,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                       ),
                     ),
                     title: Text(

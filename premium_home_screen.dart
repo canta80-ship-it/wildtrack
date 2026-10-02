@@ -16,6 +16,7 @@ import 'stats_screen.dart';
 import 'species_screen.dart';
 import 'premium_animal_screen.dart';
 import 'did_you_know_widget.dart';
+import 'sos_screen.dart';
 
 class PremiumHomeScreen extends StatefulWidget {
   const PremiumHomeScreen({super.key});
@@ -263,22 +264,43 @@ class _Hero extends StatelessWidget {
                         onPressed: onBell,
                         tooltip: 'Impostazioni',
                         icon: const Icon(
-                          Icons.notifications_none_rounded,
+                          Icons.settings_outlined,
                           color: WildColors.forest,
                           size: 28,
                         ),
                       ),
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Image.asset(
-                          'assets/approved/access_land2.jpg',
-                          fit: BoxFit.cover,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Semantics(
+                          button: true,
+                          label: 'SOS · Emergenza',
+                          child: Material(
+                            color: const Color(0xFF9F3F32),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const SosScreen(),
+                                ),
+                              ),
+                              child: const SizedBox(
+                                width: 42,
+                                height: 42,
+                                child: Center(
+                                  child: Text(
+                                    'SOS',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -406,39 +428,42 @@ class _ActionRow extends StatelessWidget {
   final VoidCallback onTrack;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: _ActionCard(
-          icon: Icons.map_outlined,
-          title: 'Esplora zona',
-          body: 'Sentieri, punti di interesse e attività fauna',
-          tint: const Color(0xFFE6F0E0),
-          onTap: onExplore,
+  Widget build(BuildContext context) => IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: _ActionCard(
+            icon: Icons.map_outlined,
+            title: 'Esplora zona',
+            body: 'Sentieri, punti di interesse e attività fauna',
+            tint: const Color(0xFFE6F0E0),
+            onTap: onExplore,
+          ),
         ),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: _ActionCard(
-          icon: WildIcons.binoculars,
-          title: 'Registra\navvistamento',
-          body: 'Aggiungi una specie, foto e posizione',
-          tint: const Color(0xFFF4E7D3),
-          onTap: onSighting,
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ActionCard(
+            icon: WildIcons.binoculars,
+            title: 'Registra\navvistamento',
+            body: 'Aggiungi una specie, foto e posizione',
+            tint: const Color(0xFFF4E7D3),
+            onTap: onSighting,
+          ),
         ),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: _ActionCard(
-          icon: Icons.hiking,
-          title: 'Avvia uscita',
-          body: 'Traccia il percorso e monitora l’attività',
-          tint: WildColors.forest,
-          dark: true,
-          onTap: onTrack,
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ActionCard(
+            icon: Icons.hiking,
+            title: 'Avvia uscita',
+            body: 'Traccia il percorso e monitora l’attività',
+            tint: WildColors.forest,
+            dark: true,
+            onTap: onTrack,
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
 
@@ -465,8 +490,8 @@ class _ActionCard extends StatelessWidget {
     child: InkWell(
       borderRadius: BorderRadius.circular(22),
       onTap: onTap,
-      child: SizedBox(
-        height: 123,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 145),
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Column(
@@ -495,10 +520,9 @@ class _ActionCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: 12),
               Text(
                 title,
-                maxLines: 2,
                 style: TextStyle(
                   fontFamily: 'serif',
                   fontWeight: FontWeight.w800,
@@ -510,8 +534,6 @@ class _ActionCard extends StatelessWidget {
               const SizedBox(height: 7),
               Text(
                 body,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 9.5,
                   height: 1.15,
@@ -662,7 +684,7 @@ class _SpeciesCard extends StatelessWidget {
                   width: double.infinity,
                   child: Image.asset(
                     asset,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),
                 ),
@@ -716,7 +738,7 @@ class _LastOutingCard extends StatelessWidget {
     onTap: onTap,
     borderRadius: BorderRadius.circular(22),
     child: Container(
-      height: 112,
+      constraints: const BoxConstraints(minHeight: 112),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -736,7 +758,7 @@ class _LastOutingCard extends StatelessWidget {
             height: 112,
             child: Image.asset(
               'assets/approved/outing_scene.jpg',
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
             ),
           ),
           Expanded(

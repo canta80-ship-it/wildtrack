@@ -418,7 +418,7 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   child: Image.file(
                                     File(photos[i]),
-                                    fit: BoxFit.cover,
+                                    fit: BoxFit.contain,
                                   ),
                                 ),
                               ),

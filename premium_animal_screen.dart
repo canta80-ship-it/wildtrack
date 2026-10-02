@@ -102,9 +102,9 @@ class PremiumAnimalScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 48),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                SizedBox(
-                  height: 68,
+                IntrinsicHeight(
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
                         child: InkWell(
@@ -164,7 +164,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _HabitatCard(
-                  animal: animal,
+                  description: detail.habitat,
                   asset: isDeer ? 'assets/approved/habitat.jpg' : heroAsset,
                   tags: detail.tags,
                 ),
@@ -179,47 +179,49 @@ class PremiumAnimalScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (var i = 0; i < signs.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 6),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => showExplanation(
-                            context,
-                            signs[i].$1,
-                            signs[i].$2,
-                          ),
-                          child: _SignCard(
-                            illustration: i == 0 && !isDeer
-                                ? Center(
-                                    child: CustomPaint(
-                                      size: const Size(54, 66),
-                                      painter: TrackPainter(
-                                        footprintType,
-                                        WildColors.earth,
-                                        animal.name == 'Cinghiale',
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < signs.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => showExplanation(
+                              context,
+                              signs[i].$1,
+                              signs[i].$2,
+                            ),
+                            child: _SignCard(
+                              illustration: i == 0 && !isDeer
+                                  ? Center(
+                                      child: CustomPaint(
+                                        size: const Size(54, 66),
+                                        painter: TrackPainter(
+                                          footprintType,
+                                          WildColors.earth,
+                                          animal.name == 'Cinghiale',
+                                        ),
                                       ),
-                                    ),
-                                  )
-                                : null,
-                            title: signs[i].$1,
-                            body: signs[i].$2,
-                            icon: signIcon(signs[i].$1),
-                            asset: isDeer
-                                ? [
-                                    'assets/approved/impronta.jpg',
-                                    'assets/approved/fatte.jpg',
-                                    'assets/approved/sfregamenti.jpg',
-                                    'assets/approved/palchi.jpg',
-                                  ][i]
-                                : null,
+                                    )
+                                  : null,
+                              title: signs[i].$1,
+                              body: signs[i].$2,
+                              icon: signIcon(signs[i].$1),
+                              asset: isDeer
+                                  ? [
+                                      'assets/approved/impronta.jpg',
+                                      'assets/approved/fatte.jpg',
+                                      'assets/approved/sfregamenti.jpg',
+                                      'assets/approved/palchi.jpg',
+                                    ][i]
+                                  : null,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const _SectionTitle(title: 'Periodo migliore'),
@@ -248,11 +250,22 @@ class PremiumAnimalScreen extends StatelessWidget {
                             'Set – Nov',
                             'Dic – Feb',
                           ][i],
-                          level: null,
-                          levelText: detail.seasons[i],
+                          seasonIndex: i,
+                          level: detail.seasonLevels[i] / 4,
+                          levelText: [
+                            'In letargo',
+                            'Basso',
+                            'Medio',
+                            'Alto',
+                            'Molto alto',
+                          ][detail.seasonLevels[i]],
+                          note: detail.seasons[i],
                           best:
-                              (isDeer && i == 2) ||
-                              (animal.name == 'Marmotta' && i == 1),
+                              detail.seasonLevels[i] > 1 &&
+                              detail.seasonLevels[i] ==
+                                  detail.seasonLevels.reduce(
+                                    (a, b) => a > b ? a : b,
+                                  ),
                         ),
                       ),
                     ],
@@ -260,7 +273,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Indicazioni stagionali: la possibilità di osservazione dipende dal luogo e dalle condizioni.',
+                  'Possibilità di osservazione indicativa: le barre confrontano livelli stagionali, non percentuali misurate. Luogo, meteo e presenza locale cambiano il risultato.',
                   style: TextStyle(fontSize: 10, color: WildColors.muted),
                 ),
                 const SizedBox(height: 12),
@@ -283,7 +296,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                                   isDeer
                                       ? 'assets/approved/photo_tip.jpg'
                                       : heroAsset,
-                                  fit: BoxFit.cover,
+                                  fit: BoxFit.contain,
                                   filterQuality: FilterQuality.high,
                                 ),
                               ),
@@ -414,156 +427,110 @@ class _Hero extends StatelessWidget {
   final String activity;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 265,
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          asset,
-          fit: BoxFit.cover,
-          alignment: Alignment.centerRight,
-          filterQuality: FilterQuality.high,
-        ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x12000000), Color(0x08000000), Color(0xB8102619)],
-              stops: [0, .5, 1],
+  Widget build(BuildContext context) => Column(
+    children: [
+      Stack(
+        children: [
+          AspectRatio(
+            aspectRatio: 3 / 2,
+            child: Image.asset(
+              asset,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
             ),
           ),
-        ),
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(15, 8, 15, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _CircleButton(
-                      icon: Icons.arrow_back_ios_new,
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    const Spacer(),
-                    const WildLogo(compact: true),
-                    const Spacer(),
-                    ListenableBuilder(
-                      listenable: PreferencesService.instance,
-                      builder: (context, _) => _CircleButton(
-                        icon:
-                            PreferencesService.instance.favoriteSpecies
-                                .contains(animal.name)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        onTap: () async {
-                          try {
-                            await PreferencesService.instance.toggleFavorite(
-                              animal.name,
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(15, 8, 15, 0),
+              child: Row(
+                children: [
+                  _CircleButton(
+                    icon: Icons.arrow_back_ios_new,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const Spacer(),
+                  const WildLogo(compact: true),
+                  const Spacer(),
+                  ListenableBuilder(
+                    listenable: PreferencesService.instance,
+                    builder: (context, _) => _CircleButton(
+                      icon:
+                          PreferencesService.instance.favoriteSpecies.contains(
+                            animal.name,
+                          )
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      onTap: () async {
+                        try {
+                          await PreferencesService.instance.toggleFavorite(
+                            animal.name,
+                          );
+                        } catch (_) {
+                          if (context.mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Preferito non salvato. Riprova.',
+                                ),
+                              ),
                             );
-                          } catch (_) {
-                            if (context.mounted)
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Preferito non salvato. Riprova.',
-                                  ),
-                                ),
-                              );
-                          }
-                        },
-                      ),
+                        }
+                      },
                     ),
-                  ],
-                ),
-                const Spacer(),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      Container(
+        width: double.infinity,
+        color: WildColors.forest,
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              animal.name,
+              style: const TextStyle(
+                fontFamily: 'serif',
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              animal.latin,
+              style: const TextStyle(
+                fontFamily: 'serif',
+                fontStyle: FontStyle.italic,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.bar_chart, color: Color(0xFF8FCA73), size: 26),
+                const SizedBox(width: 8),
+                Expanded(
                   child: Text(
-                    animal.name,
+                    'Attività: $activity',
                     style: const TextStyle(
-                      fontFamily: 'serif',
-                      fontSize: 38,
-                      height: .92,
-                      fontWeight: FontWeight.w800,
                       color: Colors.white,
-                      letterSpacing: -1,
+                      fontSize: 12,
+                      height: 1.3,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  animal.latin,
-                  style: const TextStyle(
-                    fontFamily: 'serif',
-                    fontStyle: FontStyle.italic,
-                    fontSize: 21,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 330),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 13,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xE51A4A34),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.bar_chart_rounded,
-                        color: Color(0xFF8DE67D),
-                        size: 28,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: RichText(
-                          maxLines: 2,
-                          text: TextSpan(
-                            style: const TextStyle(
-                              fontFamily: 'sans-serif',
-                              color: Colors.white,
-                              fontSize: 12,
-                              height: 1.12,
-                            ),
-                            children: [
-                              const TextSpan(
-                                text: 'Attività: ',
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                              const TextSpan(
-                                text: 'ORARI\n',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF8DE67D),
-                                ),
-                              ),
-                              TextSpan(
-                                text: activity,
-                                style: const TextStyle(fontSize: 10.5),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-      ],
-    ),
+      ),
+    ],
   );
 }
 
@@ -601,7 +568,7 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 68,
+    constraints: const BoxConstraints(minHeight: 90),
     padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
       color: const Color(0xFFF8F6EE),
@@ -630,16 +597,12 @@ class _InfoCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        Expanded(
-          child: Text(
-            badge == null ? body : '$badge · $body',
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 8.5,
-              height: 1.05,
-              color: WildColors.muted,
-            ),
+        Text(
+          badge == null ? body : '$badge · $body',
+          style: const TextStyle(
+            fontSize: 8.5,
+            height: 1.05,
+            color: WildColors.muted,
           ),
         ),
       ],
@@ -692,12 +655,12 @@ class _SectionTitle extends StatelessWidget {
 
 class _HabitatCard extends StatelessWidget {
   const _HabitatCard({
-    required this.animal,
+    required this.description,
     required this.asset,
     required this.tags,
   });
   final List<String> tags;
-  final Animal animal;
+  final String description;
   final String asset;
 
   @override
@@ -710,33 +673,25 @@ class _HabitatCard extends StatelessWidget {
     ),
     child: Column(
       children: [
-        Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(13),
-              child: SizedBox(
-                width: 145,
-                height: 64,
-                child: Image.asset(
-                  asset,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
-                ),
-              ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(13),
+          child: AspectRatio(
+            aspectRatio: 3 / 2,
+            child: Image.asset(
+              asset,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                animal.habitat,
-
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  height: 1.3,
-                  color: WildColors.muted,
-                ),
-              ),
-            ),
-          ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          description,
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.45,
+            color: WildColors.muted,
+          ),
         ),
         const SizedBox(height: 9),
         Wrap(
@@ -807,7 +762,6 @@ class _SignCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 158,
     padding: const EdgeInsets.all(8),
     decoration: BoxDecoration(
       color: const Color(0xFFFAF5EA),
@@ -830,7 +784,7 @@ class _SignCard extends StatelessWidget {
                   )
                 : Image.asset(
                     asset!,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),
           ),
@@ -841,16 +795,12 @@ class _SignCard extends StatelessWidget {
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 2),
-        Expanded(
-          child: Text(
-            body.split(RegExp(r'(?<=[.!?])\s')).first,
-            maxLines: 6,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 8.5,
-              height: 1.15,
-              color: WildColors.muted,
-            ),
+        Text(
+          body,
+          style: const TextStyle(
+            fontSize: 8.5,
+            height: 1.15,
+            color: WildColors.muted,
           ),
         ),
       ],
@@ -865,80 +815,84 @@ class _Season extends StatelessWidget {
     required this.months,
     required this.level,
     required this.levelText,
+    required this.seasonIndex,
+    required this.note,
     this.best = false,
   });
   final IconData icon;
-  final String label;
-  final String months;
-  final double? level;
-  final String levelText;
+  final String label, months, levelText, note;
+  final double level;
+  final int seasonIndex;
   final bool best;
-
   @override
-  Widget build(BuildContext context) => Container(
-    height: 86,
-    padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-      color: best ? const Color(0xFFF7E6C9) : const Color(0xFFFFFEFA),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0x0D000000)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              icon,
-              color: best ? const Color(0xFFC87925) : WildColors.forest,
-              size: 19,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
+  Widget build(BuildContext context) {
+    final tint = [
+      const Color(0xFFE6EFE1),
+      const Color(0xFFFFF0CC),
+      const Color(0xFFF7E3C7),
+      const Color(0xFFE1EEF5),
+    ][seasonIndex];
+    final color = [
+      const Color(0xFF638861),
+      const Color(0xFFE5AE32),
+      const Color(0xFFC37B29),
+      const Color(0xFF6096B0),
+    ][seasonIndex];
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: best ? color : color.withValues(alpha: .2),
+          width: best ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            months,
+            style: const TextStyle(fontSize: 9, color: WildColors.muted),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            levelText,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 5),
+          Semantics(
+            label: '$label: possibilità indicativa $levelText',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: LinearProgressIndicator(
+                value: level,
+                minHeight: 6,
+                color: level >= .75 ? WildColors.forest : color,
+                backgroundColor: Colors.white.withValues(alpha: .6),
               ),
             ),
-          ],
-        ),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            months,
-            style: const TextStyle(fontSize: 8.5, color: WildColors.muted),
           ),
-        ),
-        const SizedBox(height: 5),
-        Expanded(
-          child: Text(
-            levelText,
-            style: TextStyle(
-              fontSize: 8.5,
-              color: best ? const Color(0xFF9A5421) : WildColors.muted,
+          const SizedBox(height: 7),
+          Text(
+            note,
+            style: const TextStyle(
+              fontSize: 9,
+              height: 1.3,
+              color: WildColors.muted,
             ),
           ),
-        ),
-        const SizedBox(height: 3),
-        if (level != null)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: LinearProgressIndicator(
-              value: level ?? 0,
-              minHeight: 5,
-              color: best ? WildColors.forest : const Color(0xFFE7B348),
-              backgroundColor: const Color(0xFFE6E3D9),
-            ),
-          ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _Panel extends StatelessWidget {
@@ -992,12 +946,7 @@ class _Tip extends StatelessWidget {
         const Icon(Icons.check_circle, size: 14, color: Color(0xFF65A35A)),
         const SizedBox(width: 5),
         Expanded(
-          child: Text(
-            text,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 9.5, height: 1.2),
-          ),
+          child: Text(text, style: const TextStyle(fontSize: 9.5, height: 1.2)),
         ),
       ],
     ),

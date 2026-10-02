@@ -18,7 +18,9 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
+  bool pendingBackgroundEnable = false;
   final nickname = TextEditingController(
     text: PreferencesService.instance.nickname,
   );
@@ -31,13 +33,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshPermissions();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     nickname.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshPermissions();
   }
 
   Future<void> _refreshPermissions() async {
@@ -46,6 +55,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final notifications = await Permission.notification.status;
     final background = await Permission.locationAlways.status;
     if (!mounted) return;
+    if (pendingBackgroundEnable && background.isGranted) {
+      pendingBackgroundEnable = false;
+      PreferencesService.instance.backgroundSharing = true;
+      await PreferencesService.instance.save();
+      await CommunityService.instance.configureBackgroundSharing();
+      if (!mounted) return;
+    }
     setState(() {
       locationAllowed = location.isGranted || location.isLimited;
       cameraAllowed = camera.isGranted || camera.isLimited;
@@ -119,22 +135,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleBackground(bool value) async {
     final p = PreferencesService.instance;
-    if (value) {
-      final foreground = await Permission.locationWhenInUse.request();
-      if (!foreground.isGranted) {
-        await _refreshPermissions();
-        return;
-      }
-      final always = await Permission.locationAlways.request();
-      p.backgroundSharing = always.isGranted;
-      if (always.isGranted) {
-        await p.save();
-        await CommunityService.instance.configureBackgroundSharing();
-      }
-    } else {
+    if (!value) {
+      pendingBackgroundEnable = false;
       p.backgroundSharing = false;
       await p.save();
       await CommunityService.instance.configureBackgroundSharing();
+      await _refreshPermissions();
+      return;
+    }
+    final foreground = await Permission.locationWhenInUse.request();
+    if (!foreground.isGranted) {
+      await _refreshPermissions();
+      return;
+    }
+    if (!mounted) return;
+    if (!await Permission.locationAlways.isGranted) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('GPS a schermo spento'),
+          content: const Text(
+            'Per autorizzare la posizione in background, scegli “Consenti sempre” nelle impostazioni Android della posizione. Attiva anche la posizione precisa. Puoi continuare a usare l’app senza questo permesso.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Non ora'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Continua'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true || !mounted) return;
+    }
+    pendingBackgroundEnable = true;
+    final always = await Permission.locationAlways.request();
+    if (always.isGranted) {
+      await _refreshPermissions();
+    } else if (mounted) {
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Autorizza la posizione in background'),
+          content: const Text(
+            'Apri Permessi → Posizione e seleziona “Consenti sempre”. Al ritorno nell’app lo stato verrà aggiornato. Per uscite lunghe controlla anche Batteria e scegli “Senza restrizioni”, se disponibile sul tuo telefono.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Non ora'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Apri impostazioni'),
+            ),
+          ],
+        ),
+      );
+      if (open == true)
+        await openAppSettings();
+      else
+        pendingBackgroundEnable = false;
     }
     await _refreshPermissions();
   }
@@ -296,7 +360,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _PermissionCard(
                   icon: Icons.navigation,
                   title: 'Posizione in background',
-                  body: 'Permette di continuare la registrazione delle uscite a schermo spento.',
+                  body: 'Autorizza il GPS anche a schermo spento. La condivisione con gli altri avviene solo se il profilo è visibile.',
                   tint: const Color(0xFFF5EADB),
                   foot: backgroundAllowed
                       ? 'Permesso sempre attivo'

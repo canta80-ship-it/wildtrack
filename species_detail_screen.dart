@@ -10,11 +10,18 @@ class SpeciesDetail {
     required this.seasons,
     required this.photo,
     required this.source,
+    required this.habitat,
+    required this.seasonLevels,
     this.badge,
     this.status = 'Consulta la valutazione nella fonte',
     this.note = '',
   });
   final String asset, size, mass, activity, photo, source, status, note;
+  final String habitat;
+
+  /// Editorial ordinal levels: 0 dormant, 1 low, 2 medium, 3 high, 4 very high.
+  /// Not percentages and not predictions from local observation data.
+  final List<int> seasonLevels;
   final String? badge;
   final List<String> tags, seasons;
   final List<(String, String)> signs;
@@ -22,6 +29,8 @@ class SpeciesDetail {
 
 const speciesDetails = <String, SpeciesDetail>{
   "Cervo": SpeciesDetail(
+    habitat: "Vive in boschi di latifoglie e conifere alternati a radure, prati e pascoli montani. Il bosco offre riparo, mentre gli spazi aperti permettono di alimentarsi. Frequenta anche i margini fra foresta e prateria; lungo i sentieri osserva a distanza le radure nelle ore tranquille.",
+    seasonLevels: [2, 2, 4, 1],
     asset: "cervo",
     size: "180–250 cm",
     mass: "120–250 kg",
@@ -44,6 +53,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Capriolo": SpeciesDetail(
+    habitat: "Predilige boschi con sottobosco ricco, margini forestali e piccole radure, spesso in mosaico con prati e coltivi. Gli arbusti offrono rifugio e germogli di cui nutrirsi. È presente dal fondovalle agli ambienti montani; osserva i margini senza entrare nelle zone di riposo o cercare i piccoli.",
+    seasonLevels: [3, 3, 2, 2],
     asset: "capriolo",
     size: "90–130 cm",
     mass: "10–27 kg",
@@ -69,6 +80,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Volpe": SpeciesDetail(
+    habitat: "Occupa ambienti molto diversi: boschi, prati, campagne e margini degli abitati. Cerca territori dove trovare cibo e copertura, con vegetazione fitta o terreni adatti alle tane. L’alternanza fra aree aperte e rifugi favorisce la sua presenza; una singola osservazione non indica che l’animale sia abituato alle persone.",
+    seasonLevels: [2, 2, 2, 2],
     asset: "volpe",
     size: "60–80 cm",
     mass: "6–10 kg",
@@ -100,6 +113,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Camoscio alpino": SpeciesDetail(
+    habitat: "Frequenta versanti montani ripidi, praterie alpine, ghiaioni e zone rocciose, ma anche boschi e radure alle quote inferiori. Le pareti vicine offrono vie di fuga e riparo. La distribuzione cambia con innevamento e disponibilità di vegetazione; osserva dai sentieri, evitando di tagliare le vie di passaggio.",
+    seasonLevels: [2, 3, 3, 1],
     asset: "camoscio",
     size: "100–130 cm",
     mass: "70–90 cm al garrese",
@@ -128,6 +143,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Stambecco": SpeciesDetail(
+    habitat: "È legato alle praterie alpine e ai pendii rocciosi sopra il limite del bosco, con cenge e pareti scoscese usate come rifugio. Si alimenta negli spazi erbosi vicini alle rocce. Innevamento ed esposizione dei versanti influenzano gli spostamenti stagionali; mantieni libera la strada verso le pareti.",
+    seasonLevels: [2, 3, 3, 1],
     asset: "stambecco",
     size: "Circa 160 cm ♂",
     mass: "Circa 90 kg ♂",
@@ -153,6 +170,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Cinghiale": SpeciesDetail(
+    habitat: "Vive in boschi, macchia e mosaici di vegetazione naturale e terreni agricoli. La copertura fitta offre riparo, mentre il terreno soffice e gli spazi aperti forniscono alimenti. Può frequentare margini e corsi d’acqua; resta sui percorsi e non entrare nel sottobosco per cercare gli animali.",
+    seasonLevels: [1, 1, 2, 1],
     asset: "cinghiale",
     size: "100–150 cm",
     mass: "Corpo robusto",
@@ -181,6 +200,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Aquila reale": SpeciesDetail(
+    habitat: "Frequenta montagne con praterie, creste e versanti aperti per la caccia, associati a pareti rocciose adatte alla nidificazione. Usa territori molto estesi e correnti ascensionali per spostarsi. Cerca il volo sopra valloni e crinali dai punti panoramici autorizzati, senza avvicinarti alle pareti occupate dai nidi.",
+    seasonLevels: [2, 3, 2, 2],
     asset: "aquila",
     size: "76–93 cm",
     mass: "3–6,6 kg",
@@ -206,6 +227,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Grifone": SpeciesDetail(
+    habitat: "Ha bisogno di pareti rocciose con cenge per nidificare e riposare, vicine ad ampi spazi aperti dove cercare carcasse. Può sorvolare pascoli, vallate e rilievi a grandi distanze dalla colonia. Le correnti ascensionali favoriscono il volo; usa i punti di osservazione autorizzati e non cercare i nidi.",
+    seasonLevels: [3, 3, 2, 2],
     asset: "grifone",
     size: "Circa 100 cm",
     mass: "7,3–11,2 kg",
@@ -231,6 +254,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Poiana": SpeciesDetail(
+    habitat: "Predilige paesaggi con boschi e piccoli gruppi di alberi alternati a prati, pascoli e coltivi. Gli alberi offrono siti di nidificazione e posatoi, mentre le aree aperte sono usate per cacciare. Può frequentare pianure, colline e montagne; osserva da punti sicuri, senza fermarti sulle carreggiate.",
+    seasonLevels: [3, 3, 3, 3],
     asset: "poiana",
     size: "51–57 cm",
     mass: "0,5–1,4 kg",
@@ -256,6 +281,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Allocco": SpeciesDetail(
+    habitat: "È legato ad ambienti alberati: boschi maturi, parchi e paesaggi rurali con grandi alberi. Le cavità dei tronchi possono ospitare il nido e rifugi diurni, mentre bosco e radure offrono prede. È prevalentemente notturno: spesso il richiamo rivela la presenza prima di un’osservazione diretta.",
+    seasonLevels: [1, 1, 1, 1],
     asset: "allocco",
     size: "37–43 cm",
     mass: "81–96 cm apertura",
@@ -278,6 +305,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Picchio nero": SpeciesDetail(
+    habitat: "Frequenta boschi maturi di conifere e latifoglie con alberi di grandi dimensioni, tronchi con cavità e legno morto. Questi elementi offrono siti di nidificazione e insetti di cui nutrirsi. È soprattutto legato agli ambienti forestali: ascolta i richiami e osserva i tronchi dai sentieri, senza cercare il nido.",
+    seasonLevels: [3, 2, 2, 2],
     asset: "picchio",
     size: "45–47 cm",
     mass: "255–315 g",
@@ -303,6 +332,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Airone cenerino": SpeciesDetail(
+    habitat: "Frequenta fiumi, laghi, paludi, canali e altre zone umide con acque poco profonde, dove cerca pesci e altre prede. Può alimentarsi anche nei campi e nei prati. Nidifica spesso in colonie su alberi vicini alle aree di alimentazione; osserva dalle rive accessibili o dagli osservatori.",
+    seasonLevels: [3, 3, 3, 3],
     asset: "airone",
     size: "90–98 cm",
     mass: "1–2 kg",
@@ -329,6 +360,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Germano reale": SpeciesDetail(
+    habitat: "Occupa laghi, stagni, fiumi lenti e paludi, ma anche bacini e canali in paesaggi agricoli o urbani. Preferisce zone con vegetazione ripariale e tratti di acqua bassa per alimentarsi. La copertura sulle sponde offre riparo e siti di nidificazione; osserva a distanza senza nutrire gli uccelli.",
+    seasonLevels: [3, 3, 3, 3],
     asset: "germano",
     size: "50–65 cm",
     mass: "600–1.490 g",
@@ -357,6 +390,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Falco di palude": SpeciesDetail(
+    habitat: "È legato alle zone umide con canneti estesi, paludi e vegetazione emergente, usati anche per nidificare. Caccia volando basso sopra canneti, prati e campi vicini. Le aree umide dell’Alto Adriatico sono importanti per la specie; osserva dagli argini consentiti senza entrare nei canneti.",
+    seasonLevels: [3, 3, 2, 2],
     asset: "falco",
     size: "48–56 cm",
     mass: "485–800 g",
@@ -379,6 +414,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Orso bruno": SpeciesDetail(
+    habitat: "Frequenta paesaggi montani con grandi boschi, radure e pascoli, dove trovare cibo e aree tranquille. Usa territori ampi e si sposta fra ambienti diversi secondo le risorse stagionali. La copertura forestale e la continuità degli habitat sono importanti; la presenza non implica che sia facile o opportuno avvicinarlo.",
+    seasonLevels: [1, 1, 1, 1],
     asset: "orso",
     size: "150–180 cm ♂*",
     mass: "140–210 kg ♂*",
@@ -404,6 +441,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "*Maschio di orso marsicano: dati riferiti alla popolazione appenninica, non a tutte le popolazioni di orso bruno.",
   ),
   "Lupo": SpeciesDetail(
+    habitat: "È adattabile e può utilizzare boschi, praterie e paesaggi montani a quote diverse. Ha bisogno di territori ampi con prede, rifugi e possibilità di spostamento fra aree adatte. Durante il giorno può restare nelle zone più tranquille; impronte e altri indizi sono spesso più facili da trovare dell’animale.",
+    seasonLevels: [1, 1, 1, 1],
     asset: "lupo",
     size: "110–148 cm",
     mass: "25–40 kg",
@@ -435,6 +474,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Sciacallo dorato": SpeciesDetail(
+    habitat: "Frequenta mosaici di ambienti aperti e vegetazione di copertura, come campagne, arbusteti e margini boschivi. Le zone riparate permettono di riposare, mentre gli spazi aperti offrono alimenti. La presenza nel Nord-Est è oggetto di monitoraggio: non dedurla dal solo paesaggio e documenta gli indizi senza disturbare.",
+    seasonLevels: [1, 1, 1, 1],
     asset: "sciacallo",
     size: "70–85 cm ♂",
     mass: "6–14 kg ♂",
@@ -465,6 +506,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Marmotta": SpeciesDetail(
+    habitat: "Vive nelle praterie alpine e nei pascoli montani aperti, spesso vicini a pietraie e pendii con suolo adatto a scavare tane. Si nutre della vegetazione erbacea e usa i rifugi sotterranei anche per il letargo. Osserva nelle stagioni senza neve, restando lontano dagli ingressi delle tane.",
+    seasonLevels: [2, 4, 2, 0],
     asset: "marmotta",
     size: "50–60 cm",
     mass: "3–6 kg",
@@ -484,6 +527,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Ermellino": SpeciesDetail(
+    habitat: "Frequenta prati, pascoli montani, pietraie e margini di ambienti boschivi. Piccoli anfratti, muretti e vegetazione bassa offrono copertura mentre cerca piccoli mammiferi. Può muoversi rapidamente fra rifugi vicini ed è difficile da osservare; una pista sulla neve va interpretata insieme ad altri elementi.",
+    seasonLevels: [1, 1, 1, 1],
     asset: "ermellino",
     size: "24–29 cm",
     mass: "125–450 g",
@@ -503,6 +548,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Tasso": SpeciesDetail(
+    habitat: "Predilige mosaici di boschi, siepi, prati e coltivi con copertura e disponibilità di alimenti. Il terreno adatto allo scavo permette di realizzare tane e sistemi di gallerie usati come rifugio. È soprattutto attivo nelle ore notturne: osserva gli indizi lungo i percorsi senza avvicinarti alle tane.",
+    seasonLevels: [1, 1, 1, 1],
     asset: "tasso",
     size: "Fino a circa 1 m*",
     mass: "Fino a 17 kg",
@@ -531,6 +578,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "*Lunghezza comprensiva della coda.",
   ),
   "Gracchio alpino": SpeciesDetail(
+    habitat: "È legato alle montagne con pareti, cavità rocciose e praterie alpine. Usa le rocce per riposare e nidificare, mentre cerca cibo negli spazi aperti; può frequentare anche aree vicine ai rifugi. Gli spostamenti seguono la disponibilità di alimenti e le condizioni stagionali; non attirarlo con avanzi.",
+    seasonLevels: [2, 3, 3, 2],
     asset: "gracchio",
     size: "38 cm",
     mass: "168–246 g",
@@ -554,6 +603,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Gufo reale": SpeciesDetail(
+    habitat: "Frequenta vallate con pareti rocciose, boschi e spazi aperti dove cacciare. Le cenge e gli anfratti delle rocce possono ospitare il nido e rifugi diurni. È un rapace prevalentemente notturno: osserva da lontano senza cercare il nido, usare flash o riprodurre richiami.",
+    seasonLevels: [1, 1, 1, 1],
     asset: "gufo",
     size: "60–75 cm",
     mass: "1,5–2,5 kg",
@@ -582,6 +633,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Barbagianni": SpeciesDetail(
+    habitat: "Vive soprattutto in paesaggi aperti di pianura e collina con prati, coltivi, siepi e piccoli insediamenti. Gli spazi aperti permettono di cacciare piccoli mammiferi; cavità e vecchi edifici possono offrire rifugio e siti di nidificazione. È notturno: osserva a distanza e non entrare nei luoghi di riposo.",
+    seasonLevels: [1, 1, 1, 1],
     asset: "barbagianni",
     size: "33–35 cm",
     mass: "85–93 cm apertura",
@@ -610,6 +663,8 @@ const speciesDetails = <String, SpeciesDetail>{
     note: "",
   ),
   "Ghiandaia": SpeciesDetail(
+    habitat: "Frequenta boschi di latifoglie e misti, margini forestali e parchi alberati. Gli alberi offrono copertura e siti di nidificazione, mentre ghiande, semi e altri alimenti sostengono la dieta. Tra estate e autunno raccoglie e nasconde molte ghiande; ascolta i richiami e osserva senza inseguirla.",
+    seasonLevels: [2, 2, 3, 2],
     asset: "ghiandaia",
     size: "34–35 cm",
     mass: "125–205 g",

@@ -391,8 +391,6 @@ class _FeedSighting extends StatelessWidget {
                 Text(
                   s['notes'] as String? ??
                       'Avvistamento condiviso con la community.',
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(height: 1.25),
                 ),
                 const SizedBox(height: 8),
@@ -407,7 +405,7 @@ class _FeedSighting extends StatelessWidget {
                       },
                       height: 160,
                       width: double.infinity,
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => SizedBox(
                         height: 150,
                         child: WildLandscape(
@@ -604,8 +602,6 @@ class _EventsState extends State<_Events> {
                           const SizedBox(height: 4),
                           Text(
                             '${e.source} · ${e.body}',
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 11,
                               color: WildColors.muted,
