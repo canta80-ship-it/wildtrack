@@ -72,6 +72,13 @@ try:
             visible=' '.join(n.get('text','')+' '+n.get('content-desc','') for n in dump().iter('node')).lower()
             expected={'Avvista':'nuovo avvistamento','Diario':'diario e statistiche','Community':'condividi avvistamenti','Esplora':'esplora zona'}[label]
             result('Navigazione '+label,'PASS' if ok and expected in visible else 'BLOCKED','Destinazione cercata: '+expected+'; nessun messaggio o contenuto pubblico inviato');shot('nav-'+label)
+            if label == 'Community' and ok:
+                result('Community apre Avvistamenti', 'PASS' if target('Avvistamenti') else 'FAIL')
+                for _ in range(5):
+                    if target('Chat'):break
+                    adb('shell','input','swipe','20','1450','20','600','350');time.sleep(1)
+                result('Titolo Chat visibile sopra le conversazioni', 'PASS' if target('Chat') else 'FAIL')
+                shot('community-chat-heading')
         if tap('Avvista'):
             if tap('Salva privato',scroll=True):
                 text=adb('shell','cat','/sdcard/window.xml',check=False)

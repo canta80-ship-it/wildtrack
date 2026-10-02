@@ -301,6 +301,8 @@ class _ChatAndFeed extends StatelessWidget {
         },
       ),
       const SizedBox(height: 10),
+      const WildSectionTitle('Chat'),
+      const SizedBox(height: 10),
       Container(
         height: 280,
         clipBehavior: Clip.antiAlias,
