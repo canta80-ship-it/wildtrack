@@ -170,7 +170,7 @@ class _Tabs extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onTap;
   static const items = [
-    (Icons.chat_bubble_outline, 'Chat'),
+    (Icons.location_on_outlined, 'Avvistamenti'),
     (Icons.groups_outlined, 'Gruppi'),
     (Icons.people_outline, 'Persone'),
     (Icons.event_outlined, 'Eventi'),
@@ -203,7 +203,7 @@ class _Tabs extends StatelessWidget {
                   color: selected == i ? WildColors.forest : Colors.transparent,
                   borderRadius: BorderRadius.circular(22),
                 ),
-                child: Row(
+                child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
@@ -211,7 +211,7 @@ class _Tabs extends StatelessWidget {
                       size: 19,
                       color: selected == i ? Colors.white : WildColors.forest,
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(height: 3),
                     Text(
                       items[i].$2,
                       style: TextStyle(
