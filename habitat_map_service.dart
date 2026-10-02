@@ -118,7 +118,7 @@ class HabitatMapService {
     final file=File('${PreferencesService.instance.file.parent.path}/wildtrack_habitat_$key.json');
     final client=HttpClient()..connectionTimeout=const Duration(seconds:5);
     try {
-      for(final host in ['overpass-api.de','overpass.kumi.systems']) {
+      for(final host in ['overpass.private.coffee','overpass-api.de']) {
         try {
           final request=await client.postUrl(Uri.https(host,'/api/interpreter')).timeout(const Duration(seconds:6));
           request.headers.contentType=ContentType('application','x-www-form-urlencoded');

@@ -67,11 +67,11 @@ class _SpeciesHabitatMapScreenState extends State<SpeciesHabitatMapScreen> {
     body: Column(children: [
       Expanded(child: FlutterMap(
         mapController: map,
-        options: MapOptions(initialCenter: widget.initialPosition ?? const LatLng(46.06, 12.39), initialZoom: 13, onMapReady: () {
+        options: MapOptions(initialCenter: widget.initialPosition ?? const LatLng(46.06, 12.39), initialZoom: 13, onMapReady: () async {
           ready = true;
           if (location.point != null) _positionChanged();
-          else unawaited(_load(map.camera.center));
-          if (widget.enableLocation) unawaited(location.start());
+          if (widget.enableLocation) await location.start();
+          if (mounted && !centered) unawaited(_load(map.camera.center));
         }),
         children: [
           TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.preview', tileProvider: widget.tileProvider),
