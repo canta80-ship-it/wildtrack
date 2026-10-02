@@ -158,7 +158,12 @@ try:
             adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
             result('Sessione ricordata al secondo avvio','PASS' if 'trailtester' in visible_text() and 'continua come ospite' not in visible_text() else 'FAIL');shot('auth-restored')
             if not tap('Impostazioni') or not tap('Disconnetti account',scroll=True):raise RuntimeError('Logout control missing')
-            result('Logout ritorna alla schermata iniziale','PASS' if 'continua come ospite' in visible_text() else 'FAIL')
+            # The guest control is below the initial viewport on Pixel 2.
+            # Scroll without activating it, then assert the actual welcome destination.
+            for _ in range(4):
+                if target('Continua come ospite'):break
+                adb('shell','input','swipe','20','1450','20','600','350');time.sleep(1)
+            result('Logout ritorna alla schermata iniziale','PASS' if 'continua come ospite' in visible_text() else 'FAIL');shot('auth-logged-out')
             if not tap('Accedi',scroll=True):raise RuntimeError('Sign-in screen missing')
             result('Nickname account ricordato nel login','PASS' if 'trailtester' in visible_text() else 'FAIL')
             enter_field(1,'WrongPassword2026')
