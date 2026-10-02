@@ -196,7 +196,7 @@ class _Tabs extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onTap;
   static const items = [
-    (Icons.chat_bubble_outline, 'Chat'),
+    (WildIcons.binoculars, 'Avvistamenti'),
     (Icons.groups_outlined, 'Gruppi'),
     (Icons.people_outline, 'Persone'),
     (Icons.event_outlined, 'Eventi'),
@@ -325,6 +325,14 @@ class _ChatAndFeed extends StatelessWidget {
             ],
           );
         },
+      ),
+      const SizedBox(height: 10),
+      const Align(
+        alignment: Alignment.centerLeft,
+        child: Semantics(
+          header: true,
+          child: Text('Chat', style: WildText.h2),
+        ),
       ),
       const SizedBox(height: 10),
       Container(
