@@ -4,7 +4,7 @@ s = p.read_text()
 for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','ACCESS_BACKGROUND_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK','POST_NOTIFICATIONS']:
     if 'android.permission.'+permission not in s:
         s=s.replace('<application', f'<uses-permission android:name="android.permission.{permission}" />\n    <application',1)
-s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack Preview"')
+s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack"')
 p.write_text(s)
 k=Path('android/app/src/main/kotlin/it/wildtrack/wildtrack_mvp/MainActivity.kt')
 k.parent.mkdir(parents=True,exist_ok=True)

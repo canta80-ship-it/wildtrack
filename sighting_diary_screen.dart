@@ -173,7 +173,7 @@ class _SightingDiaryScreenState extends State<SightingDiaryScreen> {
                           ),
                         ),
                         subtitle: Text(
-                          '${DateFormat('d MMM yyyy · HH:mm').format(sighting.timestamp)} · ${sighting.count} individui\n${sighting.isPublic
+                          '${DateFormat('d MMM yyyy · HH:mm').format(sighting.timestamp)} · ${sighting.count} ${sighting.count == 1 ? 'individuo' : 'individui'}\n${sighting.isPublic
                               ? 'Pubblico'
                               : sighting.publicationState == 'queued'
                               ? 'Pubblicazione in attesa'

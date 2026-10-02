@@ -1,3 +1,8 @@
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+import 'sighting_heatmap_screen.dart';
+
 import 'package:flutter/cupertino.dart';
 
 import 'dart:math' as math;
@@ -9,50 +14,138 @@ import '../services/geo_insights_service.dart';
 import '../premium_ui.dart';
 
 class RealHeatmap extends StatelessWidget {
-  const RealHeatmap({super.key, required this.sightings});
+  const RealHeatmap({
+    super.key,
+    required this.sightings,
+    this.tileProvider,
+    this.expanded = false,
+  });
   final List<Sighting> sightings;
+  final TileProvider? tileProvider;
+  final bool expanded;
+
+  static Map<String, ({LatLng point, int count})> cells(List<Sighting> rows) {
+    final out = <String, ({LatLng point, int count})>{};
+    for (final row in rows.where(
+      (s) =>
+          s.hasPosition &&
+          s.latitude!.isFinite &&
+          s.longitude!.isFinite &&
+          s.latitude!.abs() <= 90 &&
+          s.longitude!.abs() <= 180,
+    )) {
+      final lat = (row.latitude! * 500).round() / 500;
+      final lng = (row.longitude! * 500).round() / 500;
+      final key = '$lat:$lng';
+      out[key] = (point: LatLng(lat, lng), count: (out[key]?.count ?? 0) + 1);
+    }
+    return out;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final rows = sightings.where((s) => s.hasPosition).toList();
-    if (rows.isEmpty) {
-      return const SizedBox(
-        height: 150,
-        child: Center(
+    final bins = cells(sightings).values.toList();
+    if (bins.isEmpty)
+      return SizedBox(
+        height: expanded ? null : 150,
+        child: const Center(
           child: Text(
             'La heatmap comparirà quando avrai avvistamenti con posizione.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: WildColors.muted),
           ),
         ),
       );
-    }
+    final maximum = bins.fold<int>(1, (n, cell) => math.max(n, cell.count));
+    final bounds = LatLngBounds.fromPoints(bins.map((b) => b.point).toList());
+    final map = FlutterMap(
+      key: ValueKey(
+        bins
+            .map((b) => '${b.point.latitude}:${b.point.longitude}:${b.count}')
+            .join('|'),
+      ),
+      options: MapOptions(
+        initialCameraFit: CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(35),
+          maxZoom: 14,
+        ),
+        interactionOptions: InteractionOptions(
+          flags: expanded ? InteractiveFlag.all : InteractiveFlag.none,
+        ),
+      ),
+      children: [
+        TileLayer(
+          tileProvider:
+              tileProvider ?? NetworkTileProvider(silenceExceptions: true),
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'it.wildtrack.preview',
+        ),
+        CircleLayer(
+          circles: [
+            for (final bin in bins) ...[
+              CircleMarker(
+                point: bin.point,
+                radius: 24 + 15 * bin.count / maximum,
+                color: Colors.orange.withValues(alpha: .22),
+                borderStrokeWidth: 0,
+              ),
+              CircleMarker(
+                point: bin.point,
+                radius: 14 + 10 * bin.count / maximum,
+                color: Color.lerp(
+                  const Color(0xFFFFCB45),
+                  const Color(0xFFD8442F),
+                  bin.count / maximum,
+                )!.withValues(alpha: .65),
+                borderStrokeWidth: 0,
+              ),
+            ],
+          ],
+        ),
+        const RichAttributionWidget(
+          attributions: [TextSourceAttribution('© OpenStreetMap contributors')],
+        ),
+      ],
+    );
     return SizedBox(
-      height: 150,
+      height: expanded ? null : 170,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
         child: Stack(
           children: [
-            const Positioned.fill(
-              child: ColoredBox(color: WildColors.sageSoft),
-            ),
-            Positioned.fill(child: CustomPaint(painter: _HeatPainter(rows))),
-            const Positioned(
-              left: 10,
-              bottom: 8,
-              child: Row(
-                children: [
-                  Icon(
-                    WildIcons.binoculars,
-                    size: 13,
-                    color: WildColors.forest,
+            Positioned.fill(child: map),
+            if (!expanded)
+              Positioned.fill(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SightingHeatmapScreen(),
+                      ),
+                    ),
                   ),
-                  SizedBox(width: 4),
-                  Text(
-                    'Solo tu puoi vederla',
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+                ),
+              ),
+            Positioned(
+              left: 8,
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .92),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  expanded
+                      ? '${bins.fold<int>(0, (n, b) => n + b.count)} avvistamenti con posizione · solo tu'
+                      : 'Solo tu · apri mappa',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -60,85 +153,6 @@ class RealHeatmap extends StatelessWidget {
       ),
     );
   }
-}
-
-class _HeatPainter extends CustomPainter {
-  _HeatPainter(this.rows);
-  final List<Sighting> rows;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final lats = rows.map((e) => e.latitude!).toList();
-    final lngs = rows.map((e) => e.longitude!).toList();
-    var minLat = lats.reduce(math.min), maxLat = lats.reduce(math.max);
-    var minLng = lngs.reduce(math.min), maxLng = lngs.reduce(math.max);
-    if ((maxLat - minLat).abs() < .001) {
-      minLat -= .005;
-      maxLat += .005;
-    }
-    if ((maxLng - minLng).abs() < .001) {
-      minLng -= .005;
-      maxLng += .005;
-    }
-
-    final grid = <String, int>{};
-    for (final s in rows) {
-      final x = ((s.longitude! - minLng) / (maxLng - minLng) * 18)
-          .floor()
-          .clamp(0, 18);
-      final y = ((s.latitude! - minLat) / (maxLat - minLat) * 10).floor().clamp(
-        0,
-        10,
-      );
-      final key = '$x:$y';
-      grid[key] = (grid[key] ?? 0) + 1;
-    }
-    final maxCount = grid.values.fold<int>(1, math.max);
-
-    final line = Paint()
-      ..color = WildColors.forest.withValues(alpha: .08)
-      ..strokeWidth = 1;
-    for (var i = 1; i < 5; i++) {
-      canvas.drawLine(
-        Offset(0, size.height * i / 5),
-        Offset(size.width, size.height * i / 5),
-        line,
-      );
-      canvas.drawLine(
-        Offset(size.width * i / 5, 0),
-        Offset(size.width * i / 5, size.height),
-        line,
-      );
-    }
-
-    for (final entry in grid.entries) {
-      final parts = entry.key.split(':');
-      final gx = int.parse(parts[0]);
-      final gy = int.parse(parts[1]);
-      final intensity = entry.value / maxCount;
-      final x = (gx + .5) / 19 * size.width;
-      final y = size.height - (gy + .5) / 11 * size.height;
-      final radius = 9 + 14 * intensity;
-      canvas.drawCircle(
-        Offset(x, y),
-        radius * 1.8,
-        Paint()..color = Colors.orange.withValues(alpha: .10 + .16 * intensity),
-      );
-      canvas.drawCircle(
-        Offset(x, y),
-        radius,
-        Paint()
-          ..color = Color.lerp(
-            const Color(0xFFFFC857),
-            const Color(0xFFD84A30),
-            intensity,
-          )!.withValues(alpha: .45 + .35 * intensity),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeatPainter oldDelegate) => true;
 }
 
 class RealRegions extends StatefulWidget {

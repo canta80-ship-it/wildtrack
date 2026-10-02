@@ -107,7 +107,9 @@ class _DiaryMetricScreenState extends State<DiaryMetricScreen> {
                         child: ListTile(
                           leading: WildAnimalIllustration(name, size: 56),
                           title: Text(name),
-                          subtitle: Text('${counts[name]} avvistamenti'),
+                          subtitle: Text(
+                            '${counts[name]} ${counts[name] == 1 ? 'avvistamento' : 'avvistamenti'}',
+                          ),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             final matching = animals.where(

@@ -30,8 +30,8 @@ def target(label):
             bounds=re.findall(r'\d+',node.get('bounds',''))
             if len(bounds)==4:
                 x1,y1,x2,y2=map(int,bounds)
-                if x2>x1 and y2>y1 and (x2-x1)*(y2-y1)<600000:found.append(((x1+x2)//2,(y1+y2)//2))
-    return max(found,key=lambda p:p[1]) if found else None
+                if x2>x1 and y2>y1 and (x2-x1)*(y2-y1)<600000:found.append((2 if node.get('text','').strip().lower()==label.lower() or node.get('content-desc','').strip().lower()==label.lower() else 1 if text.strip().lower().startswith(label.lower()+'\n') else 0, ((x1+x2)//2,(y1+y2)//2)))
+    return max(found,key=lambda p:(p[0],p[1][1]))[1] if found else None
 def tap(label,scroll=False):
     for attempt in range(5 if scroll else 2):
         pos=target(label)

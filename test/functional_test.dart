@@ -1189,6 +1189,8 @@ void main() {
       await db.insertSighting(
         Sighting(
           id: 'metric',
+          latitude: null,
+          longitude: null,
           species: 'Cervo',
           count: 1,
           notes: '',
@@ -1346,37 +1348,66 @@ void main() {
       findsWidgets,
     );
   });
+  test('HEATMAP groups positioned sightings, ignores missing GPS and updates after coordinate edit', () {
+    final initial = [
+      row('first'),
+      row('second'),
+      Sighting(
+        id: 'no-gps',
+        latitude: null,
+        longitude: null,
+        species: 'Cervo',
+        count: 1,
+        notes: '',
+        timestamp: DateTime(2026),
+      ),
+    ];
+    final bins = RealHeatmap.cells(initial);
+    expect(bins.length, 1);
+    expect(bins.values.single.count, 2);
+    final changed = [
+      initial.first,
+      Sighting(
+        id: 'second',
+        species: 'Cervo',
+        count: 1,
+        notes: '',
+        latitude: 47,
+        longitude: 13,
+        timestamp: DateTime(2026),
+      ),
+    ];
+    expect(RealHeatmap.cells(changed).length, 2);
+    expect(RealHeatmap.cells([initial.first]).values.single.count, 1);
+    expect(RealHeatmap.cells([]), isEmpty);
+  });
   testWidgets(
-    'UI HEATMAP coordinate edits must repaint even with unchanged record count',
+    'UI HEATMAP renders saved geographic points and reloads changed positions',
     (tester) async {
-      final initial = [row('first'), row('second')];
-      await mount(tester, RealHeatmap(sightings: initial));
-      final finder = find.descendant(
-        of: find.byType(RealHeatmap),
-        matching: find.byType(CustomPaint),
-      );
-      final oldPainter = tester.widget<CustomPaint>(finder).painter!;
-      final changed = [
-        initial.first,
-        Sighting(
-          id: 'second',
-          species: 'Cervo',
-          count: 1,
-          notes: '',
-          latitude: 47,
-          longitude: 13,
-          timestamp: DateTime(2026),
+      await mount(
+        tester,
+        RealHeatmap(
+          sightings: [row('one'), row('two')],
+          tileProvider: OfflineTestTiles(),
         ),
-      ];
+      );
+      expect(find.byType(FlutterMap), findsOneWidget);
+      final first = tester.widget<CircleLayer>(find.byType(CircleLayer));
+      expect(first.circles, hasLength(2));
+      expect(first.circles.first.point.latitude, closeTo(46.1, .001));
       await tester.pumpWidget(
         MaterialApp(
-          theme: wildTrackTheme(Brightness.light),
-          home: RealHeatmap(sightings: changed),
+          home: RealHeatmap(sightings: [], tileProvider: OfflineTestTiles()),
         ),
       );
-      await tester.pump();
-      final next = tester.widget<CustomPaint>(finder).painter!;
-      expect(next.shouldRepaint(oldPainter), true);
+      await tester.pumpAndSettle();
+      expect(find.byType(FlutterMap), findsNothing);
+      expect(
+        find.text(
+          'La heatmap comparirà quando avrai avvistamenti con posizione.',
+        ),
+        findsOneWidget,
+      );
     },
   );
   testWidgets('UI CATALOGUE scientific search opens correct species', (

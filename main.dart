@@ -1,3 +1,6 @@
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/cupertino.dart';
 
 import 'dart:async';
@@ -19,6 +22,8 @@ import 'premium_ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('it_IT');
+  Intl.defaultLocale = 'it_IT';
   await PreferencesService.instance.load();
   await CommunityService.instance.load();
   runApp(const WildTrackApp());
@@ -74,6 +79,9 @@ class _WildTrackAppState extends State<WildTrackApp>
     builder: (context, _) => MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'WildTrack',
+      locale: const Locale('it', 'IT'),
+      supportedLocales: const [Locale('it', 'IT')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: wildTrackTheme(Brightness.light),
       darkTheme: wildTrackTheme(Brightness.dark),
       themeMode: PreferencesService.instance.theme,

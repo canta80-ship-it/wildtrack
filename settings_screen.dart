@@ -96,7 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         builder: (c) => AlertDialog(
           title: const Text('Modifica permesso Android'),
           content: const Text(
-            'Android non consente a WildTrack di revocare da sola un permesso già concesso. Apri le impostazioni di sistema per modificarlo.',
+            'Android non consente a WildTrack di revocare autonomamente un permesso già concesso. Apri le impostazioni di sistema per modificarlo.',
           ),
           actions: [
             TextButton(

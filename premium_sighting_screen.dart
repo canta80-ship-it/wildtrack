@@ -615,7 +615,7 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
               const SizedBox(height: 10),
               _Panel(
                 title: 'Note',
-                subtitle: 'facoltativo',
+                subtitle: 'facoltative',
                 child: TextField(
                   controller: notes,
                   minLines: 2,
