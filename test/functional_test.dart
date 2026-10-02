@@ -5,6 +5,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:wildtrack_mvp/screens/map_position_screen.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'dart:async';
@@ -126,6 +129,12 @@ Position gps(
   speed: 1,
   speedAccuracy: 1,
 );
+
+class OfflineTestTiles extends TileProvider {
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
+      const AssetImage('assets/approved/cervo_thumb.jpg');
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -957,7 +966,7 @@ void main() {
         await click(tester, find.byIcon(Icons.arrow_back_ios_new));
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
-          find.text('Vedi tutte').first,
+          find.text('Vedi tutte'),
           -200,
           scrollable: find.byType(Scrollable).first,
         );
@@ -999,6 +1008,53 @@ void main() {
       );
     }
   });
+
+  testWidgets(
+    'UI MAP deliberate map selection returns coordinates and saves manual sighting',
+    (tester) async {
+      LatLng? chosen;
+      await mount(
+        tester,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                chosen = await Navigator.push<LatLng>(
+                  context,
+                  MaterialPageRoute<LatLng>(
+                    builder: (_) =>
+                        MapPositionScreen(tileProvider: OfflineTestTiles()),
+                  ),
+                );
+              },
+              child: const Text('OPEN PICKER'),
+            ),
+          ),
+        ),
+      );
+      await click(tester, find.text('OPEN PICKER'));
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Usa questo punto'),
+            )
+            .onPressed,
+        null,
+      );
+      await tester.tapAt(tester.getCenter(find.byType(FlutterMap)));
+      await tester.pumpAndSettle();
+      await click(tester, find.text('Usa questo punto'));
+      expect(chosen, isNotNull);
+      await mount(tester, PremiumSightingScreen(initialPosition: chosen));
+      await click(tester, find.text('Salva privato'));
+      final rows = await tester.runAsync(db.getSightings);
+      expect(rows, hasLength(1));
+      expect(rows!.single.latitude, closeTo(chosen!.latitude, .000001));
+      expect(rows.single.longitude, closeTo(chosen!.longitude, .000001));
+      expect(rows.single.positionSource, 'manual');
+      expect(rows.single.accuracy, null);
+    },
+  );
 
   testWidgets('UI ACCESS empty credentials show validation', (tester) async {
     await mount(tester, const AccessScreen(home: SizedBox()));

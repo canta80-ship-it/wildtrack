@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../models/sighting.dart';
 import '../services/database_service.dart';
@@ -10,10 +11,12 @@ import '../services/location_service.dart';
 import '../services/media_storage_service.dart';
 import 'community_screen.dart';
 import 'species_screen.dart';
+import 'map_position_screen.dart';
 import '../premium_ui.dart';
 
 class PremiumSightingScreen extends StatefulWidget {
-  const PremiumSightingScreen({super.key});
+  const PremiumSightingScreen({super.key, this.initialPosition});
+  final LatLng? initialPosition;
   @override
   State<PremiumSightingScreen> createState() => _PremiumSightingScreenState();
 }
@@ -24,8 +27,39 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
   int count = 1;
   final List<String> photos = [];
   double? lat, lng, accuracy;
+  String positionSource = 'missing';
   bool locating = false, saving = false, publicMode = false;
   final notes = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialPosition != null) {
+      lat = widget.initialPosition!.latitude;
+      lng = widget.initialPosition!.longitude;
+      positionSource = 'manual';
+    }
+  }
+
+  Future<void> chooseOnMap() async {
+    final point = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute<LatLng>(
+        builder: (_) => MapPositionScreen(
+          initialPosition: lat == null || lng == null
+              ? null
+              : LatLng(lat!, lng!),
+        ),
+      ),
+    );
+    if (point == null || !mounted) return;
+    setState(() {
+      lat = point.latitude;
+      lng = point.longitude;
+      accuracy = null;
+      positionSource = 'manual';
+    });
+  }
 
   @override
   void dispose() {
@@ -64,6 +98,7 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
           lat = p.latitude;
           lng = p.longitude;
           accuracy = p.accuracy;
+          positionSource = 'gps';
         });
     } finally {
       if (mounted) setState(() => locating = false);
@@ -165,7 +200,7 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
         photoPath: stored.firstOrNull,
         kind: kind,
         accuracy: accuracy,
-        positionSource: lat == null ? 'missing' : 'gps',
+        positionSource: lat == null ? 'missing' : positionSource,
       );
       await DatabaseService.instance.insertSighting(row);
       await DatabaseService.instance.replaceSightingPhotos(id, stored);
@@ -538,38 +573,41 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
               const SizedBox(height: 10),
               _Panel(
                 title: 'Posizione',
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const WildIconDisc(Icons.location_on, size: 48),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        lat == null
-                            ? 'Posizione non ancora rilevata'
-                            : '${lat!.toStringAsFixed(4)}, ${lng!.toStringAsFixed(4)}\nPrecisione ±${accuracy?.toStringAsFixed(0) ?? '—'} m',
-                        style: const TextStyle(color: WildColors.muted),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      flex: 2,
-                      child: FilledButton.tonalIcon(
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 10,
+                    Row(
+                      children: [
+                        const WildIconDisc(Icons.location_on, size: 48),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            lat == null
+                                ? 'Posizione non ancora scelta'
+                                : '${lat!.toStringAsFixed(5)}, ${lng!.toStringAsFixed(5)}\n${positionSource == 'manual' ? 'Punto scelto sulla mappa' : 'GPS · precisione ±${accuracy?.toStringAsFixed(0) ?? '—'} m'}',
+                            style: const TextStyle(color: WildColors.muted),
                           ),
-                          minimumSize: const Size(0, 44),
                         ),
-                        onPressed: locating ? null : locate,
-                        icon: const Icon(Icons.map_outlined, size: 18),
-                        label: Text(
-                          locating ? 'GPS…' : 'Usa posizione attuale',
-                          maxLines: 2,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 11),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: locating ? null : locate,
+                          icon: const Icon(Icons.my_location, size: 18),
+                          label: Text(
+                            locating ? 'GPS…' : 'Usa posizione attuale',
+                          ),
                         ),
-                      ),
+                        FilledButton.tonalIcon(
+                          onPressed: chooseOnMap,
+                          icon: const Icon(Icons.map_outlined, size: 18),
+                          label: const Text('Scegli sulla mappa'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -580,7 +618,8 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
                 subtitle: 'facoltativo',
                 child: TextField(
                   controller: notes,
-                  maxLines: 1,
+                  minLines: 2,
+                  maxLines: 6,
                   decoration: const InputDecoration(
                     hintText: 'Es. comportamento, habitat, condizioni…',
                   ),

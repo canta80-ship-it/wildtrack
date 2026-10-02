@@ -100,6 +100,13 @@ try:
         if tap('SOS'):
             result('Pulsante SOS apre emergenza','PASS' if 'sos · emergenza' in visible_text() else 'FAIL');shot('home-sos')
             adb('shell','input','keyevent','4');time.sleep(1)
+        if tap('Avvista') and tap('Scegli sulla mappa',scroll=True):
+            adb('shell','input','tap','540','1000');time.sleep(1)
+            ok=tap('Usa questo punto')
+            result('Nuovo avvistamento riceve posizione scelta sulla mappa','PASS' if ok and 'punto scelto sulla mappa' in visible_text() else 'FAIL');shot('map-sighting-position')
+            result('Avvistamento dalla mappa salvato privato','PASS' if tap('Salva privato',scroll=True) else 'FAIL')
+            tap('Esplora');time.sleep(1)
+        else:result('Scelta posizione avvistamento sulla mappa','FAIL','Controllo non raggiunto')
         if not tap('Avvia uscita') or not tap('Avvia registrazione',scroll=True):raise RuntimeError('Recording start missing')
         services=adb('shell','dumpsys','activity','services',package)
         result('Servizio GPS in primo piano attivo','PASS' if 'GeolocatorLocationService' in services and 'isForeground=true' in services else 'FAIL')

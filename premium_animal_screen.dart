@@ -675,13 +675,11 @@ class _HabitatCard extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(13),
-          child: AspectRatio(
-            aspectRatio: 3 / 2,
-            child: Image.asset(
-              asset,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-            ),
+          child: Image.asset(
+            asset,
+            width: double.infinity,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
           ),
         ),
         const SizedBox(height: 10),

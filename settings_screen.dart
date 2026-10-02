@@ -145,6 +145,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
     final foreground = await Permission.locationWhenInUse.request();
     if (!foreground.isGranted) {
+      if (foreground.isPermanentlyDenied) await openAppSettings();
       await _refreshPermissions();
       return;
     }
