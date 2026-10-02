@@ -12,6 +12,13 @@ def shot(name):
 def dump():
     adb('shell','uiautomator','dump','/sdcard/window.xml',check=False)
     xml=adb('shell','cat','/sdcard/window.xml',check=False)
+    if "isn't responding" in xml and 'Close app' in xml:
+        root=ET.fromstring(xml)
+        for n in root.iter('node'):
+            if n.get('text')=='Close app':
+                x1,y1,x2,y2=map(int,re.findall(r'\d+',n.get('bounds','')))
+                adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));time.sleep(3)
+                return dump()
     (out/'latest-ui.xml').write_text(xml)
     try:return ET.fromstring(xml)
     except ET.ParseError:return ET.Element('empty')

@@ -1,5 +1,7 @@
+import 'diary_metric_screen.dart';
 import 'real_geo_stats_widget.dart';
 import 'outing_diary_screen.dart';
+import 'sighting_diary_screen.dart';
 
 import 'package:flutter/cupertino.dart';
 
@@ -153,24 +155,54 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
                       _Kpi(
                         icon: Icons.eco_outlined,
                         label: 'Specie uniche',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DiaryMetricScreen(
+                              metric: DiaryMetric.species,
+                            ),
+                          ),
+                        ),
                         value: '${uniqueSpecies.length}',
                         tint: WildColors.sageSoft,
                       ),
                       _Kpi(
                         icon: Icons.directions_walk,
                         label: 'Km percorsi',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DiaryMetricScreen(
+                              metric: DiaryMetric.distance,
+                            ),
+                          ),
+                        ),
                         value: '${km.toStringAsFixed(0)} km',
                         tint: const Color(0xFFF3E9DB),
                       ),
                       _Kpi(
                         icon: Icons.schedule,
                         label: 'Tempo sul campo',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DiaryMetricScreen(
+                              metric: DiaryMetric.time,
+                            ),
+                          ),
+                        ),
                         value: '${fieldTime.inHours} h',
                         tint: const Color(0xFFF1E8D8),
                       ),
                       _Kpi(
                         icon: WildIcons.binoculars,
                         label: 'Avvistamenti',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SightingDiaryScreen(),
+                          ),
+                        ),
                         value: '${sightings.length}',
                         tint: WildColors.sageSoft,
                       ),
@@ -287,6 +319,17 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
                     child: RealRegions(sightings: sightings),
                   ),
                   const SizedBox(height: 10),
+                  WildPrimaryButton(
+                    label: 'Gestisci avvistamenti',
+                    icon: WildIcons.binoculars,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SightingDiaryScreen(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   _Panel(
                     title: 'Ultime uscite',
                     child: sessions.isEmpty
@@ -326,37 +369,43 @@ class _Kpi extends StatelessWidget {
     required this.label,
     required this.value,
     required this.tint,
+    required this.onTap,
   });
   final IconData icon;
   final String label, value;
   final Color tint;
+  final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: tint,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: WildColors.forest, size: 23),
-        const Spacer(),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 3),
-        const Text(
-          'ultimi 12 mesi',
-          style: TextStyle(fontSize: 7.5, color: WildColors.forest),
-        ),
-      ],
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(20),
+    child: Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: WildColors.forest, size: 23),
+          const Spacer(),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 3),
+          const Text(
+            'tutti i dati salvati',
+            style: TextStyle(fontSize: 7.5, color: WildColors.forest),
+          ),
+        ],
+      ),
     ),
   );
 }

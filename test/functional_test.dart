@@ -1,3 +1,8 @@
+import 'package:wildtrack_mvp/screens/diary_metric_screen.dart';
+import 'package:wildtrack_mvp/screens/premium_stats_screen.dart';
+import 'package:wildtrack_mvp/screens/sighting_diary_screen.dart';
+import 'package:wildtrack_mvp/services/sighting_management_service.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -522,6 +527,24 @@ void main() {
     expect((await e.get('test'))!.positionSharing, false);
     await expectLater(e.setPositionSharing('test', true), throwsStateError);
   });
+  test(
+    'EXPEDITION deletion removes persisted state and preserves other groups',
+    () async {
+      final e = ExpeditionService.instance;
+      await e.ensure(mapId: 'delete-group', name: 'Da eliminare');
+      await e.ensure(mapId: 'keep-group', name: 'Conservato');
+      await e.setPositionSharing('delete-group', true);
+      await e.delete('delete-group');
+      await e.reloadFromDisk();
+      expect(await e.get('delete-group'), null);
+      expect((await e.get('keep-group'))!.name, 'Conservato');
+      await expectLater(
+        CommunityService.instance.deleteGroup({'id': 'keep-group', 'mine': 0}),
+        throwsException,
+      );
+      expect(await e.get('keep-group'), isNotNull);
+    },
+  );
   test('EXPEDITION duration limited to fourteen days', () async {
     final e = ExpeditionService.instance;
     await e.ensure(mapId: 'duration', name: 'Test');
@@ -822,6 +845,13 @@ void main() {
   }
 
   Future<void> click(WidgetTester tester, Finder finder) async {
+    if (finder.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        finder,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
     await tester.ensureVisible(finder);
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
@@ -1041,8 +1071,12 @@ void main() {
             .onPressed,
         null,
       );
-      await tester.tapAt(tester.getCenter(find.byType(FlutterMap)));
+      await tester.tapAt(
+        tester.getCenter(find.byType(FlutterMap)) + const Offset(35, 25),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
+      expect(find.text('Nessun punto selezionato'), findsNothing);
       await click(tester, find.text('Usa questo punto'));
       expect(chosen, isNotNull);
       await mount(tester, PremiumSightingScreen(initialPosition: chosen));
@@ -1053,6 +1087,164 @@ void main() {
       expect(rows.single.longitude, closeTo(chosen!.longitude, .000001));
       expect(rows.single.positionSource, 'manual');
       expect(rows.single.accuracy, null);
+    },
+  );
+
+  test('DIARY public publication retains local original and imports own remote records', () async {
+    await db.insertSighting(row('original', photo: 'private.jpg'));
+    await db.retainPublicSighting({
+      'id': 'original',
+      'species': 'Cervo',
+      'lat': 46.0,
+      'lng': 12.0,
+    });
+    final original = (await db.getSightings()).single;
+    expect(original.isPublic, true);
+    expect(original.latitude, 46.1);
+    expect(original.photoPath, 'private.jpg');
+    await db.retainPublicSighting({
+      'id': 'remote',
+      'species': 'Volpe',
+      'count': 2,
+      'observedAt': '2026-09-20T09:00:00Z',
+    });
+    expect(
+      (await db.getSightings()).where((s) => s.id == 'remote').single.isPublic,
+      true,
+    );
+  });
+  test(
+    'DIARY deleting private record updates totals and keeps other records',
+    () async {
+      await db.insertSighting(row('remove'));
+      await db.insertSighting(row('keep', species: 'Volpe'));
+      await SightingManagementService.instance.delete(
+        (await db.getSightings()).firstWhere((s) => s.id == 'remove'),
+      );
+      expect((await db.getSightings()).single.id, 'keep');
+    },
+  );
+  test(
+    'DIARY public deletion failure retains record and success removes it',
+    () async {
+      await db.retainPublicSighting({'id': 'public', 'species': 'Cervo'});
+      final record = (await db.getSightings()).single;
+      await expectLater(
+        SightingManagementService(
+          deletePublic: (_) async => throw Exception('offline'),
+        ).delete(record),
+        throwsException,
+      );
+      expect((await db.getSightings()).single.id, 'public');
+      String? deleted;
+      await SightingManagementService(
+        deletePublic: (id) async {
+          deleted = id;
+        },
+      ).delete(record);
+      expect(deleted, 'public');
+      expect(await db.getSightings(), isEmpty);
+    },
+  );
+  test(
+    'DIARY queued deletion cancels durable publication before removing record',
+    () async {
+      final community = CommunityService.instance;
+      community.queueFile = File('${temp.path}/delete-outbox.json');
+      community.pending.add({'id': 'queued'});
+      await community.saveQueue();
+      await db.retainPublicSighting({
+        'id': 'queued',
+        'species': 'Cervo',
+      }, state: 'queued');
+      await SightingManagementService.instance.delete(
+        (await db.getSightings()).single,
+      );
+      expect(community.pending, isEmpty);
+      expect(jsonDecode(await community.queueFile.readAsString()), isEmpty);
+      expect(await db.getSightings(), isEmpty);
+    },
+  );
+  testWidgets(
+    'UI DIARY delete confirmation cancel preserves data and confirm updates statistics',
+    (tester) async {
+      await tester.runAsync(() => db.insertSighting(row('delete-ui')));
+      await mount(tester, const SightingDiaryScreen());
+      await click(tester, find.byTooltip('Elimina Cervo'));
+      await click(tester, find.text('Annulla'));
+      expect(await tester.runAsync(db.getSightings), hasLength(1));
+      await click(tester, find.byTooltip('Elimina Cervo'));
+      await click(tester, find.text('Elimina'));
+      expect(await tester.runAsync(db.getSightings), isEmpty);
+      expect(
+        find.text('Nessun avvistamento in questa categoria.'),
+        findsOneWidget,
+      );
+    },
+  );
+  testWidgets('UI STATS all four indicators open relevant saved data', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      await db.insertSighting(row('metric'));
+      await db.saveSession(session('metric-track'), []);
+    });
+    for (final label in [
+      'Specie uniche',
+      'Km percorsi',
+      'Tempo sul campo',
+      'Avvistamenti',
+    ]) {
+      await mount(tester, const PremiumStatsScreen());
+      await click(tester, find.text(label).first);
+      if (label == 'Avvistamenti') {
+        expect(find.byType(SightingDiaryScreen), findsOneWidget);
+      } else {
+        expect(find.byType(DiaryMetricScreen), findsOneWidget);
+      }
+      if (label == 'Specie uniche') {
+        expect(find.text('Cervo'), findsOneWidget);
+        await click(tester, find.text('Cervo'));
+        expect(find.byType(PremiumAnimalScreen), findsOneWidget);
+      }
+      expect(tester.takeException(), null);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets(
+    'UI HOME diary indicators open observed species and recorded field time',
+    (tester) async {
+      await tester.runAsync(() async {
+        await seedFeed();
+        await db.insertSighting(row('home-metric'));
+        await db.saveSession(session('home-track'), []);
+      });
+      final old = GeolocatorPlatform.instance;
+      final fake = TestGps(enabled: false);
+      GeolocatorPlatform.instance = fake;
+      try {
+        for (final label in ['Specie uniche', 'Tempo sul campo']) {
+          await mount(tester, const PremiumHomeScreen());
+          await tester.scrollUntilVisible(
+            find.text(label),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await click(tester, find.text(label));
+          expect(find.byType(DiaryMetricScreen), findsOneWidget);
+          if (label == 'Specie uniche') {
+            await click(tester, find.text('Cervo'));
+            expect(find.byType(PremiumAnimalScreen), findsOneWidget);
+          } else {
+            expect(find.text('1 h 0 min totali'), findsOneWidget);
+          }
+          expect(tester.takeException(), null);
+          await tester.pumpWidget(const SizedBox());
+        }
+      } finally {
+        GeolocatorPlatform.instance = old;
+        await fake.stream.close();
+      }
     },
   );
 
@@ -1115,7 +1307,11 @@ void main() {
     tester,
   ) async {
     await mount(tester, const PremiumSightingScreen());
-    await tester.ensureVisible(find.byType(TextField));
+    await tester.scrollUntilVisible(
+      find.byType(TextField),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(find.byType(TextField), 'nota funzionale');
     await click(tester, find.text('Salva privato'));
     await tester.runAsync(() async {

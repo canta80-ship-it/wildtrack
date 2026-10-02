@@ -1,3 +1,5 @@
+import 'diary_metric_screen.dart';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -182,6 +184,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
                             child: _DiaryCard(
                               icon: Icons.eco_outlined,
                               label: 'Specie uniche',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const DiaryMetricScreen(
+                                    metric: DiaryMetric.species,
+                                  ),
+                                ),
+                              ),
                               value:
                                   '${sightings.map((e) => e.species).where((e) => e.isNotEmpty && e != 'Specie non identificata').toSet().length}',
                               tint: const Color(0xFFE7F0E1),
@@ -192,6 +202,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
                             child: _DiaryCard(
                               icon: Icons.schedule_outlined,
                               label: 'Tempo sul campo',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const DiaryMetricScreen(
+                                    metric: DiaryMetric.time,
+                                  ),
+                                ),
+                              ),
                               value:
                                   '${sessions.fold<int>(0, (sum, s) => sum + s.endedAt.difference(s.startedAt).inMinutes) ~/ 60} h',
                               tint: const Color(0xFFF3E7D5),
@@ -853,43 +871,49 @@ class _DiaryCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.tint,
+    required this.onTap,
   });
   final IconData icon;
   final String label;
   final String value;
   final Color tint;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
-    decoration: BoxDecoration(
-      color: tint,
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, color: WildColors.forest, size: 26),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11, color: WildColors.muted),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(20),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: WildColors.forest, size: 26),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 11, color: WildColors.muted),
                 ),
-              ),
-            ],
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const Icon(Icons.chevron_right, color: WildColors.forest),
-      ],
+          const Icon(Icons.chevron_right, color: WildColors.forest),
+        ],
+      ),
     ),
   );
 }
