@@ -37,7 +37,7 @@ def tap(label,scroll=False):
         pos=target(label)
         if pos:
             adb('shell','input','tap',str(pos[0]),str(pos[1]));time.sleep(2);return True
-        if scroll:adb('shell','input','swipe','540','1450','540','600','350')
+        if scroll:adb('shell','input','swipe','20','1450','20','600','350')
         time.sleep(1)
     return False
 def visible_text():
@@ -97,52 +97,54 @@ try:
         ok=tap('Continua come ospite',scroll=True) and tap('Diario')
         visible=' '.join(n.get('text','')+' '+n.get('content-desc','') for n in dump().iter('node')).lower()
         result('App precedente e suoi dati conservati','PASS' if ok and 'cervo' in visible else 'FAIL');shot('legacy-preserved')
-    # Native GPS: verify samples are persisted while HOME is shown and the display is off.
-    adb('shell','am','force-stop',package)
-    adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
-    if tap('Continua come ospite',scroll=True):
-        for perm in ['ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','ACCESS_BACKGROUND_LOCATION','POST_NOTIFICATIONS']:
-            adb('shell','pm','grant',package,'android.permission.'+perm)
-        result('Permesso Android posizione in background dichiarato','PASS')
-        if tap('SOS'):
-            result('Pulsante SOS apre emergenza','PASS' if 'sos · emergenza' in visible_text() else 'FAIL');shot('home-sos')
-            adb('shell','input','keyevent','4');time.sleep(1)
-        if tap('Avvista') and tap('Scegli sulla mappa',scroll=True):
-            adb('shell','input','tap','540','1000');time.sleep(1)
-            ok=tap('Usa questo punto')
-            result('Nuovo avvistamento riceve posizione scelta sulla mappa','PASS' if ok and 'punto scelto sulla mappa' in visible_text() else 'FAIL');shot('map-sighting-position')
-            result('Avvistamento dalla mappa salvato privato','PASS' if tap('Salva privato',scroll=True) else 'FAIL')
-            tap('Esplora');time.sleep(1)
-        else:result('Scelta posizione avvistamento sulla mappa','FAIL','Controllo non raggiunto')
-        if not tap('Avvia uscita') or not tap('Avvia registrazione',scroll=True):raise RuntimeError('Recording start missing')
-        services=adb('shell','dumpsys','activity','services',package)
-        result('Servizio GPS in primo piano attivo','PASS' if 'GeolocatorLocationService' in services and 'isForeground=true' in services else 'FAIL')
-        adb('root');adb('wait-for-device')
-        def track_snapshot():
-            with tempfile.TemporaryDirectory(prefix='wildtrack-emulator-gps-') as folder:
-                for suffix in ['', '-wal', '-shm']:
-                    adb('pull','/data/user/0/'+package+'/databases/wildtrack.db'+suffix,folder+'/wildtrack.db'+suffix,check=False)
-                con=sqlite3.connect(folder+'/wildtrack.db')
-                count=con.execute('select count(*) from track_points').fetchone()[0]
-                distance=con.execute('select coalesce(max(distance_m),0) from sessions').fetchone()[0]
-                con.close();return count,distance
-        for offset in [0,.0005]:
-            adb('emu','geo','fix','12.20',str(46.10+offset),'500');time.sleep(12)
-        foreground_count,_=track_snapshot()
-        result('GPS acquisisce punti prima del background','PASS' if foreground_count>=1 else 'FAIL','Punti acquisiti: '+str(foreground_count))
-        adb('shell','input','keyevent','3')
-        adb('shell','input','keyevent','223');time.sleep(2)
-        for offset in [.001,.0015,.002]:
-            adb('emu','geo','fix','12.20',str(46.10+offset),'510');time.sleep(12)
-        background_count,distance=track_snapshot()
-        result('GPS continua a schermo spento con app in background','PASS' if background_count>=foreground_count+2 and distance>20 else 'FAIL','Prima: '+str(foreground_count)+'; dopo: '+str(background_count)+'; distanza: '+str(round(distance,1))+' m; coordinate simulate')
-        adb('shell','input','keyevent','224');adb('shell','wm','dismiss-keyguard')
-        adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(3)
-        if tap('Termina e apri riepilogo',scroll=True):
-            result('Traccia terminata apre report con statistiche','PASS' if 'riepilogo attività' in visible_text() else 'FAIL');shot('background-track-report')
-        else:result('Termine traccia GPS','FAIL','Controllo non raggiunto')
-    else:result('GPS nativo background','BLOCKED','Home ospite non raggiunta')
-    # Exercise local credentials in the actual release APK. Never create a cloud account.
+    try:
+        # Native GPS: verify samples are persisted while HOME is shown and the display is off.
+        adb('shell','am','force-stop',package)
+        adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
+        if tap('Continua come ospite',scroll=True):
+            for perm in ['ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','ACCESS_BACKGROUND_LOCATION','POST_NOTIFICATIONS']:
+                adb('shell','pm','grant',package,'android.permission.'+perm)
+            result('Permesso Android posizione in background dichiarato','PASS')
+            if tap('SOS'):
+                result('Pulsante SOS apre emergenza','PASS' if 'sos · emergenza' in visible_text() else 'FAIL');shot('home-sos')
+                adb('shell','input','keyevent','4');time.sleep(1)
+            if tap('Avvista') and tap('Scegli sulla mappa',scroll=True):
+                adb('shell','input','tap','540','1000');time.sleep(1)
+                ok=tap('Usa questo punto')
+                result('Nuovo avvistamento riceve posizione scelta sulla mappa','PASS' if ok and 'punto scelto sulla mappa' in visible_text() else 'FAIL');shot('map-sighting-position')
+                result('Avvistamento dalla mappa salvato privato','PASS' if tap('Salva privato',scroll=True) else 'FAIL')
+                tap('Esplora');time.sleep(1)
+            else:result('Scelta posizione avvistamento sulla mappa','FAIL','Controllo non raggiunto')
+            if not tap('Avvia uscita') or not tap('Avvia registrazione',scroll=True):raise RuntimeError('Recording start missing')
+            services=adb('shell','dumpsys','activity','services',package)
+            result('Servizio GPS in primo piano attivo','PASS' if 'GeolocatorLocationService' in services and 'isForeground=true' in services else 'FAIL')
+            adb('root');adb('wait-for-device')
+            def track_snapshot():
+                with tempfile.TemporaryDirectory(prefix='wildtrack-emulator-gps-') as folder:
+                    for suffix in ['', '-wal', '-shm']:
+                        adb('pull','/data/user/0/'+package+'/databases/wildtrack.db'+suffix,folder+'/wildtrack.db'+suffix,check=False)
+                    con=sqlite3.connect(folder+'/wildtrack.db')
+                    count=con.execute('select count(*) from track_points').fetchone()[0]
+                    distance=con.execute('select coalesce(max(distance_m),0) from sessions').fetchone()[0]
+                    con.close();return count,distance
+            for offset in [0,.0005]:
+                adb('emu','geo','fix','12.20',str(46.10+offset),'500');time.sleep(12)
+            foreground_count,_=track_snapshot()
+            result('GPS acquisisce punti prima del background','PASS' if foreground_count>=1 else 'FAIL','Punti acquisiti: '+str(foreground_count))
+            adb('shell','input','keyevent','3')
+            adb('shell','input','keyevent','223');time.sleep(2)
+            for offset in [.001,.0015,.002]:
+                adb('emu','geo','fix','12.20',str(46.10+offset),'510');time.sleep(12)
+            background_count,distance=track_snapshot()
+            result('GPS continua a schermo spento con app in background','PASS' if background_count>=foreground_count+2 and distance>20 else 'FAIL','Prima: '+str(foreground_count)+'; dopo: '+str(background_count)+'; distanza: '+str(round(distance,1))+' m; coordinate simulate')
+            adb('shell','input','keyevent','224');adb('shell','wm','dismiss-keyguard')
+            adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(3)
+            if tap('Termina e apri riepilogo',scroll=True):
+                result('Traccia terminata apre report con statistiche','PASS' if 'riepilogo attività' in visible_text() else 'FAIL');shot('background-track-report')
+            else:result('Termine traccia GPS','FAIL','Controllo non raggiunto')
+        else:result('GPS nativo background','BLOCKED','Home ospite non raggiunta')
+        # Exercise local credentials in the actual release APK. Never create a cloud account.
+    except Exception as e:result('Verifica GPS background','BLOCKED',str(e))
     adb('shell','am','force-stop',package)
     adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
     if tap('Crea account',scroll=True):
@@ -175,6 +177,18 @@ try:
                 if 'lo sapevi che' in visible_text():break
                 adb('shell','input','swipe','540','1450','540','800','350');time.sleep(1)
             result('Carosello Lo sapevi che presente in home','PASS' if 'lo sapevi che' in visible_text() else 'FAIL');shot('home-feed')
+            if tap('Diario'):
+                for label,title in [('Specie uniche','le tue specie uniche'),('Km percorsi','km percorsi'),('Tempo sul campo','tempo sul campo'),('Avvistamenti','i tuoi avvistamenti')]:
+                    ok=tap(label)
+                    result('Indicatore diario '+label,'PASS' if ok and title in visible_text() else 'FAIL')
+                    if ok:adb('shell','input','keyevent','4');time.sleep(1)
+                if tap('Avvistamenti'):
+                    if tap('Elimina Cervo'):
+                        result('Eliminazione avvistamento richiede conferma','PASS' if 'eliminare cervo' in visible_text() else 'FAIL')
+                        tap('Annulla')
+                        if tap('Elimina Cervo') and tap('Elimina'):
+                            result('Eliminazione avvistamento privato dal diario','PASS' if 'avvistamento eliminato' in visible_text() else 'FAIL');shot('diary-deleted')
+
         else:result('Login locale nativo','BLOCKED','APK configurato con account cloud; nessun account esterno creato')
     else:result('Login locale nativo','BLOCKED','Schermata registrazione non raggiunta')
 except Exception as e:result('Esecuzione Android','BLOCKED',str(e))

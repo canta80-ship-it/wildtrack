@@ -1186,7 +1186,15 @@ void main() {
     tester,
   ) async {
     await tester.runAsync(() async {
-      await db.insertSighting(row('metric'));
+      await db.insertSighting(
+        Sighting(
+          id: 'metric',
+          species: 'Cervo',
+          count: 1,
+          notes: '',
+          timestamp: DateTime(2026, 9, 20),
+        ),
+      );
       await db.saveSession(session('metric-track'), []);
     });
     for (final label in [
