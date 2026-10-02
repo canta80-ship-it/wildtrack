@@ -1,0 +1,40 @@
+name: Verify exact Chat heading on delivered APK
+on:
+  push:
+    branches: [verify-chat-final]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  chat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 36981674993
+          github-token: ${{ github.token }}
+          path: tested-apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Check exact heading and vertical order on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 tool/verify_chat_heading.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WildTrack-exact-chat-heading
+          path: chat-results/
