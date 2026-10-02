@@ -1,3 +1,5 @@
+import 'outing_delete_widget.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -145,7 +147,13 @@ class _DiaryMetricScreenState extends State<DiaryMetricScreen> {
                           subtitle: Text(
                             '${(s.distanceMeters / 1000).toStringAsFixed(2)} km · ${s.endedAt.difference(s.startedAt).inMinutes ~/ 60} h ${s.endedAt.difference(s.startedAt).inMinutes % 60} min',
                           ),
-                          trailing: const Icon(Icons.chevron_right),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              OutingDeleteButton(session: s),
+                              const Icon(Icons.chevron_right),
+                            ],
+                          ),
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute<void>(

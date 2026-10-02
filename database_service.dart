@@ -226,6 +226,19 @@ class DatabaseService {
     changes.value++;
   }
 
+  Future<void> deleteSession(String id) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'track_points',
+        where: 'session_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete('sessions', where: 'id = ?', whereArgs: [id]);
+    });
+    changes.value++;
+  }
+
   Future<void> updateSession(TrackSession session) async {
     final db = await database;
     await db.insert(

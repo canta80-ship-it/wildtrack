@@ -330,6 +330,19 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  WildPrimaryButton(
+                    label: 'Gestisci uscite',
+                    icon: Icons.route,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DiaryMetricScreen(
+                          metric: DiaryMetric.distance,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   _Panel(
                     title: 'Ultime uscite',
                     child: sessions.isEmpty

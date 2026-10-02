@@ -1,3 +1,5 @@
+import 'package:wildtrack_mvp/services/outing_management_service.dart';
+import 'package:wildtrack_mvp/screens/outing_delete_widget.dart';
 import 'package:wildtrack_mvp/screens/diary_metric_screen.dart';
 import 'package:wildtrack_mvp/screens/premium_stats_screen.dart';
 import 'package:wildtrack_mvp/screens/sighting_diary_screen.dart';
@@ -1087,6 +1089,55 @@ void main() {
       expect(rows.single.longitude, closeTo(chosen!.longitude, .000001));
       expect(rows.single.positionSource, 'manual');
       expect(rows.single.accuracy, null);
+    },
+  );
+
+  test('OUTING deletion removes track points and updates totals while preserving sightings and other outings', () async {
+    await db.saveSession(session('delete-outing'), points());
+    await db.saveSession(session('keep-outing'), points());
+    await db.insertSighting(row('keep-sighting'));
+    await OutingManagementService.instance.delete(session('delete-outing'));
+    expect((await db.getSessions()).single.id, 'keep-outing');
+    expect(await db.getTrackPoints('delete-outing'), isEmpty);
+    expect(await db.getTrackPoints('keep-outing'), hasLength(points().length));
+    expect((await db.getSightings()).single.id, 'keep-sighting');
+  });
+  test(
+    'OUTING public removal failure preserves local route; success removes it',
+    () async {
+      final public = session('public-outing').copyWith(isPublic: true);
+      await db.saveSession(public, points());
+      await expectLater(
+        OutingManagementService(
+          deletePublic: (_) async => throw Exception('offline'),
+        ).delete(public),
+        throwsException,
+      );
+      expect(await db.getSessions(), hasLength(1));
+      expect(await db.getTrackPoints(public.id), isNotEmpty);
+      await OutingManagementService(deletePublic: (_) async {}).delete(public);
+      expect(await db.getSessions(), isEmpty);
+      expect(await db.getTrackPoints(public.id), isEmpty);
+    },
+  );
+  testWidgets(
+    'UI OUTING premium delete button confirms and updates distance list',
+    (tester) async {
+      await tester.runAsync(
+        () => db.saveSession(session('ui-outing'), points()),
+      );
+      await mount(
+        tester,
+        const DiaryMetricScreen(metric: DiaryMetric.distance),
+      );
+      expect(find.byType(OutingDeleteButton), findsOneWidget);
+      await click(tester, find.byTooltip('Elimina uscita'));
+      await click(tester, find.text('Annulla'));
+      expect(await tester.runAsync(db.getSessions), hasLength(1));
+      await click(tester, find.byTooltip('Elimina uscita'));
+      await click(tester, find.text('Elimina uscita'));
+      expect(await tester.runAsync(db.getSessions), isEmpty);
+      expect(find.text('0.00 km totali'), findsOneWidget);
     },
   );
 

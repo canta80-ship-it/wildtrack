@@ -188,6 +188,13 @@ try:
                         tap('Annulla')
                         if tap('Elimina Cervo') and tap('Elimina'):
                             result('Eliminazione avvistamento privato dal diario','PASS' if 'avvistamento eliminato' in visible_text() else 'FAIL');shot('diary-deleted')
+                adb('shell','input','keyevent','4');time.sleep(1)
+                if tap('Km percorsi') and tap('Elimina uscita'):
+                    result('Eliminazione uscita richiede conferma','PASS' if 'eliminare questa uscita' in visible_text() else 'FAIL')
+                    tap('Annulla')
+                    if tap('Elimina uscita') and tap('Elimina uscita'):
+                        result('Eliminazione uscita aggiorna distanza totale','PASS' if '0.00 km totali' in visible_text() else 'FAIL');shot('outing-deleted')
+
 
         else:result('Login locale nativo','BLOCKED','APK configurato con account cloud; nessun account esterno creato')
     else:result('Login locale nativo','BLOCKED','Schermata registrazione non raggiunta')

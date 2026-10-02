@@ -1,3 +1,5 @@
+import 'outing_delete_widget.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -132,6 +134,12 @@ class _OutingDiaryScreenState extends State<OutingDiaryScreen> {
         title: Text(
           widget.justCompleted ? 'Riepilogo attività' : 'Diario dell’uscita',
         ),
+        actions: [
+          OutingDeleteButton(
+            session: session,
+            onDeleted: () => Navigator.pop(context),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 40),

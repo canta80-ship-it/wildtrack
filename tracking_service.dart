@@ -35,6 +35,7 @@ class TrackingService extends ChangeNotifier {
   bool isTracking = false, busy = false;
 
   DateTime? get startedAt => _startedAt;
+  String? get activeSessionId => _id;
   Duration get elapsed => _startedAt == null
       ? Duration.zero
       : DateTime.now().difference(_startedAt!);
