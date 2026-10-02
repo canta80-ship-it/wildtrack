@@ -34,6 +34,10 @@ import 'package:wildtrack_mvp/services/community_service.dart';
 import 'package:wildtrack_mvp/services/backup_service.dart';
 import 'package:wildtrack_mvp/services/wildtrack_intelligence_service.dart';
 import 'package:wildtrack_mvp/screens/access_screen.dart';
+import 'package:wildtrack_mvp/screens/session_gate_screen.dart';
+import 'package:wildtrack_mvp/screens/premium_home_screen.dart';
+import 'package:wildtrack_mvp/screens/did_you_know_widget.dart';
+import 'package:wildtrack_mvp/services/did_you_know_service.dart';
 import 'package:wildtrack_mvp/screens/premium_sighting_screen.dart';
 import 'package:wildtrack_mvp/screens/premium_animal_screen.dart';
 import 'package:wildtrack_mvp/screens/species_screen.dart';
@@ -152,6 +156,7 @@ void main() {
     await db.restoreSnapshot(empty);
     final f = File('${temp.path}/wildtrack_local_account.json');
     if (await f.exists()) await f.delete();
+    prefs.loginIdentifier = '';
     prefs.visible = false;
     prefs.backgroundSharing = false;
     CommunityService.instance.foreground = true;
@@ -813,6 +818,160 @@ void main() {
     });
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'UI SESSION restores signed-in account on a new app root and honors logout',
+    (tester) async {
+      await tester.runAsync(
+        () => AuthService.instance.register('session.user', 'PassWord!27'),
+      );
+      Future<void> restart() async {
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: SessionGate(
+              home: Text('RESTORED HOME'),
+              welcome: Text('WELCOME'),
+            ),
+          ),
+        );
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 150)),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await restart();
+      expect(find.text('RESTORED HOME'), findsOneWidget);
+      await tester.runAsync(AuthService.instance.signOut);
+      await restart();
+      expect(find.text('WELCOME'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'UI ACCESS remembers actual account after changing display name and signs back in',
+    (tester) async {
+      await tester.runAsync(() async {
+        await AuthService.instance.register('login.user', 'PassWord!27');
+        await AuthService.instance.createRecoveryCode();
+        await AuthService.instance.signOut();
+        prefs.nickname = 'Nome visualizzato diverso';
+        await prefs.save();
+      });
+      await mount(
+        tester,
+        const AccessScreen(home: Scaffold(body: Text('SIGNED IN'))),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 150)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'login.user',
+      );
+      final field = tester.widget<TextField>(find.byType(TextField).last);
+      expect(field.autocorrect, false);
+      expect(field.enableSuggestions, false);
+      await tester.enterText(find.byType(TextField).last, 'wrong-password');
+      await click(tester, find.text('Accedi').last);
+      expect(find.text('Nome utente o password non corretti.'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, 'PassWord!27');
+      await click(tester, find.text('Accedi').last);
+      expect(find.text('SIGNED IN'), findsOneWidget);
+      expect(
+        await tester.runAsync(AuthService.instance.currentUsername),
+        'login.user',
+      );
+    },
+  );
+
+  Future<void> seedFeed() async {
+    final now = DateTime.now();
+    await File('${temp.path}/wildtrack_sapevi_che.json').writeAsString(
+      jsonEncode({
+        'updatedAt': now.toIso8601String(),
+        'items': List.generate(
+          4,
+          (i) => DidYouKnowItem(
+            id: 'test-$i',
+            category: 'FAUNA',
+            title: 'Articolo salvato $i',
+            body: 'Contenuto offline di prova',
+            asset: '',
+            source: 'MountainBlog',
+            publishedAt: now,
+            link: 'https://www.mountainblog.it/test-$i',
+            isLive: true,
+          ).toJson(),
+        ),
+      }),
+    );
+  }
+
+  testWidgets('UI FEED restores cached articles and scrolls horizontally', (
+    tester,
+  ) async {
+    await tester.runAsync(seedFeed);
+    await mount(tester, const Scaffold(body: DidYouKnowCarousel()));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 150)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Lo sapevi che…'), findsOneWidget);
+    expect(find.text('Articolo salvato 0'), findsOneWidget);
+    expect(find.text('LIVE'), findsWidgets);
+    await tester.drag(find.byType(ListView), const Offset(-580, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Articolo salvato 2'), findsOneWidget);
+    expect(tester.takeException(), null);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'UI HOME species action opens catalogue instead of map and cards open premium details',
+    (tester) async {
+      await tester.runAsync(seedFeed);
+      final old = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+      GeolocatorPlatform.instance = fake;
+      try {
+        await mount(tester, const PremiumHomeScreen());
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 150)),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(DidYouKnowCarousel), findsOneWidget);
+        await click(tester, find.text('Cervo').first);
+        expect(find.byType(PremiumAnimalScreen), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        await click(tester, find.text('Vedi tutte').first);
+        expect(find.byType(SpeciesScreen), findsOneWidget);
+        expect(find.text('Tutte le specie'), findsOneWidget);
+        // Every catalogue entry has a route to the shared premium screen.
+        for (final animal in animals) {
+          await tester.enterText(find.byType(TextField), animal.latin);
+          await tester.pumpAndSettle();
+          await click(tester, find.text(animal.name).first);
+          expect(
+            tester
+                .widget<PremiumAnimalScreen>(find.byType(PremiumAnimalScreen))
+                .animal
+                .name,
+            animal.name,
+          );
+          await tester.pageBack();
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), null);
+        await tester.pumpWidget(const SizedBox());
+      } finally {
+        GeolocatorPlatform.instance = old;
+        await fake.stream.close();
+      }
+    },
+  );
 
   testWidgets('UI ACCESS empty credentials show validation', (tester) async {
     await mount(tester, const AccessScreen(home: SizedBox()));

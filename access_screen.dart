@@ -22,6 +22,18 @@ class _AccessScreenState extends State<AccessScreen> {
   String? error;
 
   @override
+  void initState() {
+    super.initState();
+    if (!register) _rememberUsername();
+  }
+
+  Future<void> _rememberUsername() async {
+    final saved = await AuthService.instance.rememberedUsername();
+    if (mounted && username.text.isEmpty && saved != null)
+      username.text = saved;
+  }
+
+  @override
   void dispose() {
     username.dispose();
     password.dispose();
@@ -80,9 +92,11 @@ class _AccessScreenState extends State<AccessScreen> {
           );
       }
       if (!mounted) return;
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute<void>(builder: (_) => widget.home));
+      TextInput.finishAutofillContext(shouldSave: true);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => widget.home),
+        (_) => false,
+      );
     } catch (e) {
       if (mounted)
         setState(() => error = e.toString().replaceFirst('Exception: ', ''));
@@ -95,7 +109,9 @@ class _AccessScreenState extends State<AccessScreen> {
     setState(() {
       register = value;
       error = null;
+      if (register) username.clear();
     });
+    if (!register) _rememberUsername();
   }
 
   Future<void> recoverPassword() async {
@@ -245,18 +261,34 @@ class _AccessScreenState extends State<AccessScreen> {
                     TextField(
                       controller: username,
                       autocorrect: false,
+                      enableSuggestions: false,
+                      autofillHints: const [AutofillHints.username],
+                      textInputAction: TextInputAction.next,
                       textCapitalization: TextCapitalization.none,
                       decoration: InputDecoration(
                         prefixIcon: Icon(
                           register ? Icons.person_outline : Icons.mail_outline,
                         ),
-                        hintText: register ? 'Nickname' : 'Email o nickname',
+                        hintText: register
+                            ? 'Nickname'
+                            : AuthService.instance.usesCloudAccounts
+                            ? 'Email o nickname'
+                            : 'Nickname di accesso',
                       ),
                     ),
                     const SizedBox(height: 14),
                     TextField(
                       controller: password,
                       obscureText: hidden,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      textCapitalization: TextCapitalization.none,
+                      autofillHints: [
+                        register
+                            ? AutofillHints.newPassword
+                            : AutofillHints.password,
+                      ],
+                      textInputAction: TextInputAction.done,
                       onSubmitted: (_) => submit(),
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.lock_outline),

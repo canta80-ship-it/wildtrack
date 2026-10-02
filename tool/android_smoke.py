@@ -33,6 +33,18 @@ def tap(label,scroll=False):
         if scroll:adb('shell','input','swipe','540','1450','540','600','350')
         time.sleep(1)
     return False
+def visible_text():
+    return ' '.join(n.get('text','')+' '+n.get('content-desc','') for n in dump().iter('node')).lower()
+def enter_field(index,value,clear=False):
+    fields=[n for n in dump().iter('node') if n.get('class')=='android.widget.EditText']
+    fields.sort(key=lambda n:int(re.findall(r'\d+',n.get('bounds',''))[1]))
+    if len(fields)<=index:raise RuntimeError('Input field not visible')
+    x1,y1,x2,y2=map(int,re.findall(r'\d+',fields[index].get('bounds','')))
+    adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));time.sleep(1)
+    if clear:
+        adb('shell','input','keyevent','123')
+        adb('shell','input','keyevent',*(['67']*40))
+    adb('shell','input','text',value);adb('shell','input','keyevent','4');time.sleep(1)
 def result(name,status,detail=''):
     results.append(dict(name=name,status=status,detail=detail));print(name+': '+status,flush=True)
 try:
@@ -78,6 +90,41 @@ try:
         ok=tap('Continua come ospite',scroll=True) and tap('Diario')
         visible=' '.join(n.get('text','')+' '+n.get('content-desc','') for n in dump().iter('node')).lower()
         result('App precedente e suoi dati conservati','PASS' if ok and 'cervo' in visible else 'FAIL');shot('legacy-preserved')
+    # Exercise local credentials in the actual release APK. Never create a cloud account.
+    adb('shell','am','force-stop',package)
+    adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
+    if tap('Crea account',scroll=True):
+        if 'nickname di accesso' in visible_text():
+            enter_field(0,'trailtester')
+            enter_field(1,'TrailTest2026')
+            if not tap('Crea account',scroll=True):raise RuntimeError('Registration submit missing')
+            if not tap('Ho conservato il codice'):raise RuntimeError('Local recovery dialog missing')
+            result('Registrazione locale tramite interfaccia','PASS' if 'trailtester' in visible_text() else 'FAIL');shot('auth-registered')
+            adb('shell','am','force-stop',package)
+            adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(5)
+            result('Sessione ricordata al secondo avvio','PASS' if 'trailtester' in visible_text() and 'continua come ospite' not in visible_text() else 'FAIL');shot('auth-restored')
+            if not tap('Impostazioni') or not tap('Disconnetti account',scroll=True):raise RuntimeError('Logout control missing')
+            result('Logout ritorna alla schermata iniziale','PASS' if 'continua come ospite' in visible_text() else 'FAIL')
+            if not tap('Accedi',scroll=True):raise RuntimeError('Sign-in screen missing')
+            result('Nickname account ricordato nel login','PASS' if 'trailtester' in visible_text() else 'FAIL')
+            enter_field(1,'WrongPassword2026')
+            if not tap('Accedi',scroll=True):raise RuntimeError('Login submit missing')
+            result('Password errata respinta','PASS' if 'nome utente o password non corretti' in visible_text() else 'FAIL')
+            enter_field(1,'TrailTest2026',clear=True)
+            if not tap('Accedi',scroll=True):raise RuntimeError('Second login submit missing')
+            result('Accesso con password originale dopo logout','PASS' if 'trailtester' in visible_text() and 'buongiorno' in visible_text() else 'FAIL');shot('auth-signed-back-in')
+            if tap('Vedi tutte',scroll=True):
+                result('Home apre catalogo specie','PASS' if 'tutte le specie' in visible_text() else 'FAIL');shot('species-catalogue')
+                if tap('Cervo'):
+                    result('Catalogo apre scheda premium cervo','PASS' if 'segni e impronte' in visible_text() or 'cervus elaphus' in visible_text() else 'FAIL');shot('species-deer')
+                    adb('shell','input','keyevent','4');time.sleep(1)
+                adb('shell','input','keyevent','4');time.sleep(1)
+            for _ in range(3):
+                if 'lo sapevi che' in visible_text():break
+                adb('shell','input','swipe','540','1450','540','800','350');time.sleep(1)
+            result('Carosello Lo sapevi che presente in home','PASS' if 'lo sapevi che' in visible_text() else 'FAIL');shot('home-feed')
+        else:result('Login locale nativo','BLOCKED','APK configurato con account cloud; nessun account esterno creato')
+    else:result('Login locale nativo','BLOCKED','Schermata registrazione non raggiunta')
 except Exception as e:result('Esecuzione Android','BLOCKED',str(e))
 finally:
     logs=adb('logcat','-d','-v','brief',check=False)

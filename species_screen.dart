@@ -7,6 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/preferences_service.dart';
 import 'exploration_screen.dart';
+import '../premium_ui.dart';
+import 'species_detail_screen.dart';
+import 'premium_animal_screen.dart';
 
 const prealpsSource =
     'https://www.parcoprealpigiulie.it/it/principale/territorio/fauna';
@@ -546,7 +549,15 @@ class _SpeciesScreenState extends State<SpeciesScreen> {
         )
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Specie')),
+      backgroundColor: const Color(0xFFF8F5ED),
+      appBar: AppBar(
+        title: const Text(
+          'Tutte le specie',
+          style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800),
+        ),
+        backgroundColor: const Color(0xFFF8F5ED),
+        foregroundColor: WildColors.forest,
+      ),
       body: Column(
         children: [
           Padding(
@@ -587,13 +598,30 @@ class _SpeciesScreenState extends State<SpeciesScreen> {
                     vertical: 5,
                   ),
                   child: ListTile(
-                    leading: SpeciesIcon(a.name, size: 44),
-                    title: Text(a.name),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/approved/${speciesDetails[a.name]!.asset}_hero.jpg',
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    title: Text(
+                      a.name,
+                      style: const TextStyle(
+                        fontFamily: 'serif',
+                        fontWeight: FontWeight.w800,
+                        color: WildColors.ink,
+                      ),
+                    ),
                     subtitle: Text(a.latin),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute<void>(builder: (_) => AnimalScreen(a)),
+                      MaterialPageRoute<void>(
+                        builder: (_) => PremiumAnimalScreen(a),
+                      ),
                     ),
                   ),
                 );

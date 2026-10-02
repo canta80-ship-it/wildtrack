@@ -128,6 +128,9 @@ class AuthService {
         throw Exception('Su questo dispositivo esiste già un account locale.');
       }
       await _saveLocalAccount(normalized, password);
+      PreferencesService.instance.loginIdentifier = usesCloudAccounts
+          ? username.trim()
+          : normalized;
       PreferencesService.instance.nickname = normalized;
       await PreferencesService.instance.save();
       return normalized;
@@ -140,6 +143,9 @@ class AuthService {
         password: password,
       );
       await auth.currentUser?.updateDisplayName(normalized);
+      PreferencesService.instance.loginIdentifier = usesCloudAccounts
+          ? username.trim()
+          : normalized;
       PreferencesService.instance.nickname = normalized;
       await PreferencesService.instance.save();
       return normalized;
@@ -175,6 +181,9 @@ class AuthService {
       }
       account['signedIn'] = true;
       await _writeLocalAccount(account);
+      PreferencesService.instance.loginIdentifier = usesCloudAccounts
+          ? username.trim()
+          : normalized;
       PreferencesService.instance.nickname = normalized;
       await PreferencesService.instance.save();
       return normalized;
@@ -186,6 +195,9 @@ class AuthService {
         email: _cloudEmail(username),
         password: password,
       );
+      PreferencesService.instance.loginIdentifier = usesCloudAccounts
+          ? username.trim()
+          : normalized;
       PreferencesService.instance.nickname = normalized;
       await PreferencesService.instance.save();
       return normalized;
@@ -197,6 +209,13 @@ class AuthService {
       }
       throw Exception(e.message ?? 'Accesso non riuscito.');
     }
+  }
+
+  Future<String?> rememberedUsername() async {
+    if (!usesCloudAccounts)
+      return (await _readLocalAccount())?['username'] as String?;
+    final value = PreferencesService.instance.loginIdentifier;
+    return value.isEmpty ? null : value;
   }
 
   Future<bool> hasRecoveryCode() async =>
@@ -273,7 +292,7 @@ class AuthService {
     }
     try {
       final auth = await _auth();
-      final user = auth.currentUser;
+      final user = await auth.authStateChanges().first;
       if (user == null) return null;
       return user.displayName ?? user.email?.split('@').first;
     } catch (_) {

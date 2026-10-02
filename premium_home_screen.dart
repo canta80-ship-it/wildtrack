@@ -13,6 +13,9 @@ import 'premium_sighting_screen.dart';
 import 'record_screen.dart';
 import 'settings_screen.dart';
 import 'stats_screen.dart';
+import 'species_screen.dart';
+import 'premium_animal_screen.dart';
+import 'did_you_know_widget.dart';
 
 class PremiumHomeScreen extends StatefulWidget {
   const PremiumHomeScreen({super.key});
@@ -138,12 +141,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute<void>(
-                            builder: (_) => const PremiumExploreScreen(),
+                            builder: (_) => const SpeciesScreen(),
                           ),
                         ),
                       ),
                       const SizedBox(height: 10),
                       _SpeciesStrip(snapshot: data),
+                      const SizedBox(height: 14),
+                      const DidYouKnowCarousel(),
                       const SizedBox(height: 14),
                       _SectionHeader(
                         title: 'Ultima uscita',
@@ -256,6 +261,7 @@ class _Hero extends StatelessWidget {
                       const Spacer(),
                       IconButton(
                         onPressed: onBell,
+                        tooltip: 'Impostazioni',
                         icon: const Icon(
                           Icons.notifications_none_rounded,
                           color: WildColors.forest,
@@ -620,58 +626,76 @@ class _SpeciesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bar = score >= 60 ? const Color(0xFF62A958) : const Color(0xFFB98233);
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEFCF7),
+    return Semantics(
+      button: true,
+      label: 'Apri scheda $name',
+      child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => PremiumAnimalScreen(
+              animals.firstWhere((animal) => animal.name == name),
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(13),
-            child: SizedBox(
-              height: 73,
-              width: double.infinity,
-              child: Image.asset(
-                asset,
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.high,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEFCF7),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0D000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            name,
-            style: const TextStyle(
-              fontFamily: 'serif',
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: SizedBox(
+                  height: 73,
+                  width: double.infinity,
+                  child: Image.asset(
+                    asset,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontFamily: 'serif',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                '$score%',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 3),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: score / 100,
+                  minHeight: 6,
+                  color: bar,
+                  backgroundColor: const Color(0xFFE2E0D9),
+                ),
+              ),
+            ],
           ),
-          Text(
-            '$score%',
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-          ),
-          const SizedBox(height: 3),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: score / 100,
-              minHeight: 6,
-              color: bar,
-              backgroundColor: const Color(0xFFE2E0D9),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

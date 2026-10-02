@@ -6,6 +6,8 @@ import '../services/preferences_service.dart';
 import '../services/community_service.dart';
 import '../services/push_service.dart';
 import 'backup_screen.dart';
+import 'intro_screen.dart';
+import '../main.dart' show HomeShell;
 import 'species_screen.dart';
 import 'guide_screen.dart';
 import '../premium_ui.dart';
@@ -140,15 +142,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _logout() async {
     try {
       await AuthService.instance.signOut();
-    } catch (_) {}
-    if (mounted)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Account disconnesso. I dati locali restano sul telefono.',
-          ),
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => const IntroScreen(home: HomeShell()),
         ),
+        (_) => false,
       );
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Disconnessione non riuscita. Riprova.'),
+          ),
+        );
+    }
   }
 
   @override
@@ -410,11 +418,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: nickname,
                   maxLength: 30,
                   decoration: const InputDecoration(
-                    labelText: 'Nome utente / nickname',
+                    labelText: 'Nome visualizzato',
+                    helperText: 'Non modifica il nickname usato per accedere.',
                   ),
                 ),
                 WildOutlineButton(
-                  label: 'Salva nome utente',
+                  label: 'Salva nome visualizzato',
                   onPressed: saving
                       ? null
                       : () async {

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'screens/intro_screen.dart';
+import 'screens/session_gate_screen.dart';
 import 'screens/premium_home_screen.dart';
 import 'screens/premium_sighting_screen.dart';
 import 'screens/stats_screen.dart';
@@ -76,7 +77,10 @@ class _WildTrackAppState extends State<WildTrackApp>
       theme: wildTrackTheme(Brightness.light),
       darkTheme: wildTrackTheme(Brightness.dark),
       themeMode: PreferencesService.instance.theme,
-      home: const IntroScreen(home: HomeShell()),
+      home: const SessionGate(
+        home: HomeShell(),
+        welcome: IntroScreen(home: HomeShell()),
+      ),
     ),
   );
 }

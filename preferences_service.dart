@@ -16,6 +16,7 @@ class PreferencesService extends ChangeNotifier {
   bool sightingNotifications = true;
   bool fieldSilence = false;
   String nickname = 'Esploratore';
+  String loginIdentifier = '';
   String token = '';
   Set<String> favoriteSpecies = {};
 
@@ -54,6 +55,7 @@ class PreferencesService extends ChangeNotifier {
       sightingNotifications = p['sightingNotifications'] != false;
       fieldSilence = p['fieldSilence'] == true;
       nickname = p['nickname'] as String? ?? nickname;
+      loginIdentifier = p['loginIdentifier'] as String? ?? '';
       token = p['token'] as String? ?? '';
       favoriteSpecies = (p['favoriteSpecies'] as List? ?? const [])
           .whereType<String>()
@@ -118,6 +120,7 @@ class PreferencesService extends ChangeNotifier {
         'sightingNotifications': sightingNotifications,
         'fieldSilence': fieldSilence,
         'nickname': nickname,
+        'loginIdentifier': loginIdentifier,
         'token': token,
         'favoriteSpecies': favoriteSpecies.toList()..sort(),
         'cameraLabel': cameraLabel,

@@ -75,6 +75,7 @@ class WildTrackBackupService {
     final data = Map<String, dynamic>.from(
       jsonDecode(await prefs.file.readAsString()) as Map,
     );
+    data.remove('loginIdentifier');
     data.remove('token'); // Device identity is never transferred by a backup.
     return data;
   }
