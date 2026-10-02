@@ -12,7 +12,7 @@ import 'premium_animal_screen.dart';
 import 'outing_diary_screen.dart';
 import 'sighting_diary_screen.dart';
 
-enum DiaryMetric { species, distance, time }
+enum DiaryMetric { species, distance, time, outings }
 
 class DiaryMetricScreen extends StatefulWidget {
   const DiaryMetricScreen({super.key, required this.metric});
@@ -29,6 +29,7 @@ class _DiaryMetricScreenState extends State<DiaryMetricScreen> {
     DiaryMetric.species => 'Le tue specie uniche',
     DiaryMetric.distance => 'Km percorsi',
     DiaryMetric.time => 'Tempo sul campo',
+    DiaryMetric.outings => 'Lista uscite',
   };
   @override
   void initState() {
@@ -83,6 +84,8 @@ class _DiaryMetricScreenState extends State<DiaryMetricScreen> {
                   Text(
                     widget.metric == DiaryMetric.species
                         ? '${names.length} specie registrate'
+                        : widget.metric == DiaryMetric.outings
+                        ? '${sessions.length} uscite registrate'
                         : widget.metric == DiaryMetric.distance
                         ? '${km.toStringAsFixed(2)} km totali'
                         : '${minutes ~/ 60} h ${minutes % 60} min totali',

@@ -330,21 +330,16 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  WildPrimaryButton(
-                    label: 'Gestisci uscite',
-                    icon: Icons.route,
-                    onPressed: () => Navigator.push(
+                  _Panel(
+                    title: 'Lista uscite',
+                    onTitleTap: () => Navigator.push(
                       context,
                       MaterialPageRoute<void>(
                         builder: (_) => const DiaryMetricScreen(
-                          metric: DiaryMetric.distance,
+                          metric: DiaryMetric.outings,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  _Panel(
-                    title: 'Ultime uscite',
                     child: sessions.isEmpty
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 18),
@@ -424,9 +419,10 @@ class _Kpi extends StatelessWidget {
 }
 
 class _Panel extends StatelessWidget {
-  const _Panel({required this.title, required this.child});
+  const _Panel({required this.title, required this.child, this.onTitleTap});
   final String title;
   final Widget child;
+  final VoidCallback? onTitleTap;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(13),
@@ -444,12 +440,23 @@ class _Panel extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontFamily: 'serif',
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
+        InkWell(
+          onTap: onTitleTap,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: 'serif',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (onTitleTap != null)
+                const Icon(Icons.chevron_right, color: WildColors.forest),
+            ],
           ),
         ),
         const SizedBox(height: 10),

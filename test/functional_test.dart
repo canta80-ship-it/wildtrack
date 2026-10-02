@@ -1,3 +1,5 @@
+import 'package:wildtrack_mvp/screens/outing_diary_screen.dart';
+import 'package:intl/intl.dart';
 import 'package:wildtrack_mvp/services/outing_management_service.dart';
 import 'package:wildtrack_mvp/screens/outing_delete_widget.dart';
 import 'package:wildtrack_mvp/screens/diary_metric_screen.dart';
@@ -1308,6 +1310,91 @@ void main() {
       }
     },
   );
+
+  testWidgets(
+    'UI STATS list contains every outing and selected outing opens its report',
+    (tester) async {
+      await tester.runAsync(() async {
+        for (var i = 1; i <= 7; i++) {
+          await db.saveSession(
+            TrackSession(
+              id: 'list-$i',
+              startedAt: DateTime(2026, 9, i, 8),
+              endedAt: DateTime(2026, 9, i, 9),
+              distanceMeters: i * 1000.0,
+              ascentMeters: 0,
+            ),
+            [],
+          );
+        }
+      });
+      await mount(tester, const PremiumStatsScreen());
+      await tester.scrollUntilVisible(
+        find.text('Lista uscite'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await click(tester, find.text('Lista uscite'));
+      expect(find.byType(DiaryMetricScreen), findsOneWidget);
+      expect(find.text('7 uscite registrate'), findsOneWidget);
+      final chosen = find.text(
+        DateFormat('d MMM yyyy · HH:mm').format(DateTime(2026, 9, 1, 8)),
+      );
+      await tester.scrollUntilVisible(
+        chosen,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await click(tester, chosen);
+      expect(
+        tester
+            .widget<OutingDiaryScreen>(find.byType(OutingDiaryScreen))
+            .session
+            .id,
+        'list-1',
+      );
+      expect(tester.takeException(), null);
+    },
+  );
+  testWidgets('UI HOME details opens only the latest outing', (tester) async {
+    await tester.runAsync(() async {
+      await seedFeed();
+      await db.saveSession(session('older'), []);
+      await db.saveSession(
+        TrackSession(
+          id: 'latest',
+          startedAt: DateTime(2026, 9, 27, 8),
+          endedAt: DateTime(2026, 9, 27, 9),
+          distanceMeters: 8000,
+          ascentMeters: 0,
+        ),
+        [],
+      );
+    });
+    final old = GeolocatorPlatform.instance;
+    final fake = TestGps(enabled: false);
+    GeolocatorPlatform.instance = fake;
+    try {
+      await mount(tester, const PremiumHomeScreen());
+      await tester.scrollUntilVisible(
+        find.text('Vedi dettagli'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await click(tester, find.text('Vedi dettagli'));
+      expect(
+        tester
+            .widget<OutingDiaryScreen>(find.byType(OutingDiaryScreen))
+            .session
+            .id,
+        'latest',
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      GeolocatorPlatform.instance = old;
+      await fake.stream.close();
+    }
+  });
 
   testWidgets('UI ACCESS empty credentials show validation', (tester) async {
     await mount(tester, const AccessScreen(home: SizedBox()));
