@@ -971,11 +971,34 @@ void main() {
     expect(find.text('Lo sapevi che…'), findsOneWidget);
     expect(find.text('Articolo salvato 0'), findsOneWidget);
     expect(find.text('LIVE'), findsWidgets);
-    await tester.drag(find.byType(ListView), const Offset(-580, 0));
+    expect(find.text('Contin · Monte Cavallo'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(-1180, 0));
     await tester.pumpAndSettle();
     expect(find.text('Articolo salvato 2'), findsOneWidget);
     expect(tester.takeException(), null);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('UI HOME action icons remain below hero with long nickname and larger text', (tester) async {
+    await tester.runAsync(seedFeed);
+    final oldGps = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+    final oldName = prefs.nickname;
+    GeolocatorPlatform.instance = fake;
+    prefs.nickname = 'trek.king.dolomiti';
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    try {
+      await mount(tester, MediaQuery(data: const MediaQueryData(size: Size(360,900), textScaler: TextScaler.linear(1.25)), child: const PremiumHomeScreen()));
+      final hero = tester.getRect(find.byKey(const ValueKey('home-hero')));
+      for (final key in ['home-action-explore','home-action-sighting','home-action-record']) {
+        final card = find.byKey(ValueKey(key));
+        expect(tester.getRect(card).top, greaterThanOrEqualTo(hero.bottom));
+        expect(find.descendant(of: card, matching: find.byType(Icon)), findsWidgets);
+      }
+      expect(find.byIcon(Icons.notifications_none_outlined), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    } finally { prefs.nickname = oldName; GeolocatorPlatform.instance = oldGps; await fake.stream.close(); tester.view.resetPhysicalSize(); tester.view.resetDevicePixelRatio(); }
   });
 
   testWidgets(
