@@ -22,6 +22,7 @@ def tap(label):
         b = exact(label)
         if b:
             adb('shell', 'input', 'tap', str((b[0]+b[2])//2), str((b[1]+b[3])//2)); time.sleep(2); return
+        adb('shell', 'input', 'swipe', '20', '1450', '20', '600', '350')
         time.sleep(2)
     raise RuntimeError('Missing exact label: ' + label)
 adb('install', '-r', str(apk))
