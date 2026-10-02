@@ -501,7 +501,7 @@ class _Card extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        child,
+        Material(color: Colors.transparent, child: child),
       ],
     ),
   );
