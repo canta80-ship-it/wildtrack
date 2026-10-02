@@ -281,10 +281,7 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
                             ),
                             const WildLogo(compact: true),
                             const Spacer(),
-                            const Icon(
-                              Icons.notifications_none,
-                              color: WildColors.forest,
-                            ),
+
                           ],
                         ),
                         const Spacer(),

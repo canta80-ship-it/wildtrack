@@ -111,12 +111,10 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 110),
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 110),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      Transform.translate(
-                        offset: const Offset(0, -18),
-                        child: _ActionRow(
+                      _ActionRow(
                           onExplore: () => Navigator.push(
                             context,
                             MaterialPageRoute<void>(
@@ -135,9 +133,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
                               builder: (_) => const RecordScreen(),
                             ),
                           ),
-                        ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 18),
                       _SectionHeader(
                         title: 'Specie probabili adesso',
                         action: 'Vedi tutte',
@@ -242,155 +239,35 @@ class _Hero extends StatelessWidget {
   final VoidCallback onBell;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 238,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/approved/access_land2.jpg',
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.high,
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x10FFFFFF),
-                  Color(0x12000000),
-                  Color(0x7F102619),
-                ],
-                stops: [0, .55, 1],
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const WildLogo(compact: true),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: onBell,
-                        tooltip: 'Impostazioni',
-                        icon: const Icon(
-                          Icons.settings_outlined,
-                          color: WildColors.forest,
-                          size: 28,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: Semantics(
-                          button: true,
-                          label: 'SOS · Emergenza',
-                          child: Material(
-                            color: const Color(0xFF9F3F32),
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const SosScreen(),
-                                ),
-                              ),
-                              child: const SizedBox(
-                                width: 42,
-                                height: 42,
-                                child: Center(
-                                  child: Text(
-                                    'SOS',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Buongiorno,\n$nickname',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'serif',
-                      color: Colors.white,
-                      fontSize: 30,
-                      height: .92,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.2,
-                      shadows: [
-                        Shadow(
-                          color: Color(0x55000000),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  const Row(
-                    children: [
-                      Icon(Icons.location_on, color: Colors.white, size: 21),
-                      SizedBox(width: 5),
-                      Text(
-                        'La tua zona',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 13),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _HeroChip(
-                          icon: Icons.bar_chart_rounded,
-                          iconColor: const Color(0xFF8DE67D),
-                          text: 'Attività fauna: ${activity.toUpperCase()}',
-                          fill: const Color(0xE51A4B35),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _HeroChip(
-                          icon: Icons.wb_twilight_outlined,
-                          iconColor: const Color(0xFFFFC65C),
-                          text: temperature == null
-                              ? 'Alba ideale\nper osservazione'
-                              : '${temperature!.round()}° · alba ideale',
-                          fill: const Color(0xA34B453A),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('home-hero'),
+    constraints: const BoxConstraints(minHeight: 270),
+    child: Stack(children: [
+      Positioned.fill(child: Image.asset('assets/approved/access_land2.jpg', fit: BoxFit.cover, filterQuality: FilterQuality.high)),
+      const Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x12FFFFFF), Color(0xAD102619)])))),
+      SafeArea(bottom: false, child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 22),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Expanded(child: Align(alignment: Alignment.centerLeft, child: FittedBox(fit: BoxFit.scaleDown, child: WildLogo(compact: true)))),
+            IconButton.filledTonal(onPressed: onBell, tooltip: 'Impostazioni', icon: const Icon(Icons.settings_outlined, color: WildColors.forest)),
+            const SizedBox(width: 6),
+            Semantics(button: true, label: 'SOS · Emergenza', child: Material(color: const Color(0xFF9F3F32), shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SosScreen())), child: const SizedBox(width: 44, height: 44, child: Center(child: Text('SOS', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900))))))),
+          ]),
+          const SizedBox(height: 22),
+          Text('Buongiorno,\n$nickname', style: const TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 27, height: 1.08, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          const Row(children: [Icon(Icons.location_on, color: Colors.white, size: 19), SizedBox(width: 4), Text('La tua zona', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800))]),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _HeroChip(icon: Icons.bar_chart_rounded, iconColor: const Color(0xFF94D571), text: 'Attività fauna: $activity', fill: WildColors.forest)),
+            const SizedBox(width: 8),
+            Expanded(child: _HeroChip(icon: Icons.wb_twilight_outlined, iconColor: const Color(0xFFEEC16A), text: temperature == null ? 'Condizioni locali in calcolo' : '${temperature!.toStringAsFixed(0)}° · alba ideale', fill: const Color(0x805C5847))),
+          ]),
+        ]),
+      )),
+    ]),
+  );
 }
 
 class _HeroChip extends StatelessWidget {
@@ -407,8 +284,8 @@ class _HeroChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 40,
-    padding: const EdgeInsets.symmetric(horizontal: 14),
+    constraints: const BoxConstraints(minHeight: 40),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     decoration: BoxDecoration(
       color: fill,
       borderRadius: BorderRadius.circular(22),
@@ -421,7 +298,6 @@ class _HeroChip extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            maxLines: 2,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w800,
@@ -452,6 +328,7 @@ class _ActionRow extends StatelessWidget {
       children: [
         Expanded(
           child: _ActionCard(
+            key: const ValueKey('home-action-explore'),
             icon: Icons.map_outlined,
             title: 'Esplora zona',
             body: 'Sentieri, punti di interesse e attività fauna',
@@ -462,6 +339,7 @@ class _ActionRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _ActionCard(
+            key: const ValueKey('home-action-sighting'),
             icon: WildIcons.binoculars,
             title: 'Registra\navvistamento',
             body: 'Aggiungi una specie, foto e posizione',
@@ -472,6 +350,7 @@ class _ActionRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _ActionCard(
+            key: const ValueKey('home-action-record'),
             icon: Icons.hiking,
             title: 'Avvia uscita',
             body: 'Traccia il percorso e monitora l’attività',
@@ -487,6 +366,7 @@ class _ActionRow extends StatelessWidget {
 
 class _ActionCard extends StatelessWidget {
   const _ActionCard({
+    super.key,
     required this.icon,
     required this.title,
     required this.body,

@@ -1,0 +1,66 @@
+{
+  "reviewed": "2026-10-02",
+  "preference": [
+    "Friuli Venezia Giulia",
+    "Veneto",
+    "Trentino"
+  ],
+  "cards": [
+    {
+      "id": "contin",
+      "title": "Contin · Monte Cavallo",
+      "summary": "Friuli Venezia Giulia · Udine · moderatamente difficile. Dalle vicinanze del Passo di Pramollo al Monte Cavallo, in ambiente delle Alpi Carniche. La relazione descrive due rientri ad anello.",
+      "source": "Ferrate365",
+      "url": "https://www.ferrate365.it/vie-ferrate/ferrata-contin-monte-cavallo/"
+    },
+    {
+      "id": "biondi",
+      "title": "Biondi · Val Rosandra",
+      "summary": "Friuli Venezia Giulia · Trieste · moderatamente difficile. Percorso a bassa quota nella zona delle Rose d’Inverno, con traversi e brevi tratti verticali. Alcuni passaggi richiedono allenamento.",
+      "source": "Ferrate365",
+      "url": "https://www.ferrate365.it/vie-ferrate/ferrata-biondi-rose-d-inverno/"
+    },
+    {
+      "id": "zuc",
+      "title": "Zuc della Guardia",
+      "summary": "Friuli Venezia Giulia · Udine · moderatamente difficile. Una breve via attrezzata nelle Alpi Carniche, con partenza dal Passo del Cason di Lanza e salita al torrione dello Zuc.",
+      "source": "Ferrate365",
+      "url": "https://www.ferrate365.it/vie-ferrate/ferrata-degli-alpini-zuc-guardia/"
+    },
+    {
+      "id": "gusela",
+      "title": "Ra Gusela · Nuvolau",
+      "summary": "Veneto · Belluno · facile. Percorso sul versante meridionale del Nuvolau con partenza dal Passo Giau. La difficoltà della ferrata resta distinta dall’impegno di avvicinamento e rientro.",
+      "source": "Ferrate365",
+      "url": "https://www.ferrate365.it/vie-ferrate/ferrata-ra-gusela-nuvolau/"
+    },
+    {
+      "id": "averau",
+      "title": "Averau · Dolomiti Ampezzane",
+      "summary": "Veneto · Belluno · moderatamente difficile. Breve salita attrezzata vicino al rifugio Averau: pochi passaggi più impegnativi interrompono i tratti più semplici. Accesso dai versanti Giau o Falzarego.",
+      "source": "Ferrate365",
+      "url": "https://www.ferrate365.it/vie-ferrate/ferrata-averau/"
+    },
+    {
+      "id": "fanes",
+      "title": "Cascate di Fanes",
+      "summary": "Veneto · Belluno · facile. Cenge e passaggi vicino alle cascate del Rio Fanes. La relazione comprende Giovanni Barbara, Lucio Delaiti e Cengia di Mattia; attenzione ai tratti umidi.",
+      "source": "Ferrate365",
+      "url": "https://www.ferrate365.it/vie-ferrate/ferrata-giovanni-barbara-lucio-dalaiti-cengia-mattia-cascate-fanes/"
+    },
+    {
+      "id": "riosecco",
+      "title": "Rio Secco · Cadino",
+      "summary": "Trentino · Trento · moderatamente difficile. Via attrezzata in una forra, con una successione varia di passaggi e alcuni tratti atletici. Il nome non garantisce l’assenza di acqua nel rio.",
+      "source": "Ferrate365",
+      "url": "https://www.ferrate365.it/vie-ferrate/ferrata-rio-secco-cadino/"
+    },
+    {
+      "id": "giovanelli",
+      "title": "Burrone Giovanelli",
+      "summary": "Trentino · Mezzocorona · facile. Sentiero attrezzato in una forra, con alcuni passaggi esposti. Un itinerario a bassa quota che richiede comunque l’attrezzatura per ferrata.",
+      "source": "Ferrate365",
+      "url": "https://www.ferrate365.it/vie-ferrate/sentiero-attrezzato-burrone-giovanelli-mezzocorona/"
+    }
+  ]
+}

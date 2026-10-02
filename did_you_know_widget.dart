@@ -85,7 +85,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
         publishedAt: now,
       ),
     ];
-    return DidYouKnowFeed(items: items, updatedAt: now, fromCache: true);
+    return DidYouKnowFeed(items: DidYouKnowService.withFerrate(items), updatedAt: now, fromCache: true);
   }
 
   Future<void> _refresh({bool silent = false}) async {
@@ -203,6 +203,7 @@ class _FeedCard extends StatelessWidget {
     'FOTOGRAFIA' => Icons.camera_alt_outlined,
     'ATTREZZATURA' => Icons.backpack_outlined,
     'ESCURSIONI' => Icons.hiking,
+    'FERRATE' => Icons.terrain,
     'EVENTI' => Icons.event_outlined,
     'LUOGHI' => Icons.landscape_outlined,
     _ => Icons.explore_outlined,
@@ -213,6 +214,7 @@ class _FeedCard extends StatelessWidget {
     'FOTOGRAFIA' => const Color(0xFFE9EFF0),
     'ATTREZZATURA' => const Color(0xFFF3E9D9),
     'ESCURSIONI' => const Color(0xFFE7EFE4),
+    'FERRATE' => const Color(0xFFE4EBE0),
     'EVENTI' => const Color(0xFFF2E7D8),
     'LUOGHI' => const Color(0xFFE2ECE6),
     _ => WildColors.cream,

@@ -68,6 +68,48 @@ class DidYouKnowService {
   File? _cacheFile;
   static const Duration refreshInterval = Duration(hours: 4);
 
+  /// Bundled editorial cards remain available even with an older cached feed.
+  static List<DidYouKnowItem> ferrataCards() {
+    final reviewed = DateTime(2026, 10, 2);
+    DidYouKnowItem card(String id, String title, String body, String source, String link) => DidYouKnowItem(
+      id: 'ferrata-$id', category: 'FERRATE', title: title, body: body,
+      asset: 'intro_marmotta.jpg', source: source, publishedAt: reviewed, link: link,
+    );
+    return [
+      card('contin', 'Contin · Monte Cavallo', 'Friuli Venezia Giulia · Udine · moderatamente difficile. Dalle vicinanze del Passo di Pramollo al Monte Cavallo, in ambiente delle Alpi Carniche. La relazione descrive due rientri ad anello. Apri Ferrate365 per relazione, meteo e stato del percorso.', 'Ferrate365', 'https://www.ferrate365.it/vie-ferrate/ferrata-contin-monte-cavallo/'),
+      card('biondi', 'Biondi · Val Rosandra', 'Friuli Venezia Giulia · Trieste · moderatamente difficile. Percorso a bassa quota nella zona delle Rose d’Inverno, con traversi e brevi tratti verticali. Alcuni passaggi richiedono allenamento. Apri Ferrate365 per relazione, meteo e stato del percorso.', 'Ferrate365', 'https://www.ferrate365.it/vie-ferrate/ferrata-biondi-rose-d-inverno/'),
+      card('zuc', 'Zuc della Guardia', 'Friuli Venezia Giulia · Udine · moderatamente difficile. Una breve via attrezzata nelle Alpi Carniche, con partenza dal Passo del Cason di Lanza e salita al torrione dello Zuc. Apri Ferrate365 per relazione, meteo e stato del percorso.', 'Ferrate365', 'https://www.ferrate365.it/vie-ferrate/ferrata-degli-alpini-zuc-guardia/'),
+      card('gusela', 'Ra Gusela · Nuvolau', 'Veneto · Belluno · facile. Percorso sul versante meridionale del Nuvolau con partenza dal Passo Giau. La difficoltà della ferrata resta distinta dall’impegno di avvicinamento e rientro. Apri Ferrate365 per relazione, meteo e stato del percorso.', 'Ferrate365', 'https://www.ferrate365.it/vie-ferrate/ferrata-ra-gusela-nuvolau/'),
+      card('averau', 'Averau · Dolomiti Ampezzane', 'Veneto · Belluno · moderatamente difficile. Breve salita attrezzata vicino al rifugio Averau: pochi passaggi più impegnativi interrompono i tratti più semplici. Accesso dai versanti Giau o Falzarego. Apri Ferrate365 per relazione, meteo e stato del percorso.', 'Ferrate365', 'https://www.ferrate365.it/vie-ferrate/ferrata-averau/'),
+      card('fanes', 'Cascate di Fanes', 'Veneto · Belluno · facile. Cenge e passaggi vicino alle cascate del Rio Fanes. La relazione comprende Giovanni Barbara, Lucio Delaiti e Cengia di Mattia; attenzione ai tratti umidi. Apri Ferrate365 per relazione, meteo e stato del percorso.', 'Ferrate365', 'https://www.ferrate365.it/vie-ferrate/ferrata-giovanni-barbara-lucio-dalaiti-cengia-mattia-cascate-fanes/'),
+      card('riosecco', 'Rio Secco · Cadino', 'Trentino · Trento · moderatamente difficile. Via attrezzata in una forra, con una successione varia di passaggi e alcuni tratti atletici. Il nome non garantisce l’assenza di acqua nel rio. Apri Ferrate365 per relazione, meteo e stato del percorso.', 'Ferrate365', 'https://www.ferrate365.it/vie-ferrate/ferrata-rio-secco-cadino/'),
+      card('giovanelli', 'Burrone Giovanelli', 'Trentino · Mezzocorona · facile. Sentiero attrezzato in una forra, con alcuni passaggi esposti. Un itinerario a bassa quota che richiede comunque l’attrezzatura per ferrata. Apri Ferrate365 per relazione, meteo e stato del percorso.', 'Ferrate365', 'https://www.ferrate365.it/vie-ferrate/sentiero-attrezzato-burrone-giovanelli-mezzocorona/'),
+      card('sallagoni', 'Rio Sallagoni · Drena',
+        'Garda Trentino · difficoltà tecnica C; itinerario medio. 2,7 km · 2 h 30 min · +205 m, inclusi avvicinamento e rientro. Una gola con cascate e passaggi attrezzati. Apri la fonte per condizioni e percorribilità.',
+        'Garda Trentino · Visit Trentino', 'https://www.visittrentino.info/it/guida/tour/via-ferrata-rio-sallagoni_tour_10449288'),
+      card('colodri', 'Colodri–Colt · Arco',
+        'Garda Trentino · difficoltà tecnica A/B; itinerario medio. 4 km · 2 h · +280 m, inclusi avvicinamento e rientro. Un percorso sopra Arco con vista sulla Valle del Sarca. Controlla meteo e avvisi nella fonte.',
+        'Garda Trentino · Visit Trentino', 'https://www.visittrentino.info/it/guida/tour/via-ferrata-colodri-colt_tour_8279464'),
+      card('tridentina', 'Tridentina · Pisciadú',
+        'Colfosco, Gruppo del Sella · difficile. Itinerario: 4,4 km · 3 h 45 min · +704 m. Pareti verticali e ponte sospeso verso il rifugio Pisciadú; rientro per la Val Setus. Verifica condizioni e difficoltà nella fonte.',
+        'Alta Badia', 'https://www.altabadia.org/it/dolomites/in-parete/dettaglio/oa/via-ferrata-brigata-alpina-tridentina-al-pisciadu'),
+      card('preparazione', 'Ferrate: prima di partire',
+        'Casco, imbragatura e set con dissipatore sono essenziali. Scegli una via adatta alla tua preparazione e controlla meteo, stato delle attrezzature e rientro. La scheda ufficiale spiega anche le precauzioni per la progressione.',
+        'Garda Trentino · Visit Trentino', 'https://www.visittrentino.info/it/guida/tour/via-ferrata-colodri-colt_tour_8279464'),
+    ];
+  }
+
+  static List<DidYouKnowItem> withFerrate(List<DidYouKnowItem> input, {int limit = 32}) {
+    final cards = ferrataCards();
+    final other = input.where((item) => !item.id.startsWith('ferrata-')).take(limit - cards.length).toList();
+    final result = <DidYouKnowItem>[];
+    for (var i = 0; i < other.length || i < cards.length; i++) {
+      if (i < other.length) result.add(other[i]);
+      if (i < cards.length) result.add(cards[i]);
+    }
+    return result;
+  }
+
   Future<File> get _file async {
     if (_cacheFile != null) return _cacheFile!;
     _cacheFile = File('${await getDatabasesPath()}/wildtrack_sapevi_che.json');
@@ -95,7 +137,7 @@ class DidYouKnowService {
 
     if (remote.isNotEmpty) {
       final feed = DidYouKnowFeed(
-        items: merged.take(18).toList(),
+        items: withFerrate(merged),
         updatedAt: DateTime.now(),
         fromCache: false,
       );
@@ -105,7 +147,7 @@ class DidYouKnowService {
 
     if (cached != null) return cached;
     return DidYouKnowFeed(
-      items: _dedupeAndRank(_evergreen()).take(12).toList(),
+      items: withFerrate(_dedupeAndRank(_evergreen())),
       updatedAt: DateTime.now(),
       fromCache: true,
     );
@@ -124,7 +166,7 @@ class DidYouKnowService {
           .toList();
       if (items.isEmpty) return null;
       return DidYouKnowFeed(
-        items: items,
+        items: withFerrate(items),
         updatedAt:
             DateTime.tryParse('${data['updatedAt'] ?? ''}') ??
             DateTime.fromMillisecondsSinceEpoch(0),
@@ -359,6 +401,7 @@ class DidYouKnowService {
 
   String _categoryFor(String text) {
     final t = text.toLowerCase();
+    if (RegExp(r'ferrat').hasMatch(t)) return 'FERRATE';
     if (RegExp(r'foto|fotograf|camera|obiettivo|sony|nikon|canon').hasMatch(t))
       return 'FOTOGRAFIA';
     if (RegExp(r'fiera|festival|evento|mostra|expo|raduno|convegno')

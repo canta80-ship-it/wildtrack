@@ -2,8 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class WildColors {
-  static const forest = Color(0xFF173F2B);
-  static const forest2 = Color(0xFF28563C);
+  static const forest = Color(0xFF124D36);
+  static const forest2 = Color(0xFF225B40);
   static const sage = Color(0xFFDCE8D8);
   static const sageSoft = Color(0xFFEEF3E9);
   static const ivory = Color(0xFFF8F6EF);
@@ -11,7 +11,7 @@ class WildColors {
   static const sand = Color(0xFFEADCC8);
   static const earth = Color(0xFF8A633A);
   static const ink = Color(0xFF16251B);
-  static const muted = Color(0xFF657064);
+  static const muted = Color(0xFF4D5E50);
   static const amber = Color(0xFFC78B35);
 }
 
@@ -48,8 +48,11 @@ class WildLogo extends StatelessWidget {
   final bool light;
   @override
   Widget build(BuildContext context) {
-    final color = light ? Colors.white : WildColors.forest;
-    return Row(
+    final color = WildColors.forest;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(color: (light ? Colors.white : WildColors.ivory).withValues(alpha: .96), borderRadius: BorderRadius.circular(14), boxShadow: const [BoxShadow(color: Color(0x16000000), blurRadius: 8)]),
+      child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.pets, color: color, size: compact ? 25 : 34),
@@ -65,6 +68,7 @@ class WildLogo extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 }

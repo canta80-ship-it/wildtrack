@@ -101,32 +101,6 @@ class _PremiumCommunityScreenState extends State<PremiumCommunityScreen> {
                       children: [
                         const WildLogo(compact: true),
                         const Spacer(),
-                        IconButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => const SettingsScreen(),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.notifications_none,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: .15),
-                            border: Border.all(color: Colors.white54),
-                          ),
-                          child: const Icon(
-                            Icons.person_outline,
-                            color: Colors.white,
-                          ),
-                        ),
                       ],
                     ),
                     const Spacer(),

@@ -116,7 +116,7 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
                           children: [
                             WildLogo(compact: true),
                             Spacer(),
-                            Icon(Icons.notifications_none, color: Colors.white),
+
                           ],
                         ),
                         const Spacer(),

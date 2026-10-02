@@ -134,8 +134,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(children: [
                       const WildLogo(compact: true, light: true),
                       const Spacer(),
-                      IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())), icon: const Icon(Icons.notifications_none, color: Colors.white)),
-                      Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .18), border: Border.all(color: Colors.white54)), child: const Icon(Icons.person_outline, color: Colors.white)),
                     ]),
                     const Spacer(),
                     Text('Buongiorno,\n$nickname', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 40, height: .92, fontWeight: FontWeight.w700, letterSpacing: -1.2)),

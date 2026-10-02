@@ -3,7 +3,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../premium_ui.dart';
 import '../services/preferences_service.dart';
-import 'premium_explore_screen.dart';
+import 'species_habitat_map_screen.dart';
+import 'sign_plate_widget.dart';
 import 'species_screen.dart';
 import 'species_detail_screen.dart';
 
@@ -38,7 +39,7 @@ class PremiumAnimalScreen extends StatelessWidget {
           : 'Fatte',
       scatDescription(animal.name, animal.group),
     ),
-    detail.signs[2],
+    animal.name == 'Orso bruno' ? detail.signs[1] : detail.signs[2],
     detail.signs[3],
   ];
   String get sizeLine => detail.size;
@@ -158,7 +159,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(
-                      builder: (_) => const PremiumExploreScreen(),
+                      builder: (_) => SpeciesHabitatMapScreen(animal),
                     ),
                   ),
                 ),
@@ -193,17 +194,8 @@ class PremiumAnimalScreen extends StatelessWidget {
                               signs[i].$2,
                             ),
                             child: _SignCard(
-                              illustration: i == 0 && !isDeer
-                                  ? Center(
-                                      child: CustomPaint(
-                                        size: const Size(54, 66),
-                                        painter: TrackPainter(
-                                          footprintType,
-                                          WildColors.earth,
-                                          animal.name == 'Cinghiale',
-                                        ),
-                                      ),
-                                    )
+                              illustration: !isDeer
+                                  ? SignPlateIllustration(asset: 'assets/signs/${detail.asset}.webp', index: i, label: '${animal.name}: ${signs[i].$1}')
                                   : null,
                               title: signs[i].$1,
                               body: signs[i].$2,
