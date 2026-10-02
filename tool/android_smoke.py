@@ -172,10 +172,29 @@ try:
             enter_field(1,'TrailTest2026',clear=True)
             if not tap('Accedi',scroll=True):raise RuntimeError('Second login submit missing')
             result('Accesso con password originale dopo logout','PASS' if 'trailtester' in visible_text() and 'buongiorno' in visible_text() else 'FAIL');shot('auth-signed-back-in')
+            if tap('Esplora zona',scroll=True):
+                time.sleep(3)
+                visible=visible_text()
+                result('Mappa mostra punto posizione attuale', 'PASS' if 'la tua posizione' in visible else 'FAIL', 'GPS simulato; marker verde accessibile')
+                result('Ricerca CAI e filtro Sentieri rimossi', 'PASS' if 'cerca cai qui' not in visible and not target('Sentieri') else 'FAIL')
+                shot('explore-live-green-position')
+                adb('shell','input','keyevent','4');time.sleep(1)
             if tap('Vedi tutte',scroll=True):
                 result('Home apre catalogo specie','PASS' if 'tutte le specie' in visible_text() else 'FAIL');shot('species-catalogue')
                 if tap('Cervo'):
                     result('Catalogo apre scheda premium cervo','PASS' if 'segni e impronte' in visible_text() or 'cervus elaphus' in visible_text() else 'FAIL');shot('species-deer')
+                    adb('shell','input','keyevent','4');time.sleep(1)
+                if tap('Capriolo'):
+                    if tap('Vedi sulla mappa',scroll=True):
+                        time.sleep(3)
+                        result('Scheda capriolo apre habitat della specie', 'PASS' if 'habitat · capriolo' in visible_text() else 'FAIL')
+                        result('Mappa habitat mostra posizione attuale', 'PASS' if 'la tua posizione' in visible_text() else 'FAIL')
+                        shot('roe-deer-habitat-map')
+                        adb('shell','input','keyevent','4');time.sleep(1)
+                    for _ in range(4):
+                        if 'segni e impronte' in visible_text():break
+                        adb('shell','input','swipe','540','1450','540','800','350');time.sleep(1)
+                    shot('roe-deer-premium-signs')
                     adb('shell','input','keyevent','4');time.sleep(1)
                 adb('shell','input','keyevent','4');time.sleep(1)
             for _ in range(3):
