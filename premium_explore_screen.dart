@@ -1,3 +1,5 @@
+import 'profile_avatar_widget.dart';
+import 'community_screen.dart' show ChatScreen;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -20,10 +22,11 @@ import 'premium_sighting_screen.dart';
 import 'map_position_screen.dart';
 
 class PremiumExploreScreen extends StatefulWidget {
-  const PremiumExploreScreen({super.key, this.initialPosition, this.tileProvider, this.enableLocation = true});
+  const PremiumExploreScreen({super.key, this.initialPosition, this.tileProvider, this.enableLocation = true, this.initialCommunity = false});
   final LatLng? initialPosition;
   final TileProvider? tileProvider;
   final bool enableLocation;
+  final bool initialCommunity;
 
   @override
   State<PremiumExploreScreen> createState() => _PremiumExploreScreenState();
@@ -46,6 +49,9 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialCommunity) {filter = 1; centeredOnPosition = true;}
+    CommunityService.instance.addListener(_communityChanged);
+    unawaited(CommunityService.instance.updatePresence());
     location = MapLocationService(initialPosition: widget.initialPosition)..addListener(_positionChanged);
     radar = RadarService.instance.load();
     DatabaseService.instance.changes.addListener(_loadActivities);
@@ -60,8 +66,11 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     location.dispose();
     search.dispose();
     map.dispose();
+    CommunityService.instance.removeListener(_communityChanged);
     super.dispose();
   }
+
+  void _communityChanged() {if (mounted) setState(() {});}
 
   Future<void> _loadActivities() async {
     try {
@@ -287,17 +296,11 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
             (p['lat'] as num).toDouble(),
             (p['lng'] as num).toDouble(),
           ),
-          width: 46,
-          height: 46,
-          child: CircleAvatar(
-            backgroundColor: WildColors.sage,
-            child: Text(
-              '${p['nickname'] ?? '?'}'.characters.first.toUpperCase(),
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                color: WildColors.forest,
-              ),
-            ),
+          width: 110,
+          height: 65,
+          child: GestureDetector(
+            onTap: () => showModalBottomSheet<void>(context: context, builder: (sheet) => SafeArea(child: ListTile(leading: ProfileAvatar(url: p['avatarUrl'] as String?), title: Text('${p['nickname'] ?? 'Esploratore'}'), subtitle: const Text('Posizione condivisa · entro 15 km'), trailing: const Icon(Icons.chat_bubble_outline), onTap: () {Navigator.pop(sheet);Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: '${p['id']}', nickname: '${p['nickname'] ?? 'Esploratore'}')));}))),
+            child: Column(children: [ProfileAvatar(url: p['avatarUrl'] as String?, radius: 18), Container(padding: const EdgeInsets.symmetric(horizontal: 4), color: Colors.white, child: Text('${p['nickname'] ?? 'Esploratore'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: WildColors.forest)))]),
           ),
         ),
       )
