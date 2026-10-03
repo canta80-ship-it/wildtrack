@@ -1,7 +1,7 @@
 name: WildTrack functional diagnosis
 on:
   push:
-    branches: [interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16]
+    branches: [interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16, recovery-0-7-16]
     paths: ['**.dart', tool/android_smoke.py, tool/wait_for_build.py, .github/workflows/functional-check.yml, pubspec.yaml]
   workflow_dispatch:
 permissions:
