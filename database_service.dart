@@ -165,6 +165,12 @@ class DatabaseService {
     changes.value++;
   }
 
+  Future<void> makeSightingPrivate(String id) async {
+    final db = await database;
+    await db.update('sightings', {'publication_state': 'private'}, where: 'id = ?', whereArgs: [id]);
+    changes.value++;
+  }
+
   Future<void> deleteSighting(String id) async {
     final db = await database;
     await db.transaction((txn) async {

@@ -14,14 +14,14 @@ class _CommunityDeleteButtonState extends State<CommunityDeleteButton> {
     final approved = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: const Text('Eliminare questo avvistamento?'),
-      content: const Text('Il post verrà rimosso dalla Community e dal tuo diario. Solo tu, come creatore, puoi eliminarlo.'),
+      content: const Text('Il post verrà rimosso dalla Community. Foto e avvistamento resteranno nel tuo diario privato. Solo il creatore può eliminare il post.'),
       actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Elimina'))],
     ));
     if (approved != true || !mounted) return;
     setState(() => busy = true);
     try {
-      await CommunityService.instance.deleteSighting('${widget.sighting['id']}');
+      await CommunityService.instance.deleteSighting('${widget.sighting['id']}', keepDiary: true);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avvistamento eliminato.')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));

@@ -213,6 +213,17 @@ void main() {
     expect(await db.getSightingPhotos('recovered'), [photo.path]);
   });
 
+  test('Removing sharing preserves the private diary, species and photo', () async {
+    await db.retainPublicSighting({'id':'keep-private', 'species':'Volpe', 'count':2});
+    await db.attachRecoveredPhoto('keep-private', '${temp.path}/volpe.png');
+    await db.makeSightingPrivate('keep-private');
+    final sighting = (await db.getSightings()).single;
+    expect(sighting.species, 'Volpe'); expect(sighting.count, 2);
+    expect(sighting.publicationState, 'private');
+    expect(sighting.photoPath, '${temp.path}/volpe.png');
+    expect(await db.getSightingPhotos('keep-private'), ['${temp.path}/volpe.png']);
+  });
+
   test('Another creator cannot delete a cached Community post', () async {
     final community = CommunityService.instance;
     community.sightings = [{'id': 'other-post', 'mine': 0}];

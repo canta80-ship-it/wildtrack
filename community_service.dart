@@ -427,7 +427,7 @@ class CommunityService extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteSighting(String id) async {
+  Future<void> deleteSighting(String id, {bool keepDiary = false}) async {
     if (syncing) throw Exception('Attendi la fine della sincronizzazione');
     // The server checks the authenticated owner even if no feed page is cached.
     final cached = sightings.where((s) => s['id'] == id);
@@ -437,7 +437,11 @@ class CommunityService extends ChangeNotifier {
     final result = await api('sightings?id=${Uri.encodeQueryComponent(id)}', method: 'DELETE');
     if (result['deleted'] != true) throw Exception('Eliminazione non confermata');
     sightings.removeWhere((s) => s['id'] == id);
-    await DatabaseService.instance.deleteSighting(id);
+    if (keepDiary) {
+      await DatabaseService.instance.makeSightingPrivate(id);
+    } else {
+      await DatabaseService.instance.deleteSighting(id);
+    }
     notifyListeners();
   }
 
