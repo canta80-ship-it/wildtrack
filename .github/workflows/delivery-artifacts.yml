@@ -147,3 +147,5 @@ jobs:
           name: WildTrack-outdoor-native-results
           path: android-results/
           if-no-files-found: warn
+
+# Native proof: inspect the complete return card on small displays.
