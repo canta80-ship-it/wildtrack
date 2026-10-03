@@ -1,3 +1,8 @@
+import 'community_photo_widget.dart';
+import 'profile_avatar_widget.dart';
+import 'premium_explore_screen.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -6,6 +11,9 @@ import '../services/did_you_know_service.dart';
 import '../services/preferences_service.dart';
 import '../services/push_service.dart';
 import 'community_screen.dart';
+import 'community_sighting_map_screen.dart';
+import 'community_delete_widget.dart';
+import '../services/preferences_service.dart';
 import 'private_maps_screen.dart';
 import 'settings_screen.dart';
 import '../premium_ui.dart';
@@ -35,11 +43,46 @@ class _PremiumCommunityScreenState extends State<PremiumCommunityScreen> {
       builder: (sheet) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            ListTile(leading: const Icon(Icons.refresh), title: const Text('Aggiorna Community'), onTap: () async { Navigator.pop(sheet); await CommunityService.instance.refresh(); if (mounted) setState(() {}); }),
-            ListTile(leading: const Icon(Icons.lock_outline), title: const Text('Spedizioni private'), onTap: () { Navigator.pop(sheet); Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PrivateMapsScreen())); }),
-            ListTile(leading: const Icon(Icons.tune), title: const Text('Impostazioni e privacy'), onTap: () { Navigator.pop(sheet); Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())); }),
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Aggiorna Community'),
+                onTap: () async {
+                  Navigator.pop(sheet);
+                  await CommunityService.instance.refresh();
+                  if (mounted) setState(() {});
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.lock_outline),
+                title: const Text('Spedizioni private'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const PrivateMapsScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.tune),
+                title: const Text('Impostazioni e privacy'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -48,25 +91,82 @@ class _PremiumCommunityScreenState extends State<PremiumCommunityScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: WildColors.ivory,
-    body: CustomScrollView(slivers: [
-      SliverToBoxAdapter(child: WildHero(
-        image: '', height: 265,
-        child: SafeArea(bottom: false, child: Padding(padding: const EdgeInsets.fromLTRB(18, 12, 18, 22), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [const WildLogo(compact: true, light: true), const Spacer(), IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())), icon: const Icon(Icons.notifications_none, color: Colors.white)), const SizedBox(width: 4), Container(width: 36, height: 36, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .15), border: Border.all(color: Colors.white54)), child: const Icon(Icons.person_outline, color: Colors.white))]),
-          const Spacer(),
-          const Text('Community', style: TextStyle(fontFamily: 'serif', fontSize: 39, fontWeight: FontWeight.w800, color: Colors.white)),
-          const SizedBox(height: 5),
-          const SizedBox(width: 320, child: Text('Condividi avvistamenti, esperienze e consigli con altri appassionati di natura.', style: TextStyle(color: Colors.white, fontSize: 15, height: 1.25))),
-        ]))),
-      )),
-      SliverToBoxAdapter(child: Transform.translate(offset: const Offset(0, -14), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: _Tabs(selected: tab, onTap: (i) => setState(() => tab = i))))),
-      SliverPadding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 115), sliver: SliverToBoxAdapter(child: _content())),
-    ]),
+    body: CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: WildHero(
+            image: '',
+            height: 280,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const WildLogo(compact: true),
+                        const Spacer(),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Text(
+                      'Community',
+                      style: TextStyle(
+                        fontFamily: 'serif',
+                        fontSize: 29,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    const SizedBox(
+                      width: 320,
+                      child: Text(
+                        'Condividi avvistamenti, esperienze e consigli con altri appassionati di natura.',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Transform.translate(
+            offset: const Offset(0, -14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: _Tabs(
+                selected: tab,
+                onTap: (i) => setState(() => tab = i),
+              ),
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 115),
+          sliver: SliverToBoxAdapter(child: _content()),
+        ),
+      ],
+    ),
   );
 
   Widget _content() {
     if (tab == 0) return _ChatAndFeed(onMute: _toggleMute, onMenu: _menu);
-    if (tab == 1) return _Groups(onPrivate: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PrivateMapsScreen())));
+    if (tab == 1)
+      return _Groups(
+        onPrivate: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(builder: (_) => const PrivateMapsScreen()),
+        ),
+      );
     if (tab == 2) return const _People();
     return const _Events();
   }
@@ -74,13 +174,66 @@ class _PremiumCommunityScreenState extends State<PremiumCommunityScreen> {
 
 class _Tabs extends StatelessWidget {
   const _Tabs({required this.selected, required this.onTap});
-  final int selected; final ValueChanged<int> onTap;
-  static const items = [(Icons.chat_bubble_outline, 'Chat'), (Icons.groups_outlined, 'Gruppi'), (Icons.people_outline, 'Persone'), (Icons.event_outlined, 'Eventi')];
+  final int selected;
+  final ValueChanged<int> onTap;
+  static const items = [
+    (Icons.location_on_outlined, 'Avvistamenti'),
+    (Icons.groups_outlined, 'Gruppi'),
+    (Icons.people_outline, 'Persone'),
+    (Icons.event_outlined, 'Eventi'),
+  ];
   @override
   Widget build(BuildContext context) => Container(
-    height: 62, padding: const EdgeInsets.all(5),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x19000000), blurRadius: 18, offset: Offset(0, 6))]),
-    child: Row(children: [for (var i=0;i<items.length;i++) Expanded(child: InkWell(onTap: () => onTap(i), borderRadius: BorderRadius.circular(22), child: AnimatedContainer(duration: const Duration(milliseconds: 150), decoration: BoxDecoration(color: selected == i ? WildColors.forest : Colors.transparent, borderRadius: BorderRadius.circular(22)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(items[i].$1, size: 19, color: selected == i ? Colors.white : WildColors.forest), const SizedBox(width: 5), Text(items[i].$2, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: selected == i ? Colors.white : WildColors.ink))]))))]),
+    height: 62,
+    padding: const EdgeInsets.all(5),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(28),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x19000000),
+          blurRadius: 18,
+          offset: Offset(0, 6),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        for (var i = 0; i < items.length; i++)
+          Expanded(
+            child: InkWell(
+              onTap: () => onTap(i),
+              borderRadius: BorderRadius.circular(22),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  color: selected == i ? WildColors.forest : Colors.transparent,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      items[i].$1,
+                      size: 19,
+                      color: selected == i ? Colors.white : WildColors.forest,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      items[i].$2,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: selected == i ? Colors.white : WildColors.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
   );
 }
 
@@ -89,58 +242,174 @@ class _ChatAndFeed extends StatelessWidget {
   final VoidCallback onMute;
   final VoidCallback onMenu;
   @override
-  Widget build(BuildContext context) => Column(children: [
-    Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-      child: Row(children: [
-        const WildAnimalIllustration('Community', size: 56),
-        const SizedBox(width: 12),
-        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Community WildTrack', style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800, fontSize: 20)), Text('Avvistamenti reali della community', style: TextStyle(fontSize: 11, color: WildColors.muted))])),
-        IconButton(tooltip: PreferencesService.instance.chatNotifications ? 'Silenzia chat' : 'Riattiva chat', onPressed: onMute, icon: Icon(PreferencesService.instance.chatNotifications ? Icons.notifications_off_outlined : Icons.notifications_active_outlined)),
-        IconButton(onPressed: onMenu, icon: const Icon(Icons.more_vert)),
-      ]),
-    ),
-    const SizedBox(height: 10),
-    ListenableBuilder(listenable: CommunityService.instance, builder: (context, _) {
-      final c = CommunityService.instance;
-      return Column(children: [
-        if (c.syncing) const LinearProgressIndicator(),
-        if (c.error != null) _Info(text: 'Aggiornamento non riuscito: ${c.error}'),
-        if (c.sightings.isEmpty) const _Info(text: 'Nessun avvistamento pubblico caricato in questo momento.'),
-        for (final s in c.sightings.take(5)) _FeedSighting(s: s),
-      ]);
-    }),
-    const SizedBox(height: 10),
-    Container(height: 280, clipBehavior: Clip.antiAlias, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)), child: const InboxScreen()),
-  ]);
+  Widget build(BuildContext context) => Column(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(
+          children: [
+            const WildAnimalIllustration('Community', size: 56),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Community WildTrack',
+                    style: TextStyle(
+                      fontFamily: 'serif',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                    ),
+                  ),
+                  Text(
+                    'Avvistamenti reali della community',
+                    style: TextStyle(fontSize: 11, color: WildColors.muted),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: PreferencesService.instance.chatNotifications
+                  ? 'Silenzia chat'
+                  : 'Riattiva chat',
+              onPressed: onMute,
+              icon: Icon(
+                PreferencesService.instance.chatNotifications
+                    ? Icons.notifications_off_outlined
+                    : Icons.notifications_active_outlined,
+              ),
+            ),
+            IconButton(onPressed: onMenu, icon: const Icon(Icons.more_vert)),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      ListenableBuilder(
+        listenable: CommunityService.instance,
+        builder: (context, _) {
+          final c = CommunityService.instance;
+          return Column(
+            children: [
+              if (c.syncing) const LinearProgressIndicator(),
+              if (c.error != null)
+                _Info(text: 'Aggiornamento non riuscito: ${c.error}'),
+              if (c.sightings.isEmpty)
+                const _Info(
+                  text: 'Nessun avvistamento pubblico caricato in questo momento.',
+                ),
+              for (final s in c.sightings) _FeedSighting(s: s),
+            ],
+          );
+        },
+      ),
+      const SizedBox(height: 10),
+      const WildSectionTitle('Chat'),
+      const SizedBox(height: 10),
+      Container(
+        height: 280,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: const InboxScreen(),
+      ),
+    ],
+  );
 }
 
 class _FeedSighting extends StatelessWidget {
   const _FeedSighting({required this.s});
-  final Map<String,dynamic> s;
+  final Map<String, dynamic> s;
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: () => showSighting(context, s),
     child: Container(
-      margin: const EdgeInsets.only(top: 9), padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(color: const Color(0xFFF4F6F0), borderRadius: BorderRadius.circular(22)),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const CircleAvatar(radius: 21, backgroundColor: WildColors.sage, child: Icon(Icons.person_outline, color: WildColors.forest)),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Expanded(child: Text('${s['species'] ?? 'Avvistamento'}', style: const TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w800))), Text(timeLabel(s['observedAt']), style: const TextStyle(fontSize: 10, color: WildColors.muted))]),
-          const SizedBox(height: 4),
-          Text(s['notes'] as String? ?? 'Avvistamento condiviso con la community.', maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(height: 1.25)),
-          const SizedBox(height: 8),
-          if (s['photo'] != null)
-            ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network('$communityUrl/api/photo?id=${s['id']}', headers: {'Authorization':'Bearer ${CommunityService.instance.preferences.token}'}, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_,__,___) => SizedBox(height: 150, child: WildLandscape(height: 150, animal: '${s['species'] ?? 'Animale'}'))))
-          else
-            SizedBox(height: 145, child: WildLandscape(height: 145, animal: '${s['species'] ?? 'Animale'}')),
-          const SizedBox(height: 7),
-          const Row(children: [Icon(Icons.favorite_border, size: 18, color: WildColors.forest), SizedBox(width: 5), Text('Condiviso', style: TextStyle(fontSize: 10)), Spacer(), Icon(Icons.visibility_outlined, size: 18)]),
-        ])),
-      ]),
+      margin: const EdgeInsets.only(top: 9),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F6F0),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ProfileAvatar(url: s['avatarUrl'] as String?),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${s['species'] ?? 'Avvistamento'}',
+                        style: const TextStyle(
+                          fontFamily: 'serif',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      timeLabel(s['observedAt']),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: WildColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('${s['authorName'] ?? 'Esploratore'}', style: const TextStyle(fontWeight: FontWeight.w600, color: WildColors.forest)),
+                const SizedBox(height: 4),
+                Text(
+                  s['notes'] as String? ??
+                      'Avvistamento condiviso con la community.',
+                  style: const TextStyle(height: 1.25),
+                ),
+                const SizedBox(height: 8),
+                if (s['photo'] != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: CommunityPhoto(sightingId: '${s['id']}', height: 160),
+                  )
+                else
+                  SizedBox(
+                    height: 145,
+                    child: WildLandscape(
+                      height: 145,
+                      animal: '${s['species'] ?? 'Animale'}',
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                CommunitySightingMapButton(sighting: s),
+                CommunityDeleteButton(sighting: s),
+                const SizedBox(height: 7),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.favorite_border,
+                      size: 18,
+                      color: WildColors.forest,
+                    ),
+                    SizedBox(width: 5),
+                    Text('Condiviso', style: TextStyle(fontSize: 10)),
+                    Spacer(),
+                    Icon(WildIcons.binoculars, size: 18),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -164,26 +433,54 @@ class _PeopleState extends State<_People> {
     builder: (context, _) {
       final c = CommunityService.instance;
       if (!PreferencesService.instance.visible) {
-        return const _Placeholder(icon: Icons.location_off_outlined, title: 'Posizione non condivisa', body: 'Per vedere persone vicine devi attivare volontariamente la condivisione posizione nelle impostazioni.');
+        return const _Placeholder(
+          icon: Icons.location_off_outlined,
+          title: 'Posizione non condivisa',
+          body: 'Per vedere persone vicine devi attivare volontariamente la condivisione posizione nelle impostazioni.',
+        );
       }
       if (c.people.isEmpty) {
-        return Column(children: [const _Placeholder(icon: Icons.people_outline, title: 'Nessuno nelle vicinanze', body: 'Non risultano altri utenti entro il raggio consentito che abbiano scelto di condividere la posizione.'), const SizedBox(height: 10), OutlinedButton.icon(onPressed: () => c.updatePresence(), icon: const Icon(Icons.refresh), label: const Text('Aggiorna'))]);
+        return Column(
+          children: [
+            const _Placeholder(
+              icon: Icons.people_outline,
+              title: 'Nessuno nelle vicinanze',
+              body: 'Nessun utente visibile entro 15 km. Entrambi dovete attivare la condivisione; la posizione scade dopo 3 minuti senza aggiornamenti.',
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => c.updatePresence(),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Aggiorna'),
+            ),
+          ],
+        );
       }
-      return Column(children: [for (final p in c.people) Container(
-        margin: const EdgeInsets.only(bottom: 9),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-        child: ListTile(
-          leading: CircleAvatar(backgroundColor: WildColors.sage, child: Text('${p['nickname'] ?? '?'}'.characters.first.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, color: WildColors.forest))),
-          title: Text('${p['nickname'] ?? 'Esploratore'}', style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: const Text('Posizione approssimata condivisa volontariamente'),
-          trailing: const Icon(Icons.chat_bubble_outline),
-          onTap: () {
-            final id = '${p['id'] ?? p['token'] ?? ''}';
-            if (id.isEmpty) return;
-            Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: id, nickname: '${p['nickname'] ?? 'Esploratore'}')));
-          },
-        ),
-      )]);
+      return Column(
+        children: [
+          for (final p in c.people)
+            Container(
+              margin: const EdgeInsets.only(bottom: 9),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: ListTile(
+                leading: ProfileAvatar(url: p['avatarUrl'] as String?),
+                title: Text(
+                  '${p['nickname'] ?? 'Esploratore'} · Vedi su mappa',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text('${((p['distanceM'] as num? ?? 0) / 1000).toStringAsFixed(1)} km · posizione condivisa'),
+                trailing: IconButton(tooltip: 'Apri chat', icon: const Icon(Icons.chat_bubble_outline), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: '${p['id'] ?? ''}', nickname: '${p['nickname'] ?? 'Esploratore'}')))),
+                onTap: () {
+                  if (p['lat'] is! num || p['lng'] is! num) return;
+                  Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PremiumExploreScreen(initialPosition: LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()), initialCommunity: true)));
+                },
+              ),
+            ),
+        ],
+      );
     },
   );
 }
@@ -200,14 +497,74 @@ class _EventsState extends State<_Events> {
   Widget build(BuildContext context) => FutureBuilder<DidYouKnowFeed>(
     future: feed,
     builder: (context, snapshot) {
-      if (!snapshot.hasData) return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()));
-      final rows = snapshot.data!.items.where((e) => e.category == 'EVENTI').toList();
-      if (rows.isEmpty) return const _Placeholder(icon: Icons.event_outlined, title: 'Nessun evento aggiornato', body: 'Non ci sono eventi verificati nel feed in questo momento. Riprova più tardi.');
-      return Column(children: [for (final e in rows) InkWell(
-        onTap: e.link == null ? null : () => launchUrl(Uri.parse(e.link!), mode: LaunchMode.externalApplication),
-        borderRadius: BorderRadius.circular(22),
-        child: Container(margin: const EdgeInsets.only(bottom: 9), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)), child: Row(children: [const WildIconDisc(Icons.event_outlined, size: 52), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: const TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text('${e.source} · ${e.body}', maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: WildColors.muted))])), const Icon(Icons.open_in_new, size: 18)])),
-      )]);
+      if (!snapshot.hasData)
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      final rows = snapshot.data!.items
+          .where((e) => e.category == 'EVENTI')
+          .toList();
+      if (rows.isEmpty)
+        return const _Placeholder(
+          icon: Icons.event_outlined,
+          title: 'Nessun evento aggiornato',
+          body: 'Non ci sono eventi verificati nel feed in questo momento. Riprova più tardi.',
+        );
+      return Column(
+        children: [
+          for (final e in rows)
+            InkWell(
+              onTap: e.link == null
+                  ? null
+                  : () => launchUrl(
+                      Uri.parse(e.link!),
+                      mode: LaunchMode.externalApplication,
+                    ),
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 9),
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Row(
+                  children: [
+                    const WildIconDisc(Icons.event_outlined, size: 52),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            e.title,
+                            style: const TextStyle(
+                              fontFamily: 'serif',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${e.source} · ${e.body}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: WildColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.open_in_new, size: 18),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
     },
   );
 }
@@ -216,29 +573,150 @@ class _Groups extends StatelessWidget {
   const _Groups({required this.onPrivate});
   final VoidCallback onPrivate;
   @override
-  Widget build(BuildContext context) => Column(children: [
-    _GroupCard(title: 'Spedizioni private', body: 'Posizione temporanea, messaggi e avvistamenti condivisi solo con i membri approvati.', icon: Icons.lock_outline, animal: 'Camoscio', onTap: onPrivate),
-    const SizedBox(height: 10),
-    _GroupCard(title: 'Crea un gruppo sul campo', body: 'Organizza un’uscita con compagni fidati senza pubblicare coordinate sensibili.', icon: Icons.group_add_outlined, animal: 'Fauna', onTap: onPrivate),
-  ]);
+  Widget build(BuildContext context) => Column(
+    children: [
+      _GroupCard(
+        title: 'Spedizioni private',
+        body: 'Posizione temporanea, messaggi e avvistamenti condivisi solo con i membri approvati.',
+        icon: Icons.lock_outline,
+        animal: 'Camoscio',
+        onTap: onPrivate,
+      ),
+      const SizedBox(height: 10),
+      _GroupCard(
+        title: 'Crea un gruppo sul campo',
+        body: 'Organizza un’uscita con compagni fidati senza pubblicare coordinate sensibili.',
+        icon: Icons.group_add_outlined,
+        animal: 'Fauna',
+        onTap: onPrivate,
+      ),
+    ],
+  );
 }
 
 class _GroupCard extends StatelessWidget {
-  const _GroupCard({required this.title, required this.body, required this.icon, required this.animal, required this.onTap});
-  final String title,body,animal; final IconData icon; final VoidCallback onTap;
+  const _GroupCard({
+    required this.title,
+    required this.body,
+    required this.icon,
+    required this.animal,
+    required this.onTap,
+  });
+  final String title, body, animal;
+  final IconData icon;
+  final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => InkWell(onTap: onTap, borderRadius: BorderRadius.circular(24), child: Container(height: 155, clipBehavior: Clip.antiAlias, decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)), child: Stack(fit: StackFit.expand, children: [WildLandscape(height: 155, animal: animal), const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors:[Color(0xE8173F2B),Color(0x55173F2B)]))), Padding(padding: const EdgeInsets.all(18), child: Row(children:[Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children:[Icon(icon,color:Colors.white),const SizedBox(height:8),Text(title,style:const TextStyle(fontFamily:'serif',fontSize:22,fontWeight:FontWeight.w800,color:Colors.white)),const SizedBox(height:5),Text(body,style:const TextStyle(color:Colors.white,fontSize:11,height:1.25))])),const Icon(Icons.chevron_right,color:Colors.white,size:30)]))])));
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(24),
+    child: Container(
+      height: 155,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          WildLandscape(height: 155, animal: animal),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0xE8173F2B), Color(0x55173F2B)],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, color: Colors.white),
+                      const SizedBox(height: 8),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontFamily: 'serif',
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        body,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.white, size: 30),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.icon, required this.title, required this.body});
-  final IconData icon; final String title,body;
+  const _Placeholder({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+  final IconData icon;
+  final String title, body;
   @override
-  Widget build(BuildContext context) => Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)), child: Column(children:[WildIconDisc(icon,size:64),const SizedBox(height:14),Text(title,style:WildText.h2,textAlign:TextAlign.center),const SizedBox(height:8),Text(body,textAlign:TextAlign.center,style:const TextStyle(color:WildColors.muted,height:1.35))]));
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(24),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+    ),
+    child: Column(
+      children: [
+        WildIconDisc(icon, size: 64),
+        const SizedBox(height: 14),
+        Text(title, style: WildText.h2, textAlign: TextAlign.center),
+        const SizedBox(height: 8),
+        Text(
+          body,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: WildColors.muted, height: 1.35),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Info extends StatelessWidget {
-  const _Info({required this.text}); final String text;
+  const _Info({required this.text});
+  final String text;
   @override
-  Widget build(BuildContext context) => Container(margin: const EdgeInsets.only(top:8),padding: const EdgeInsets.all(14),decoration:BoxDecoration(color:WildColors.sageSoft,borderRadius:BorderRadius.circular(18)),child:Row(children:[const Icon(Icons.info_outline,color:WildColors.forest),const SizedBox(width:8),Expanded(child:Text(text,style:const TextStyle(fontSize:12))) ]));
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(top: 8),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: WildColors.sageSoft,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.info_outline, color: WildColors.forest),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 12))),
+      ],
+    ),
+  );
 }
+

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/radar_service.dart';
@@ -133,8 +134,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(children: [
                       const WildLogo(compact: true, light: true),
                       const Spacer(),
-                      IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SettingsScreen())), icon: const Icon(Icons.notifications_none, color: Colors.white)),
-                      Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .18), border: Border.all(color: Colors.white54)), child: const Icon(Icons.person_outline, color: Colors.white)),
                     ]),
                     const Spacer(),
                     Text('Buongiorno,\n$nickname', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 40, height: .92, fontWeight: FontWeight.w700, letterSpacing: -1.2)),
@@ -164,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(children: [
                 Expanded(child: _QuickAction(background: WildColors.sageSoft, icon: Icons.map_outlined, title: 'Esplora zona', body: 'Sentieri, punti di interesse e attività fauna', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ExplorationScreen())))),
                 const SizedBox(width: 9),
-                Expanded(child: _QuickAction(background: const Color(0xFFF4E9D7), icon: Icons.visibility_outlined, title: 'Registra\navvistamento', body: 'Aggiungi una specie, foto e posizione', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen())))),
+                Expanded(child: _QuickAction(background: const Color(0xFFF4E9D7), icon: WildIcons.binoculars, title: 'Registra\navvistamento', body: 'Aggiungi una specie, foto e posizione', onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SightingEditorScreen())))),
                 const SizedBox(width: 9),
                 Expanded(child: _QuickAction(background: WildColors.forest, icon: Icons.hiking, title: 'Avvia uscita', body: 'Traccia il percorso e monitora l’attività', dark: true, onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecordScreen())))),
               ]),

@@ -8,9 +8,16 @@ import 'package:latlong2/latlong.dart';
 import '../models/sighting.dart';
 import '../models/track_session.dart';
 import 'database_service.dart';
+import 'package:flutter/services.dart';
+import 'community_service.dart' show communityUrl;
+import 'solar_context_service.dart';
+import 'radar_profile_service.dart';
+import 'radar_survey_service.dart';
 
 class HabitatContext {
-  const HabitatContext({required this.primary, required this.tags, this.elevation});
+  const HabitatContext({required this.primary, required this.tags, this.elevation, this.mapped = false, this.fetchedAt});
+  final bool mapped;
+  final DateTime? fetchedAt;
   final String primary;
   final Set<String> tags;
   final double? elevation;
@@ -25,7 +32,9 @@ class WeatherContext {
     this.weatherCode,
     this.sunrise,
     this.sunset,
+    this.fetchedAt,
   });
+  final DateTime? fetchedAt;
   final double? temperature;
   final double? wind;
   final double? precipitation;
@@ -42,7 +51,11 @@ class SpeciesForecast {
     required this.confidence,
     required this.reason,
     required this.bestWindow,
+    this.presenceSupported = false, this.quality = 'Limitata',
   });
+  final bool presenceSupported;
+  final String quality;
+  String get conditions => score >= 65 ? 'Buone' : score >= 40 ? 'Discrete' : 'Limitate';
   final String name;
   final int score;
   final int confidence;
@@ -58,7 +71,12 @@ class IntelligenceSnapshot {
     required this.weather,
     required this.generatedAt,
     required this.hasPosition,
+    this.listening = const [], this.solar, this.latitude, this.longitude, this.evidenceAvailable = false,
   });
+  final List<SpeciesForecast> listening;
+  final SolarContext? solar;
+  final double? latitude, longitude;
+  final bool evidenceAvailable;
   final String activity;
   final List<SpeciesForecast> species;
   final HabitatContext habitat;
@@ -110,218 +128,221 @@ class NatureTimelineInsight {
   final DateTime date;
 }
 
-class _SpeciesProfile {
-  const _SpeciesProfile({
-    required this.activeHours,
-    required this.peakMonths,
-    required this.habitats,
-    required this.altitude,
-    required this.temperature,
-  });
-  final List<int> activeHours;
-  final Set<int> peakMonths;
-  final Set<String> habitats;
-  final (double, double) altitude;
-  final (double, double) temperature;
+class RadarEvidence {
+  const RadarEvidence(this.id,this.species,this.latitude,this.longitude,this.at,this.source);
+  final String id,species,source;
+  final double latitude,longitude;
+  final DateTime at;
 }
 
 class WildTrackIntelligenceService {
   static final instance = WildTrackIntelligenceService();
   static const Distance _distance = Distance();
 
-  static const Map<String, _SpeciesProfile> _profiles = {
-    'Cervo': _SpeciesProfile(activeHours: [5, 6, 7, 17, 18, 19, 20], peakMonths: {9, 10, 11}, habitats: {'forest', 'meadow'}, altitude: (200, 2200), temperature: (-8, 24)),
-    'Capriolo': _SpeciesProfile(activeHours: [5, 6, 7, 18, 19, 20], peakMonths: {4, 5, 6, 9}, habitats: {'forest', 'meadow', 'edge'}, altitude: (0, 1800), temperature: (-5, 25)),
-    'Volpe': _SpeciesProfile(activeHours: [0, 1, 2, 4, 5, 20, 21, 22, 23], peakMonths: {1, 2, 3, 10, 11}, habitats: {'forest', 'meadow', 'edge', 'farmland'}, altitude: (0, 2200), temperature: (-10, 26)),
-    'Cinghiale': _SpeciesProfile(activeHours: [0, 1, 2, 3, 4, 20, 21, 22, 23], peakMonths: {9, 10, 11, 12}, habitats: {'forest', 'edge', 'farmland'}, altitude: (0, 1800), temperature: (-5, 24)),
-    'Lupo': _SpeciesProfile(activeHours: [0, 1, 2, 3, 4, 5, 20, 21, 22, 23], peakMonths: {1, 2, 10, 11, 12}, habitats: {'forest', 'meadow', 'rock'}, altitude: (100, 2400), temperature: (-15, 22)),
-    'Orso bruno': _SpeciesProfile(activeHours: [4, 5, 6, 18, 19, 20, 21, 22], peakMonths: {4, 5, 6, 9, 10}, habitats: {'forest', 'edge'}, altitude: (200, 2200), temperature: (-5, 22)),
-    'Poiana': _SpeciesProfile(activeHours: [9, 10, 11, 12, 13, 14, 15, 16], peakMonths: {2, 3, 4, 9, 10}, habitats: {'meadow', 'farmland', 'edge'}, altitude: (0, 1800), temperature: (0, 28)),
-    'Picchio nero': _SpeciesProfile(activeHours: [6, 7, 8, 9, 10, 11], peakMonths: {2, 3, 4, 5}, habitats: {'forest'}, altitude: (100, 2200), temperature: (-5, 24)),
-    'Allocco': _SpeciesProfile(activeHours: [0, 1, 2, 3, 4, 21, 22, 23], peakMonths: {1, 2, 3, 10, 11, 12}, habitats: {'forest', 'edge'}, altitude: (0, 1700), temperature: (-8, 22)),
-    'Gufo reale': _SpeciesProfile(activeHours: [0, 1, 2, 3, 4, 20, 21, 22, 23], peakMonths: {1, 2, 3, 10, 11}, habitats: {'rock', 'forest', 'meadow'}, altitude: (0, 2400), temperature: (-10, 22)),
-    'Marmotta': _SpeciesProfile(activeHours: [7, 8, 9, 10, 11, 15, 16, 17], peakMonths: {5, 6, 7, 8, 9}, habitats: {'meadow', 'rock'}, altitude: (900, 2800), temperature: (2, 24)),
-    'Camoscio alpino': _SpeciesProfile(activeHours: [5, 6, 7, 8, 17, 18, 19], peakMonths: {5, 6, 9, 10, 11}, habitats: {'rock', 'meadow', 'forest'}, altitude: (600, 3000), temperature: (-12, 20)),
-    'Stambecco': _SpeciesProfile(activeHours: [6, 7, 8, 9, 17, 18], peakMonths: {5, 6, 7, 9, 10}, habitats: {'rock', 'meadow'}, altitude: (1200, 3300), temperature: (-15, 18)),
-    'Germano reale': _SpeciesProfile(activeHours: [6, 7, 8, 17, 18, 19], peakMonths: {1, 2, 3, 10, 11, 12}, habitats: {'water', 'wetland'}, altitude: (0, 1800), temperature: (-5, 28)),
-    'Airone cenerino': _SpeciesProfile(activeHours: [6, 7, 8, 9, 16, 17, 18], peakMonths: {2, 3, 4, 9, 10}, habitats: {'water', 'wetland', 'farmland'}, altitude: (0, 1200), temperature: (-3, 28)),
-  };
-
   Future<Position?> authorizedPosition() async {
     try {
       if (!await Geolocator.isLocationServiceEnabled()) return null;
-      final p = await Geolocator.checkPermission();
-      if (p != LocationPermission.always && p != LocationPermission.whileInUse) return null;
-      return Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 8)));
-    } catch (_) {
-      return null;
-    }
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) return null;
+      final p = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 8)));
+      return validPosition(p, DateTime.now()) ? p : null;
+    } catch (_) { return null; }
   }
+  static bool validPosition(Position p, DateTime now) => p.latitude.isFinite && p.longitude.isFinite && p.latitude.abs() <= 90 && p.longitude.abs() <= 180 && p.accuracy.isFinite && p.accuracy >= 0 && p.accuracy <= 200 && now.difference(p.timestamp).abs() <= const Duration(minutes: 5);
 
+  final Map<String, (DateTime, WeatherContext)> _weatherCache = {};
+  final Map<String, (DateTime, HabitatContext)> _habitatCache = {};
+  final Map<String, (DateTime, List<RadarEvidence>)> _evidenceCache = {};
+  final Map<String, Future<IntelligenceSnapshot>> _pending = {};
+  String _cell(Position p) => '${(p.latitude*200).floor()}:${(p.longitude*200).floor()}';
   Future<IntelligenceSnapshot> load({Position? position}) async {
-    final sightings = await DatabaseService.instance.getSightings();
-    final pos = position ?? await authorizedPosition();
     final now = DateTime.now();
-    WeatherContext weather = const WeatherContext();
-    HabitatContext habitat = const HabitatContext(primary: 'unknown', tags: {'unknown'});
-    if (pos != null) {
-      final results = await Future.wait<Object>([
-        _weather(pos).catchError((_) => const WeatherContext()),
-        _habitat(pos).catchError((_) => HabitatContext(primary: 'unknown', tags: const {'unknown'}, elevation: pos.altitude)),
-      ]);
-      weather = results[0] as WeatherContext;
-      habitat = results[1] as HabitatContext;
-    }
-    final forecasts = <SpeciesForecast>[];
-    for (final entry in _profiles.entries) {
-      forecasts.add(_forecast(entry.key, entry.value, now, pos, weather, habitat, sightings));
-    }
-    forecasts.sort((a, b) => b.score.compareTo(a.score));
-    final best = forecasts.isEmpty ? 0 : forecasts.first.score;
-    return IntelligenceSnapshot(
-      activity: best >= 75 ? 'ALTA' : best >= 55 ? 'MEDIA' : 'BASSA',
-      species: forecasts,
-      habitat: habitat,
-      weather: weather,
-      generatedAt: now,
-      hasPosition: pos != null,
-    );
+    final raw = position ?? await authorizedPosition();
+    final pos = raw != null && validPosition(raw, now) ? raw : null;
+    final key = pos == null ? 'none' : _cell(pos);
+    if (_pending.containsKey(key)) return _pending[key]!;
+    final future = _loadContext(pos, now);
+    _pending[key] = future;
+    try { return await future; } finally { _pending.remove(key); }
+  }
+  Future<IntelligenceSnapshot> _loadContext(Position? pos, DateTime now) async {
+    final sightings = await DatabaseService.instance.getSightings();
+    var surveys = <RadarSurvey>[];
+    try { surveys = await RadarSurveyService.instance.load(); } catch (_) {}
+    if (pos == null) return evaluate(now:now, history:sightings, surveys:surveys);
+    final values = await Future.wait<Object>([
+      _weather(pos).catchError((_)=>const WeatherContext()),
+      _habitat(pos).catchError((_)=>const HabitatContext(primary:'unknown',tags:{'unknown'})),
+      _regionalEvidence(pos).catchError((_)=>const <RadarEvidence>[]),
+    ]);
+    return evaluate(now:now,position:pos,weather:values[0] as WeatherContext,habitat:values[1] as HabitatContext,history:sightings,evidence:values[2] as List<RadarEvidence>,surveys:surveys);
   }
 
-  SpeciesForecast _forecast(String name, _SpeciesProfile p, DateTime now, Position? position, WeatherContext w, HabitatContext h, List<Sighting> history) {
-    var score = 26.0;
-    var confidence = 38.0;
-    final hourDistance = p.activeHours.map((x) {
-      final d = (x - now.hour).abs();
-      return math.min(d, 24 - d);
-    }).reduce(math.min);
-    score += math.max(0, 27 - hourDistance * 4.5);
-    if (p.peakMonths.contains(now.month)) score += 17; else if (p.peakMonths.any((m) => (m - now.month).abs() == 1 || (m == 12 && now.month == 1) || (m == 1 && now.month == 12))) score += 7;
-    if (h.tags.any(p.habitats.contains)) { score += 17; confidence += 12; } else if (!h.tags.contains('unknown')) { score -= 7; confidence += 8; }
-    final elevation = h.elevation ?? (position == null ? null : position.altitude);
-    if (elevation != null && elevation.isFinite) {
-      confidence += 7;
-      if (elevation >= p.altitude.$1 && elevation <= p.altitude.$2) score += 9; else score -= 8;
+  /// Pure calculation: fixtures can test night, migration, missing data and
+  /// old / distant sightings without any external request.
+  IntelligenceSnapshot evaluate({required DateTime now, Position? position, WeatherContext weather = const WeatherContext(), HabitatContext habitat = const HabitatContext(primary:'unknown',tags:{'unknown'}), List<Sighting> history = const [], List<RadarEvidence> evidence = const [], List<RadarSurvey> surveys = const []}) {
+    final pos = position != null && validPosition(position,now) ? position : null;
+    if (pos == null) return IntelligenceSnapshot(activity:'DATI INSUFFICIENTI',species:const [],habitat:const HabitatContext(primary:'unknown',tags:{'unknown'}),weather:const WeatherContext(),generatedAt:now,hasPosition:false);
+    final sun = SolarContext.at(now,pos.latitude,pos.longitude);
+    final visual = <SpeciesForecast>[], listening = <SpeciesForecast>[];
+    for (final entry in radarProfiles.entries) {
+      final result = _forecast(entry.key,entry.value,now,pos,weather,habitat,history,evidence,surveys,sun);
+      if (result.score >= 20 && (!sun.dark || entry.value.cycle != 'diurnal')) visual.add(result);
+      if (entry.value.audible && sun.dark && entry.value.cycle == 'nocturnal' && result.presenceSupported && result.score >= 20) {
+        listening.add(SpeciesForecast(name:result.name,score:math.min(80,result.score+25),confidence:result.confidence,reason:'Ascolto passivo: attività notturna; ${result.reason}',bestWindow:'Dopo il tramonto, senza playback',presenceSupported:true,quality:result.quality));
+      }
     }
-    if (w.temperature != null) {
-      confidence += 8;
-      if (w.temperature! >= p.temperature.$1 && w.temperature! <= p.temperature.$2) score += 7; else score -= 5;
-    }
-    if ((w.wind ?? 0) > 35) score -= 12; else if ((w.wind ?? 0) > 20) score -= 5;
-    if ((w.precipitation ?? 0) > 3 && const {'Poiana', 'Picchio nero', 'Marmotta'}.contains(name)) score -= 7;
+    visual.sort((a,b)=>b.score.compareTo(a.score));
+    listening.sort((a,b)=>b.score.compareTo(a.score));
+    final top = visual.take(4).toList();
+    final average = top.isEmpty ? 0 : top.fold<int>(0,(n,s)=>n+s.score)/top.length;
+    return IntelligenceSnapshot(activity:top.isEmpty?'DATI INSUFFICIENTI':average>=65?'BUONE':average>=40?'DISCRETE':'LIMITATE',species:visual,listening:listening,habitat:habitat,weather:weather,generatedAt:now,hasPosition:true,solar:sun,latitude:pos.latitude,longitude:pos.longitude,evidenceAvailable:evidence.isNotEmpty);
+  }
 
-    var localMatches = 0;
+  SpeciesForecast _forecast(String name, RadarProfile p, DateTime now, Position pos, WeatherContext w, HabitatContext h, List<Sighting> history, List<RadarEvidence> evidence, List<RadarSurvey> surveys, SolarContext sun) {
+    var score = 25.0, qualityPoints = 1;
+    final reasons = <String>[];
+    final habitatKnown = !h.tags.contains('unknown');
+    final compatible = h.tags.any(p.habitats.contains);
+    if (habitatKnown) { qualityPoints++; score += compatible?18:-20; reasons.add(compatible?'habitat cartografato compatibile nelle vicinanze':'habitat cartografato poco compatibile'); }
+    else reasons.add('habitat non disponibile');
+    if (p.cycle == 'diurnal') score += sun.phase=='day'?25:sun.twilight?8:-40;
+    if (p.cycle == 'crepuscular') score += sun.twilight?28:sun.dark?0:10;
+    if (p.cycle == 'nocturnal') score += sun.dark?14:sun.twilight?20:-10;
+    reasons.add(sun.label.toLowerCase());
+    if (sun.dark) { score = math.min(score,32.0); reasons.add('visibilità ridotta: attività non equivale a incontro visivo'); }
+    if (p.peak.contains(now.month)) {score+=10; reasons.add('periodo favorevole');}
+    final inSeason = p.months.isEmpty || p.months.contains(now.month);
+    final dormant = p.dormant.contains(now.month);
+    if (!inSeason) {score-=30; reasons.add('fuori dalla stagione tipica italiana');}
+    if (dormant) {score-=35; reasons.add('periodo di quiescenza o letargo: possibili eccezioni locali');}
+    final altitude = h.elevation;
+    if (altitude != null && altitude.isFinite) {
+      qualityPoints++;
+      if (altitude < p.minAltitude || altitude > p.maxAltitude) {score-=28; reasons.add('quota poco compatibile');}
+      else score+=5;
+    } else reasons.add('quota non affidabile');
+    final sources = <String>{};
+    var weightedHistory = 0.0, recentCount = 0;
     for (final s in history) {
-      if (s.species != name) continue;
-      var weight = 1;
-      if (s.timestamp.month == now.month) weight++;
-      final hd = (s.timestamp.hour - now.hour).abs();
-      if (hd <= 2 || hd >= 22) weight++;
-      if (position != null && s.hasPosition) {
-        final km = _distance.as(LengthUnit.Kilometer, LatLng(position.latitude, position.longitude), LatLng(s.latitude!, s.longitude!));
-        if (km <= 25) weight += 2; else if (km > 80) weight = 0;
-      }
-      localMatches += weight;
+      if (s.species != name || !s.hasPosition || s.kind != 'Animale') continue;
+      final age = now.difference(s.timestamp).inHours/24;
+      if (age<0 || age>365) continue;
+      final km = _distance.as(LengthUnit.Kilometer,LatLng(pos.latitude,pos.longitude),LatLng(s.latitude!,s.longitude!));
+      if (km>25 || (s.accuracy != null && s.accuracy!>1000)) continue;
+      recentCount++;
+      final phase = SolarContext.at(s.timestamp,s.latitude!,s.longitude!).phase;
+      weightedHistory += math.exp(-age/120)*(km<=5?2:km<=10?1:.3)*(phase==sun.phase?1.3:1);
+      sources.add('personale');
     }
-    if (localMatches > 0) {
-      score += math.min(20, localMatches * 2.2);
-      confidence += math.min(28, localMatches * 3.0);
+    var recentRemote = 0;
+    final unique = <String>{};
+    for (final e in evidence) {
+      if (e.species != name || !unique.add(e.id)) continue;
+      final age = now.difference(e.at).inHours/24;
+      if (age<0 || age>730 || e.latitude.abs()>90 || e.longitude.abs()>180) continue;
+      final km = _distance.as(LengthUnit.Kilometer,LatLng(pos.latitude,pos.longitude),LatLng(e.latitude,e.longitude));
+      if (km>40) continue;
+      sources.add(e.source); recentRemote++;
     }
-
-    final reason = <String>[];
-    if (hourDistance <= 1) reason.add('finestra oraria favorevole');
-    if (p.peakMonths.contains(now.month)) reason.add('periodo stagionale favorevole');
-    if (h.tags.any(p.habitats.contains)) reason.add('habitat compatibile');
-    if (localMatches > 0) reason.add('storico personale coerente');
-    if ((w.wind ?? 0) > 30) reason.add('vento penalizzante');
-    final window = p.activeHours.take(4).map((e) => '${e.toString().padLeft(2, '0')}:00').join(' · ');
-    return SpeciesForecast(
-      name: name,
-      score: score.round().clamp(3, 97),
-      confidence: confidence.round().clamp(25, 95),
-      reason: reason.isEmpty ? 'stima basata su ciclo giornaliero e fenologia' : reason.join(', '),
-      bestWindow: window,
-    );
+    final supported = recentCount>0 || recentRemote>0;
+    if (supported) {qualityPoints++; score+=math.min(12,weightedHistory*3+math.min(6,recentRemote*1.5)); reasons.add('${sources.join(' + ')}: segnalazioni recenti nella zona');}
+    else {score=math.min(score,48.0); reasons.add('presenza locale non confermata dai dati disponibili');}
+    // Regional records are positive evidence, never a complete range map.
+    // Strict exclusion is reserved for explicit geographical incompatibility.
+    if (p.alpine && pos.latitude<44 && !supported) score=0;
+    if (p.localised && !supported) score=math.min(score,24.0);
+    if (w.temperature != null) {qualityPoints++; if(w.temperature!>30 && p.cycle!='nocturnal') {score-=5; reasons.add('caldo penalizzante');}}
+    if (w.wind != null && w.wind!>25) {score-=8; reasons.add('vento forte');}
+    if (w.precipitation != null && w.precipitation!>2) {score-=8; reasons.add('pioggia intensa');}
+    if (!habitatKnown) score=math.min(score,38.0);
+    if (habitatKnown && !compatible) score=math.min(score,15.0);
+    if (altitude != null && (altitude < p.minAltitude || altitude > p.maxAltitude)) score=math.min(score,15.0);
+    if (!inSeason || dormant) score=math.min(score,15.0);
+    if (sun.dark) score=math.min(score,32.0);
+    final visits = surveys.where((s)=>s.species==name && s.phase==sun.phase && s.minutes>=15 && now.difference(s.at)>=Duration.zero && now.difference(s.at).inDays<=90 && _distance.as(LengthUnit.Kilometer,LatLng(pos.latitude,pos.longitude),LatLng(s.latitude,s.longitude))<=2).toList();
+    if (visits.isNotEmpty) reasons.add('controlli comparabili: ${visits.where((s)=>s.seen).length}/${visits.length} con incontro, durata ≥15 min; dato descrittivo');
+    final quality = qualityPoints>=5?'Buona':qualityPoints>=3?'Parziale':'Limitata';
+    final window = p.cycle=='nocturnal'?'Dopo il tramonto ${SolarContext.clock(sun.sunset)}; ascolto passivo':p.cycle=='crepuscular'?'Alba ${SolarContext.clock(sun.sunrise)} · tramonto ${SolarContext.clock(sun.sunset)}':'Ore di luce ${SolarContext.clock(sun.sunrise)}–${SolarContext.clock(sun.sunset)}';
+    return SpeciesForecast(name:name,score:score.round().clamp(0,90),confidence:qualityPoints*20,reason:reasons.join('; '),bestWindow:window,presenceSupported:supported,quality:quality);
   }
 
-  Future<WeatherContext> _weather(Position p) async {
-    final uri = Uri.https('api.open-meteo.com', '/v1/forecast', {
-      'latitude': '${p.latitude}',
-      'longitude': '${p.longitude}',
-      'current': 'temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m',
-      'daily': 'sunrise,sunset',
-      'forecast_days': '1',
-      'timezone': 'auto',
-    });
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+  Future<Map<String,dynamic>> _json(Uri uri, {String? body}) async {
+    final client = HttpClient()..connectionTimeout=const Duration(seconds:4);
     try {
-      final req = await client.getUrl(uri);
-      req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7');
-      final res = await req.close().timeout(const Duration(seconds: 8));
-      if (res.statusCode != 200) return const WeatherContext();
-      final data = jsonDecode(await res.transform(utf8.decoder).join()) as Map<String, dynamic>;
-      final c = data['current'] as Map<String, dynamic>? ?? const {};
-      final d = data['daily'] as Map<String, dynamic>? ?? const {};
-      DateTime? firstDate(String key) {
-        final rows = d[key] as List?;
-        return rows == null || rows.isEmpty ? null : DateTime.tryParse('${rows.first}');
-      }
-      return WeatherContext(
-        temperature: (c['temperature_2m'] as num?)?.toDouble(),
-        wind: (c['wind_speed_10m'] as num?)?.toDouble(),
-        precipitation: (c['precipitation'] as num?)?.toDouble(),
-        humidity: (c['relative_humidity_2m'] as num?)?.toDouble(),
-        weatherCode: (c['weather_code'] as num?)?.toInt(),
-        sunrise: firstDate('sunrise'),
-        sunset: firstDate('sunset'),
-      );
-    } finally {
-      client.close(force: true);
-    }
+      return await (() async {
+        final req = await client.openUrl(body==null?'GET':'POST',uri);
+        req.headers.set(HttpHeaders.userAgentHeader,'WildTrack/0.7.12 (non-commercial wildlife field guide)');
+        if (body!=null) {req.headers.contentType=ContentType('application','x-www-form-urlencoded');req.write(body);}
+        final response = await req.close();
+        if(response.statusCode!=200) throw const HttpException('Servizio non disponibile');
+        return Map<String,dynamic>.from(jsonDecode(await response.transform(utf8.decoder).join()) as Map);
+      })().timeout(const Duration(seconds:8));
+    } finally {client.close(force:true);}
   }
-
+  Future<WeatherContext> _weather(Position p) async {
+    final key=_cell(p), now=DateTime.now(), cached=_weatherCache[_cell(p)];
+    if(cached!=null && now.difference(cached.$1)<const Duration(minutes:10)) return cached.$2;
+    final data=await _json(Uri.https('api.open-meteo.com','/v1/forecast',{'latitude':'${p.latitude}','longitude':'${p.longitude}','current':'temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m','forecast_days':'1','timezone':'auto'}));
+    final c=data['current'] as Map? ?? const {};
+    final result=WeatherContext(temperature:(c['temperature_2m'] as num?)?.toDouble(),wind:(c['wind_speed_10m'] as num?)?.toDouble(),precipitation:(c['precipitation'] as num?)?.toDouble(),humidity:(c['relative_humidity_2m'] as num?)?.toDouble(),weatherCode:(c['weather_code'] as num?)?.toInt(),fetchedAt:now);
+    _weatherCache[key]=(now,result); if(_weatherCache.length>30)_weatherCache.remove(_weatherCache.keys.first); return result;
+  }
   Future<HabitatContext> _habitat(Position p) async {
-    final query = '[out:json][timeout:6];(way(around:1400,${p.latitude},${p.longitude})[natural];way(around:1400,${p.latitude},${p.longitude})[landuse];way(around:1400,${p.latitude},${p.longitude})[leisure=nature_reserve];);out tags 45;';
-    final endpoints = [
-      'https://overpass-api.de/api/interpreter',
-      'https://overpass.kumi.systems/api/interpreter',
-      'https://overpass.private.coffee/api/interpreter',
-    ];
-    Set<String> tags = {};
-    for (final endpoint in endpoints) {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
-      try {
-        final req = await client.postUrl(Uri.parse(endpoint));
-        req.headers.contentType = ContentType('application', 'x-www-form-urlencoded');
-        req.write('data=${Uri.encodeQueryComponent(query)}');
-        final res = await req.close().timeout(const Duration(seconds: 7));
-        if (res.statusCode != 200) continue;
-        final data = jsonDecode(await res.transform(utf8.decoder).join()) as Map<String, dynamic>;
-        for (final raw in (data['elements'] as List? ?? const [])) {
-          final map = raw as Map<String, dynamic>;
-          final t = map['tags'] as Map<String, dynamic>? ?? const {};
-          final natural = '${t['natural'] ?? ''}';
-          final landuse = '${t['landuse'] ?? ''}';
-          if (const {'wood', 'forest'}.contains(natural) || landuse == 'forest') tags.add('forest');
-          if (const {'grassland', 'heath', 'scrub'}.contains(natural) || const {'meadow', 'grass', 'pasture'}.contains(landuse)) tags.add('meadow');
-          if (const {'wetland', 'marsh'}.contains(natural)) tags.add('wetland');
-          if (const {'water', 'bay'}.contains(natural) || landuse == 'reservoir') tags.add('water');
-          if (const {'bare_rock', 'scree', 'shingle', 'cliff'}.contains(natural)) tags.add('rock');
-          if (const {'farmland', 'orchard', 'vineyard'}.contains(landuse)) tags.add('farmland');
-          if (const {'residential', 'commercial', 'industrial'}.contains(landuse)) tags.add('urban');
-        }
-        if (tags.isNotEmpty) break;
-      } catch (_) {
-        // provider successivo
-      } finally {
-        client.close(force: true);
+    final key=_cell(p), now=DateTime.now(), cached=_habitatCache[_cell(p)];
+    final elevation=p.altitude.isFinite && p.altitudeAccuracy>0 && p.altitudeAccuracy<=100?p.altitude:null;
+    if(cached!=null && now.difference(cached.$1)<const Duration(hours:1))return HabitatContext(primary:cached.$2.primary,tags:cached.$2.tags,elevation:elevation,mapped:cached.$2.mapped,fetchedAt:cached.$2.fetchedAt);
+    // Include multipolygons as well as ways; no altitude-based fabricated habitat.
+    final query='[out:json][timeout:5];(way(around:1400,${p.latitude},${p.longitude})[natural];relation(around:1400,${p.latitude},${p.longitude})[natural];way(around:1400,${p.latitude},${p.longitude})[landuse];relation(around:1400,${p.latitude},${p.longitude})[landuse];way(around:1400,${p.latitude},${p.longitude})[leisure=park];);out tags 100;';
+    Map<String,dynamic>? data;
+    for(final endpoint in ['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter']) {
+      try {data=await _json(Uri.parse(endpoint),body:'data=${Uri.encodeQueryComponent(query)}');if(data['remark']==null)break;data=null;}catch(_){}
+    }
+    final tags=<String>{};
+    for(final raw in data?['elements'] as List? ?? const []) {
+      final t=(raw as Map)['tags'] as Map? ?? const {}, natural=t['natural'], landuse=t['landuse'];
+      if(natural=='wood'||landuse=='forest')tags.add('forest');
+      if(['grassland','heath'].contains(natural)||['meadow','grass','pasture'].contains(landuse))tags.add('meadow');
+      if(natural=='scrub')tags.add('scrub');
+      if(natural=='wetland')tags.add('wetland');
+      if(natural=='water'||landuse=='reservoir')tags.add('water');
+      if(['bare_rock','scree','cliff'].contains(natural))tags.add('rock');
+      if(['farmland','orchard','vineyard'].contains(landuse))tags.add('farmland');
+      if(['residential','commercial','industrial'].contains(landuse))tags.add('urban');
+      if(t['leisure']=='park')tags.add('park');
+    }
+    final result=HabitatContext(primary:tags.isEmpty?'unknown':tags.length>1?'mosaic':tags.first,tags:tags.isEmpty?const {'unknown'}:tags,elevation:elevation,mapped:tags.isNotEmpty,fetchedAt:now);
+    if(tags.isNotEmpty){_habitatCache[key]=(now,result);if(_habitatCache.length>30)_habitatCache.remove(_habitatCache.keys.first);}return result;
+  }
+  Future<List<RadarEvidence>> _regionalEvidence(Position p) async {
+    final key='${(p.latitude*10).floor()}:${(p.longitude*10).floor()}', now=DateTime.now(), cached=_evidenceCache['${(p.latitude*10).floor()}:${(p.longitude*10).floor()}'];
+    if(cached!=null && now.difference(cached.$1)<const Duration(hours:6))return cached.$2;
+    final out=<RadarEvidence>[];
+    try {
+      final bundled=jsonDecode(await rootBundle.loadString('nature_assets.json')) as Map;
+      final taxa=(bundled['taxa'] as Map).values.map((e)=>'$e').toList();
+      final deltaLat=.38, deltaLon=.38/math.cos(p.latitude*math.pi/180).abs().clamp(.2,1);
+      final q=<String,dynamic>{'taxonKey':taxa,'hasCoordinate':'true','hasGeospatialIssue':'false','occurrenceStatus':'PRESENT','basisOfRecord':['HUMAN_OBSERVATION','MACHINE_OBSERVATION'],'eventDate':'${now.subtract(const Duration(days:730)).toUtc().toIso8601String().split('T').first},${now.toUtc().toIso8601String().split('T').first}','decimalLatitude':'${(p.latitude-deltaLat).clamp(-90,90)},${(p.latitude+deltaLat).clamp(-90,90)}','decimalLongitude':'${(p.longitude-deltaLon).clamp(-180,180)},${(p.longitude+deltaLon).clamp(-180,180)}','limit':'300'};
+      final data=await _json(Uri.https('api.gbif.org','/v1/occurrence/search',q));
+      final byLatin={for(final e in radarProfiles.entries)e.value.latin:e.key};
+      for(final r in data['results'] as List? ?? const []) {
+        final e=r as Map, name=byLatin[e['species']], at=DateTime.tryParse('${e['eventDate']}');
+        if(name==null||at==null||e['decimalLatitude'] is!num||e['decimalLongitude'] is!num)continue;
+        final uncertainty=e['coordinateUncertaintyInMeters'];if(uncertainty is num&&uncertainty>2000)continue;
+        out.add(RadarEvidence('gbif:${e['key']}',name,(e['decimalLatitude'] as num).toDouble(),(e['decimalLongitude'] as num).toDouble(),at,'GBIF (campione regionale)'));
       }
-    }
-    if (tags.isEmpty) {
-      tags = {p.altitude > 1500 ? 'rock' : p.altitude > 700 ? 'forest' : 'edge'};
-    }
-    final primary = ['forest', 'meadow', 'rock', 'wetland', 'water', 'farmland', 'urban', 'edge'].firstWhere(tags.contains, orElse: () => tags.first);
-    return HabitatContext(primary: primary, tags: tags, elevation: p.altitude.isFinite ? p.altitude : null);
+    }catch(_){}
+    // Community is read-only: no presence publication and no private map access.
+    try {
+      final data=await _json(Uri.parse('$communityUrl/api/sightings'));
+      for(final raw in (data['items'] as List? ?? const []).take(300)) {
+        final e=raw as Map, name='${e['species']}', at=DateTime.tryParse('${e['timestamp'] ?? e['observed_at'] ?? ''}');
+        final lat=e['lat']??e['latitude'], lon=e['lng']??e['longitude'];
+        if(!radarProfiles.containsKey(name)||at==null||lat is!num||lon is!num)continue;
+        out.add(RadarEvidence('community:${e['id']}',name,lat.toDouble(),lon.toDouble(),at,'Community (non verificata)'));
+      }
+    }catch(_){}
+    if(out.isNotEmpty){_evidenceCache[key]=(now,out);if(_evidenceCache.length>20)_evidenceCache.remove(_evidenceCache.keys.first);}return out;
   }
 
   BiodiversityReport biodiversity(List<Sighting> sightings, List<TrackSession> sessions) {

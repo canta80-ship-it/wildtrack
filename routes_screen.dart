@@ -1,3 +1,5 @@
+import 'outing_delete_widget.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -19,7 +21,14 @@ class _RoutesScreenState extends State<RoutesScreen> {
   @override
   void initState() {
     super.initState();
+    DatabaseService.instance.changes.addListener(_load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    DatabaseService.instance.changes.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -43,7 +52,13 @@ class _RoutesScreenState extends State<RoutesScreen> {
                 return Card(
                   child: ListTile(
                     leading: const Icon(Icons.route),
-                    trailing: const Icon(Icons.map_outlined),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutingDeleteButton(session: s),
+                        const Icon(Icons.map_outlined),
+                      ],
+                    ),
                     onTap: () async {
                       try {
                         final points = await DatabaseService.instance

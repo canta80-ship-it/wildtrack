@@ -10,6 +10,8 @@ class Sighting {
   final String positionSource;
   final DateTime timestamp;
   final String? photoPath;
+  final String publicationState;
+  bool get isPublic => publicationState == 'public';
 
   const Sighting({
     required this.id,
@@ -23,6 +25,7 @@ class Sighting {
     this.kind = 'Animale',
     this.accuracy,
     this.positionSource = 'gps',
+    this.publicationState = 'private',
   });
 
   bool get hasPosition => latitude != null && longitude != null;
@@ -39,6 +42,7 @@ class Sighting {
     'kind': kind,
     'accuracy': accuracy,
     'position_source': positionSource,
+    'publication_state': publicationState,
   };
 
   static Sighting fromMap(Map<String, Object?> map) => Sighting(
@@ -53,5 +57,6 @@ class Sighting {
     kind: map['kind'] as String? ?? 'Animale',
     accuracy: (map['accuracy'] as num?)?.toDouble(),
     positionSource: map['position_source'] as String? ?? 'gps',
+    publicationState: map['publication_state'] as String? ?? 'private',
   );
 }

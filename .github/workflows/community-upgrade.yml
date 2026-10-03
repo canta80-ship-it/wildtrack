@@ -1,0 +1,61 @@
+name: Verify Community APK upgrade
+on:
+  push:
+    branches: [interface-reference]
+    paths: [.github/workflows/community-upgrade.yml, tool/community_upgrade_check.py]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  upgrade:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for the exact tested APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'CHECK'
+          import json,os,time,urllib.request
+          url='https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37138624170'
+          for attempt in range(96):
+            req=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+            run=json.load(urllib.request.urlopen(req))
+            if run['status']=='completed':
+              assert run['conclusion']=='success',run['conclusion']
+              break
+            time.sleep(5)
+          else: raise RuntimeError('APK build not completed')
+          CHECK
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 37138624170
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: new-apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 37124910108
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: old-apk
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 tool/community_upgrade_check.py old-apk/WildTrack-release.apk new-apk/WildTrack-release.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WildTrack-Community-upgrade-proof
+          path: upgrade-results/

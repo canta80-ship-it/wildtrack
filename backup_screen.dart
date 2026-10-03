@@ -63,13 +63,13 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Future<void> _restore() async {
+  Future<void> _restore({bool selectFile = false}) async {
     if (busy) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Ripristinare il backup?'),
-        content: const Text('Avvistamenti, uscite, foto, profilo, impostazioni e stato locale delle spedizioni verranno sostituiti con l’ultimo backup disponibile.'),
+        content: const Text('Avvistamenti, uscite, foto, profilo, impostazioni e stato locale delle spedizioni verranno sostituiti con il backup scelto.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Annulla')),
           FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Ripristina')),
@@ -79,7 +79,7 @@ class _BackupScreenState extends State<BackupScreen> {
     if (ok != true) return;
     setState(() { busy = true; status = 'Ripristino in corso…'; });
     try {
-      await WildTrackBackupService.instance.restoreLatest();
+      if (selectFile) {final restored = await WildTrackBackupService.instance.restoreFile();if (!restored) {if (mounted) setState(() => status = 'Selezione annullata.');return;}} else {await WildTrackBackupService.instance.restoreLatest();}
       if (mounted) setState(() => status = 'Ripristino completato. I dati WildTrack sono stati aggiornati.');
     } catch (e) {
       if (mounted) setState(() => status = 'Ripristino non riuscito: $e');
@@ -159,7 +159,10 @@ class _BackupScreenState extends State<BackupScreen> {
           const SizedBox(height: 14),
           WildPrimaryButton(label: busy ? 'Operazione in corso…' : 'Backup adesso', icon: Icons.cloud_upload_outlined, onPressed: busy || folder == null ? null : _backup),
           const SizedBox(height: 9),
-          WildOutlineButton(label: 'Ripristina ultimo backup', icon: Icons.restore, onPressed: busy || folder == null ? null : _restore),
+          WildOutlineButton(label: 'Ripristina ultimo backup', icon: Icons.restore, onPressed: busy || folder == null ? null : () => _restore()),
+          const SizedBox(height: 9),
+          WildOutlineButton(label: 'Scegli file da ripristinare', icon: Icons.folder_open_outlined, onPressed: busy ? null : () => _restore(selectFile: true)),
+          const Text('Se la cartella cloud non è accessibile, scegli direttamente il file .wildtrack. Se il permesso è scaduto, seleziona nuovamente la cartella.'),
           if (status != null) ...[
             const SizedBox(height: 12),
             Container(padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: const Color(0xFFF3E9DB), borderRadius: BorderRadius.circular(18)), child: Text(status!, style: const TextStyle(fontSize: 11))),

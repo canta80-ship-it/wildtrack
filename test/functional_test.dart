@@ -1,0 +1,1766 @@
+import 'package:wildtrack_mvp/services/outdoor_tools_service.dart';
+import 'package:wildtrack_mvp/screens/outing_diary_screen.dart';
+import 'package:intl/intl.dart';
+import 'package:wildtrack_mvp/services/outing_management_service.dart';
+import 'package:wildtrack_mvp/screens/outing_delete_widget.dart';
+import 'package:wildtrack_mvp/screens/diary_metric_screen.dart';
+import 'package:wildtrack_mvp/screens/premium_stats_screen.dart';
+import 'package:wildtrack_mvp/screens/sighting_diary_screen.dart';
+import 'package:wildtrack_mvp/services/sighting_management_service.dart';
+
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:wildtrack_mvp/screens/map_position_screen.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'dart:async';
+
+import 'package:geolocator/geolocator.dart';
+import 'package:wildtrack_mvp/services/location_service.dart';
+import 'package:wildtrack_mvp/services/tracking_service.dart';
+import 'package:wildtrack_mvp/services/radar_service.dart';
+import 'package:wildtrack_mvp/screens/sos_screen.dart';
+import 'package:wildtrack_mvp/screens/real_geo_stats_widget.dart';
+import 'package:wildtrack_mvp/screens/lens_assistant_screen.dart';
+import 'package:wildtrack_mvp/screens/camera_assistant_screen.dart';
+import 'package:wildtrack_mvp/screens/guide_screen.dart';
+import 'package:wildtrack_mvp/main.dart' show wildTrackTheme;
+import 'package:wildtrack_mvp/models/sighting.dart';
+import 'package:wildtrack_mvp/models/track_point.dart';
+import 'package:wildtrack_mvp/models/track_session.dart';
+import 'package:wildtrack_mvp/services/database_service.dart';
+import 'package:wildtrack_mvp/services/preferences_service.dart';
+import 'package:wildtrack_mvp/services/auth_service.dart';
+import 'package:wildtrack_mvp/services/media_storage_service.dart';
+import 'package:wildtrack_mvp/services/privacy_service.dart';
+import 'package:wildtrack_mvp/services/expedition_service.dart';
+import 'package:wildtrack_mvp/services/exploration_service.dart';
+import 'package:wildtrack_mvp/services/activity_map_service.dart';
+import 'package:wildtrack_mvp/services/community_service.dart';
+import 'package:wildtrack_mvp/services/backup_service.dart';
+import 'package:wildtrack_mvp/services/wildtrack_intelligence_service.dart';
+import 'package:wildtrack_mvp/screens/access_screen.dart';
+import 'package:wildtrack_mvp/screens/session_gate_screen.dart';
+import 'package:wildtrack_mvp/screens/premium_home_screen.dart';
+import 'package:wildtrack_mvp/screens/did_you_know_widget.dart';
+import 'package:wildtrack_mvp/services/did_you_know_service.dart';
+import 'package:wildtrack_mvp/screens/premium_sighting_screen.dart';
+import 'package:wildtrack_mvp/screens/premium_animal_screen.dart';
+import 'package:wildtrack_mvp/screens/species_screen.dart';
+import 'package:wildtrack_mvp/screens/species_detail_screen.dart';
+
+final empty = <String, dynamic>{
+  'schemaVersion': 4,
+  'sightings': [],
+  'sightingPhotos': [],
+  'sessions': [],
+  'trackPoints': [],
+};
+Sighting row(
+  String id, {
+  String species = 'Cervo',
+  int count = 1,
+  DateTime? at,
+  String? photo,
+}) => Sighting(
+  id: id,
+  species: species,
+  count: count,
+  notes: 'nota test',
+  latitude: 46.1,
+  longitude: 12.2,
+  timestamp: at ?? DateTime(2026, 9, 20),
+  photoPath: photo,
+);
+TrackSession session(String id) => TrackSession(
+  id: id,
+  startedAt: DateTime(2026, 9, 20, 8),
+  endedAt: DateTime(2026, 9, 20, 9),
+  distanceMeters: 3600,
+  ascentMeters: 150,
+  descentMeters: 80,
+  notes: 'uscita',
+);
+List<TrackPoint> points() => [
+  TrackPoint(
+    latitude: 46.1,
+    longitude: 12.2,
+    altitude: 500,
+    timestamp: DateTime(2026, 9, 20, 8),
+  ),
+  TrackPoint(
+    latitude: 46.11,
+    longitude: 12.21,
+    altitude: 510,
+    timestamp: DateTime(2026, 9, 20, 8, 1),
+  ),
+];
+
+class TestGps extends GeolocatorPlatform {
+  TestGps({this.enabled = true});
+  final bool enabled;
+  final stream = StreamController<Position>.broadcast();
+  @override
+  Future<bool> isLocationServiceEnabled() async => enabled;
+  @override
+  Future<LocationPermission> checkPermission() async => enabled
+      ? LocationPermission.whileInUse
+      : LocationPermission.deniedForever;
+  @override
+  Future<LocationPermission> requestPermission() async => enabled
+      ? LocationPermission.whileInUse
+      : LocationPermission.deniedForever;
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      stream.stream;
+}
+
+Position gps(
+  double lat,
+  DateTime at, {
+  double accuracy = 5,
+  double altitude = 500,
+}) => Position(
+  latitude: lat,
+  longitude: 12,
+  timestamp: at,
+  accuracy: accuracy,
+  altitude: altitude,
+  altitudeAccuracy: 1,
+  heading: 0,
+  headingAccuracy: 1,
+  speed: 1,
+  speedAccuracy: 1,
+);
+
+class OfflineTestTiles extends TileProvider {
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
+      const AssetImage('assets/approved/cervo_thumb.jpg');
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  final db = DatabaseService.instance, prefs = PreferencesService.instance;
+  late Directory temp;
+  setUpAll(() async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfiNoIsolate;
+    temp = await Directory.systemTemp.createTemp('wildtrack-functional-');
+    await databaseFactory.setDatabasesPath(temp.path);
+    await prefs.load();
+    for (final entry in <String, List<String>>{
+      'serif': [
+        'assets/approved/editorial_serif.ttf',
+        'assets/approved/editorial_serif_italic.ttf',
+      ],
+      'sans-serif': ['assets/approved/interface_sans.ttf'],
+      'Roboto': ['assets/approved/interface_sans.ttf'],
+      'WildTrackIcons': ['assets/approved/wildtrack_icons.ttf'],
+      'MaterialIcons': ['fonts/MaterialIcons-Regular.otf'],
+    }.entries) {
+      final loader = FontLoader(entry.key);
+      for (final path in entry.value) loader.addFont(rootBundle.load(path));
+      await loader.load();
+    }
+  });
+  setUp(() async {
+    await db.restoreSnapshot(empty);
+    final f = File('${temp.path}/wildtrack_local_account.json');
+    if (await f.exists()) await f.delete();
+    prefs.loginIdentifier = '';
+    prefs.visible = false;
+    prefs.backgroundSharing = false;
+    CommunityService.instance.foreground = true;
+    CommunityService.instance.pending.clear();
+  });
+  tearDownAll(() async {
+    await (await db.database).close();
+    await temp.delete(recursive: true);
+  });
+
+  test('Community identity survives settings removal and reload', () async {
+    final identity = prefs.token;
+    await prefs.save();
+    await prefs.file.delete();
+    final fresh = PreferencesService();
+    await fresh.load();
+    expect(fresh.token, identity);
+    fresh.nickname = 'Nuovo nickname';
+    await fresh.save();
+    await prefs.load();
+    expect(prefs.token, identity);
+  });
+
+  test('Restored own public sighting recovers diary photo without duplicates', () async {
+    final payload = <String, dynamic>{'id': 'recovered', 'species': 'Upupa', 'count': 2,
+      'observedAt': '2026-10-01T08:00:00Z', 'lat': 46.0, 'lng': 13.0};
+    await db.retainPublicSighting(payload);
+    final photo = File('${temp.path}/recovered.png');
+    await photo.writeAsBytes([137,80,78,71,13,10,26,10]);
+    await db.attachRecoveredPhoto('recovered', photo.path);
+    await db.retainPublicSighting(payload);
+    final rows = await db.getSightings();
+    expect(rows, hasLength(1)); expect(rows.single.species, 'Upupa');
+    expect(rows.single.photoPath, photo.path); expect(rows.single.isPublic, true);
+    expect(await db.getSightingPhotos('recovered'), [photo.path]);
+  });
+
+  test('Removing sharing preserves the private diary, species and photo', () async {
+    await db.retainPublicSighting({'id':'keep-private', 'species':'Volpe', 'count':2});
+    await db.attachRecoveredPhoto('keep-private', '${temp.path}/volpe.png');
+    await db.makeSightingPrivate('keep-private');
+    final sighting = (await db.getSightings()).single;
+    expect(sighting.species, 'Volpe'); expect(sighting.count, 2);
+    expect(sighting.publicationState, 'private');
+    expect(sighting.photoPath, '${temp.path}/volpe.png');
+    expect(await db.getSightingPhotos('keep-private'), ['${temp.path}/volpe.png']);
+  });
+
+  test('Another creator cannot delete a cached Community post', () async {
+    final community = CommunityService.instance;
+    community.sightings = [{'id': 'other-post', 'mine': 0}];
+    await expectLater(community.deleteSighting('other-post'), throwsException);
+    expect(community.sightings.single['id'], 'other-post');
+    community.sightings = [];
+  });
+
+  test(
+    'MODEL sighting roundtrip preserves coordinates photo kind accuracy',
+    () {
+      final s = Sighting(
+        id: 's',
+        species: 'Volpe',
+        count: 3,
+        notes: 'traccia',
+        latitude: 46,
+        longitude: 12,
+        timestamp: DateTime(2026),
+        kind: 'Impronta',
+        accuracy: 7,
+        positionSource: 'manual',
+        photoPath: 'p.jpg',
+      );
+      final r = Sighting.fromMap(s.toMap());
+      expect(r.toMap(), s.toMap());
+      expect(r.hasPosition, true);
+    },
+  );
+  test('MODEL legacy sightings retain defaults and missing position', () {
+    final m = row('s').toMap()
+      ..remove('kind')
+      ..remove('position_source')
+      ..['latitude'] = null;
+    final s = Sighting.fromMap(m);
+    expect(s.kind, 'Animale');
+    expect(s.positionSource, 'gps');
+    expect(s.hasPosition, false);
+  });
+  test('MODEL track session publication roundtrip and clearing', () {
+    final s = session(
+      't',
+    ).copyWith(isPublic: true, publishedAt: DateTime(2026), notes: 'pubblico');
+    expect(TrackSession.fromMap(s.toMap()).toMap(), s.toMap());
+    expect(s.averageSpeedMps, 1);
+    expect(s.copyWith(clearPublishedAt: true).publishedAt, null);
+  });
+  test('MODEL zero duration cannot divide by zero', () {
+    final s = TrackSession(
+      id: 'z',
+      startedAt: DateTime(2026),
+      endedAt: DateTime(2026),
+      distanceMeters: 500,
+      ascentMeters: 0,
+    );
+    expect(s.averageSpeedMps, 0);
+  });
+  test('GPS disabled prevents start and returns missing position', () async {
+    final old = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+    GeolocatorPlatform.instance = fake;
+    try {
+      expect(await LocationService.currentPosition(), null);
+      expect(await TrackingService.instance.start(), false);
+      expect(TrackingService.instance.isTracking, false);
+    } finally {
+      GeolocatorPlatform.instance = old;
+      await fake.stream.close();
+    }
+  });
+  test(
+    'TRACKING simulated GPS records chronological accurate points and distance',
+    () async {
+      final old = GeolocatorPlatform.instance, fake = TestGps();
+      GeolocatorPlatform.instance = fake;
+      try {
+        final track = TrackingService.instance;
+        expect(await track.start(), true);
+        final at = DateTime.now();
+        fake.stream.add(gps(46, at));
+        fake.stream.add(
+          gps(46.0005, at.add(const Duration(seconds: 10)), altitude: 510),
+        );
+        fake.stream.add(
+          gps(47, at.add(const Duration(seconds: 20)), accuracy: 200),
+        );
+        fake.stream.add(gps(46, at.subtract(const Duration(seconds: 10))));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final saved = await track.stop();
+        expect(saved, isNotNull);
+        expect(track.points, hasLength(2));
+        expect(saved!.distanceMeters, inInclusiveRange(50, 60));
+        expect(saved.ascentMeters, 10);
+        expect(await db.getTrackPoints(saved.id), hasLength(2));
+        expect(track.isTracking, false);
+      } finally {
+        GeolocatorPlatform.instance = old;
+        await fake.stream.close();
+      }
+    },
+  );
+  test('RADAR missing GPS does not claim live weather or position', () async {
+    final old = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+    GeolocatorPlatform.instance = fake;
+    try {
+      final radar = await RadarService.instance.load();
+      expect(radar.hasPosition, false);
+      expect(radar.weatherAvailable, false);
+      expect(radar.species, isEmpty);
+      for (final s in radar.species) expect(s.score, inInclusiveRange(0, 100));
+    } finally {
+      GeolocatorPlatform.instance = old;
+      await fake.stream.close();
+    }
+  });
+  test('DB sightings insert update chronological order', () async {
+    await db.insertSighting(row('old', at: DateTime(2020)));
+    await db.insertSighting(row('new'));
+    await db.insertSighting(row('new', count: 4));
+    final s = await db.getSightings();
+    expect(s.map((e) => e.id), ['new', 'old']);
+    expect(s.first.count, 4);
+  });
+  test('DB multi photo order replacement and delete cascade', () async {
+    await db.insertSighting(row('s'));
+    await db.replaceSightingPhotos('s', ['a', 'b', 'c']);
+    expect(await db.getSightingPhotos('s'), ['a', 'b', 'c']);
+    await db.replaceSightingPhotos('s', ['c', 'a']);
+    expect(await db.getSightingPhotos('s'), ['c', 'a']);
+    await db.deleteSighting('s');
+    expect(await db.getSightingPhotos('s'), isEmpty);
+    expect(await db.getSightings(), isEmpty);
+  });
+  test('DB sessions track points activity map and edits', () async {
+    await db.saveSession(session('t'), points());
+    await db.updateSession(
+      session('t').copyWith(notes: 'modificata', isPublic: true),
+    );
+    final s = (await db.getSessions()).single;
+    expect(s.notes, 'modificata');
+    expect(s.isPublic, true);
+    expect(await db.getTrackPoints('t'), hasLength(2));
+    final map = (await ActivityMapService.instance.load()).single;
+    expect(map.route, hasLength(2));
+    expect(map.route.first.latitude, 46.1);
+  });
+  test('DB incremental recording persists points and session', () async {
+    await db.appendTrackPoint(session('t'), null);
+    for (final p in points()) await db.appendTrackPoint(session('t'), p);
+    expect(await db.getSessions(), hasLength(1));
+    expect(await db.getTrackPoints('t'), hasLength(2));
+  });
+  test('DB snapshot restore includes photos and routes', () async {
+    await db.insertSighting(row('s'));
+    await db.replaceSightingPhotos('s', ['a', 'b']);
+    await db.saveSession(session('t'), points());
+    final snap = await db.exportSnapshot();
+    await db.restoreSnapshot(empty);
+    await db.restoreSnapshot(snap);
+    expect(await db.getSightings(), hasLength(1));
+    expect(await db.getSightingPhotos('s'), ['a', 'b']);
+    expect(await db.getTrackPoints('t'), hasLength(2));
+  });
+  test('DB invalid backup version preserves existing records', () async {
+    await db.insertSighting(row('keep'));
+    await expectLater(
+      db.restoreSnapshot({'schemaVersion': 99}),
+      throwsFormatException,
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+  });
+  test('DB failed restore rolls back transaction', () async {
+    await db.insertSighting(row('keep'));
+    await expectLater(
+      db.restoreSnapshot({
+        ...empty,
+        'sightings': [
+          {'id': 'broken'},
+        ],
+      }),
+      throwsA(anything),
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+  });
+  test('DB legacy restore migrates single photo', () async {
+    await db.restoreSnapshot({
+      ...empty,
+      'schemaVersion': 1,
+      'sightings': [row('old', photo: 'legacy.jpg').toMap()],
+    });
+    expect(await db.getSightingPhotos('old'), ['legacy.jpg']);
+  });
+  test('PREF settings and camera profile survive reload', () async {
+    prefs.theme = ThemeMode.dark;
+    prefs.repeats = 4;
+    prefs.fieldSilence = true;
+    prefs.cameraLabel = 'Test camera';
+    prefs.cameraIso = 1600;
+    prefs.cameraFocalMm = 500;
+    await prefs.save();
+    prefs.cameraLabel = '';
+    prefs.cameraIso = 100;
+    prefs.cameraFocalMm = 20;
+    await prefs.load();
+    expect(prefs.theme, ThemeMode.dark);
+    expect(prefs.repeats, 4);
+    expect(prefs.fieldSilence, true);
+    expect(prefs.cameraLabel, 'Test camera');
+    expect(prefs.cameraIso, 1600);
+    expect(prefs.cameraFocalMm, 500);
+  });
+  test('PREF token stable across restarts and repeat limit', () async {
+    final token = prefs.token;
+    await prefs.save();
+    final raw =
+        jsonDecode(await prefs.file.readAsString()) as Map<String, dynamic>;
+    raw['repeats'] = 99;
+    await prefs.file.writeAsString(jsonEncode(raw));
+    await prefs.load();
+    expect(prefs.token, token);
+    expect(prefs.repeats, 5);
+  });
+  test('AUTH register valid local account and reject wrong password', () async {
+    expect(
+      await AuthService.instance.register(' Test.User ', 'password-test'),
+      'test.user',
+    );
+    expect(
+      await AuthService.instance.signIn('test.user', 'password-test'),
+      'test.user',
+    );
+    await expectLater(
+      AuthService.instance.signIn('test.user', 'wrong'),
+      throwsA(anything),
+    );
+  });
+  test('AUTH reject short username and password', () async {
+    expect(
+      () => AuthService.instance.normalizeUsername('aa'),
+      throwsA(anything),
+    );
+    await expectLater(
+      AuthService.instance.register('test', 'short'),
+      throwsA(anything),
+    );
+  });
+  test('AUTH duplicate registration must not overwrite credentials', () async {
+    await AuthService.instance.register('test.user', 'password-old');
+    await expectLater(
+      AuthService.instance.register('test.user', 'password-new'),
+      throwsA(anything),
+    );
+    expect(
+      await AuthService.instance.signIn('test.user', 'password-old'),
+      'test.user',
+    );
+  });
+  test('AUTH signout clears current local session', () async {
+    await AuthService.instance.register('test.user', 'password-test');
+    await AuthService.instance.signOut();
+    expect(await AuthService.instance.currentUsername(), null);
+  });
+  test(
+    'AUTH recovery requires secret code and preserves account after logout',
+    () async {
+      final auth = AuthService.instance;
+      await auth.register('test.user', 'old-password');
+      final code = await auth.createRecoveryCode();
+      await auth.signOut();
+      await expectLater(
+        auth.recoverPassword('test.user', 'wrong-code', 'new-password'),
+        throwsA(anything),
+      );
+      await auth.recoverPassword('test.user', code, 'new-password');
+      expect(await auth.currentUsername(), null);
+      await expectLater(
+        auth.signIn('test.user', 'old-password'),
+        throwsA(anything),
+      );
+      expect(await auth.signIn('test.user', 'new-password'), 'test.user');
+      expect(await auth.currentUsername(), 'test.user');
+    },
+  );
+  test('PREF species favorites survive reload and toggle off', () async {
+    prefs.favoriteSpecies = {};
+    await prefs.toggleFavorite('Cervo');
+    prefs.favoriteSpecies = {};
+    await prefs.load();
+    expect(prefs.favoriteSpecies, contains('Cervo'));
+    await prefs.toggleFavorite('Cervo');
+    await prefs.load();
+    expect(prefs.favoriteSpecies, isNot(contains('Cervo')));
+  });
+  test('MEDIA missing photos are handled without exception', () async {
+    expect(await MediaStorageService.instance.persistPhoto(null, 'x'), null);
+    expect(
+      await MediaStorageService.instance.persistPhoto(
+        '${temp.path}/missing.jpg',
+        'x',
+      ),
+      null,
+    );
+  });
+  test('MEDIA saved photo survives source deletion', () async {
+    final source = File('${temp.path}/source.png');
+    await source.writeAsBytes([1, 2, 3, 4]);
+    final target = await MediaStorageService.instance.persistPhoto(
+      source.path,
+      'saved',
+    );
+    await source.delete();
+    expect(await File(target!).readAsBytes(), [1, 2, 3, 4]);
+  });
+  test(
+    'TRAIL bundled itineraries have usable coordinates and lengths',
+    () async {
+      final trails = await ExplorationService.instance.presets();
+      expect(trails.length, greaterThanOrEqualTo(36));
+      for (final t in trails) {
+        expect(t.name, isNotEmpty);
+        expect(t.length, greaterThan(0));
+        expect(t.center.latitude, inInclusiveRange(-90, 90));
+        expect(t.center.longitude, inInclusiveRange(-180, 180));
+      }
+    },
+  );
+  test('TRAIL save overwrite remove survives disk reload', () async {
+    final service = ExplorationService.instance;
+    final t = NatureTrail({
+      'id': 'test',
+      'name': 'Sentiero',
+      'segments': [
+        [
+          [46.0, 12.0],
+          [46.01, 12.01],
+        ],
+      ],
+    });
+    await service.save(t);
+    await service.save(t);
+    expect((await service.saved()).where((e) => e.id == 'test'), hasLength(1));
+    await service.remove('test');
+    expect((await service.saved()).where((e) => e.id == 'test'), isEmpty);
+  });
+  test('EXPEDITION starts private updates shares and expires', () async {
+    final e = ExpeditionService.instance;
+    final s = await e.ensure(mapId: 'test', name: 'Test');
+    expect(s.positionSharing, false);
+    await e.setPositionSharing('test', true);
+    await e.reloadFromDisk();
+    expect((await e.get('test'))!.positionSharing, true);
+    await e.expireNow('test');
+    expect((await e.get('test'))!.positionSharing, false);
+    await expectLater(e.setPositionSharing('test', true), throwsStateError);
+  });
+  test(
+    'EXPEDITION deletion removes persisted state and preserves other groups',
+    () async {
+      final e = ExpeditionService.instance;
+      await e.ensure(mapId: 'delete-group', name: 'Da eliminare');
+      await e.ensure(mapId: 'keep-group', name: 'Conservato');
+      await e.setPositionSharing('delete-group', true);
+      await e.delete('delete-group');
+      await e.reloadFromDisk();
+      expect(await e.get('delete-group'), null);
+      expect((await e.get('keep-group'))!.name, 'Conservato');
+      await expectLater(
+        CommunityService.instance.deleteGroup({'id': 'keep-group', 'mine': 0}),
+        throwsException,
+      );
+      expect(await e.get('keep-group'), isNotNull);
+    },
+  );
+  test('EXPEDITION duration limited to fourteen days', () async {
+    final e = ExpeditionService.instance;
+    await e.ensure(mapId: 'duration', name: 'Test');
+    final s = await e.setDuration('duration', const Duration(days: 90));
+    expect(s.remaining.inHours, inInclusiveRange(335, 336));
+  });
+  test('PRIVACY critical species overrides exact user choice and delays publication', () {
+    final s = WildlifePrivacyService.instance.protect(
+      species: 'Lupo',
+      latitude: 46,
+      longitude: 12,
+      observedAt: DateTime.now(),
+      userRequestedApproximation: false,
+    );
+    expect(s.approximate, true);
+    expect(s.radiusMeters, 10000);
+    expect(s.publishAfter, isNotNull);
+    expect(s.latitude, isNot(46));
+  });
+  test('PRIVACY older sensitive sighting remains approximate', () {
+    final s = WildlifePrivacyService.instance.protect(
+      species: 'Orso bruno',
+      latitude: 46,
+      longitude: 12,
+      observedAt: DateTime.now().subtract(const Duration(days: 10)),
+    );
+    expect(s.radiusMeters, 5000);
+    expect(s.publishAfter, null);
+  });
+  test('PRIVACY ordinary exact and approximate choices respected', () {
+    final service = WildlifePrivacyService.instance;
+    final exact = service.protect(
+      species: 'Cervo',
+      latitude: 46,
+      longitude: 12,
+      observedAt: DateTime.now(),
+      userRequestedApproximation: false,
+    );
+    expect(exact.latitude, 46);
+    expect(exact.approximate, false);
+    final approx = service.protect(
+      species: 'Cervo',
+      latitude: 46,
+      longitude: 12,
+      observedAt: DateTime.now(),
+    );
+    expect(approx.radiusMeters, 1000);
+  });
+  test('PRIVACY public payload protected and private group unchanged', () {
+    final payload = {
+      'species': 'Lupo',
+      'lat': 46.0,
+      'lng': 12.0,
+      'observedAt': DateTime.now().toIso8601String(),
+      'approximate': false,
+    };
+    final p = WildlifePrivacyService.instance.protectPayload(payload);
+    expect(p['approximate'], true);
+    expect(p['privacyRadiusM'], 10000);
+    expect(p['publishAfter'], isNotNull);
+    final group = {...payload, 'groupId': 'private-test'};
+    expect(WildlifePrivacyService.instance.protectPayload(group), group);
+  });
+  test('COMMUNITY visibility disabled blocks location sharing', () {
+    final c = CommunityService.instance;
+    prefs.visible = false;
+    expect(c.canShare, false);
+    prefs.visible = true;
+    expect(c.canShare, true);
+    c.foreground = false;
+    expect(c.canShare, false);
+    prefs.backgroundSharing = true;
+    expect(c.canShare, false);
+  });
+  test('COMMUNITY outbox persists offline without publishing', () async {
+    final c = CommunityService.instance;
+    await c.load();
+    c.pending.clear();
+    c.pending.add({'id': 'test-only', 'species': 'Cervo'});
+    await c.saveQueue();
+    c.pending.clear();
+    await c.load();
+    expect(c.pending.single['id'], 'test-only');
+    c.pending.clear();
+    await c.saveQueue();
+  });
+  test('STATS biodiversity handles empty and unknown sightings', () {
+    final service = WildTrackIntelligenceService.instance;
+    expect(service.biodiversity([], []).score, 0);
+    expect(
+      service.biodiversity([
+        row('u', species: 'Specie non identificata'),
+      ], []).uniqueSpecies,
+      0,
+    );
+    final r = service.biodiversity(
+      [row('1'), row('2', species: 'Volpe')],
+      [session('t')],
+    );
+    expect(r.uniqueSpecies, 2);
+    expect(r.evenness, closeTo(1, 0.00001));
+    expect(r.score, inInclusiveRange(0, 100));
+  });
+  test('STATS lifers use earliest record not most recent', () {
+    final r = WildTrackIntelligenceService.instance.firstSightings([
+      row('new'),
+      row('old', at: DateTime(2020)),
+      row('u', species: 'Specie non identificata'),
+    ]);
+    expect(r['Cervo'], DateTime(2020));
+    expect(r.keys, ['Cervo']);
+  });
+  test(
+    'SPECIES all 31 records have distinct artwork complete signs and sources',
+    () {
+      expect(animals, hasLength(31));
+      expect(speciesDetails, hasLength(31));
+      expect(speciesDetails.values.map((e) => e.asset).toSet(), hasLength(31));
+      for (final animal in animals) {
+        final d = speciesDetails[animal.name]!;
+        expect(d.signs, hasLength(4));
+        expect(d.seasons, hasLength(4));
+        expect(Uri.parse(d.source).scheme, 'https');
+        expect(d.photo, isNotEmpty);
+      }
+    },
+  );
+  test('BACKUP rebuild restores records photos and nickname', () async {
+    prefs.nickname = 'backup-user';
+    await prefs.save();
+    final f = File(
+      '${(await MediaStorageService.instance.mediaDirectory).path}/backup.jpg',
+    );
+    await f.writeAsBytes([7, 8, 9]);
+    await db.insertSighting(row('backup', photo: f.path));
+    await db.replaceSightingPhotos('backup', [f.path]);
+    final bytes = await WildTrackBackupService.instance.buildBackup();
+    await db.restoreSnapshot(empty);
+    prefs.nickname = 'changed';
+    await f.delete();
+    await WildTrackBackupService.instance.restore(bytes);
+    expect((await db.getSightings()).single.id, 'backup');
+    expect(prefs.nickname, 'backup-user');
+    expect(await f.readAsBytes(), [7, 8, 9]);
+  });
+  test('BACKUP includes preparation progress and private return points', () async {
+    final store=OutdoorToolsStore.instance;
+    final original=await store.exportSnapshot();
+    try {
+      final snapshot=OutdoorToolsStore.empty();
+      snapshot['checklists']={'cervo-autumn-photo':['weather','camera']};
+      snapshot['points']=[ReturnPoint(id:'backup-auto',name:'Auto backup',kind:ReturnPointKind.auto,latitude:46,longitude:13,accuracy:5,savedAt:DateTime.utc(2026,10,3)).toJson()];
+      await store.restoreSnapshot(snapshot);
+      final bytes=await WildTrackBackupService.instance.buildBackup();
+      await store.restoreSnapshot(OutdoorToolsStore.empty());
+      await WildTrackBackupService.instance.restore(bytes);
+      expect(await store.checks('cervo-autumn-photo'),{'weather','camera'});
+      expect((await store.points()).single.name,'Auto backup');
+    } finally {await store.restoreSnapshot(original);}
+  });
+  test('BACKUP profile photo can be restored as empty after choosing a new photo', () async {
+    prefs.avatarBase64 = null;
+    await prefs.save();
+    final bytes = await WildTrackBackupService.instance.buildBackup();
+    prefs.avatarBase64 = 'new-photo';
+    await prefs.save();
+    await WildTrackBackupService.instance.restore(bytes);
+    expect(prefs.avatarBase64, isNull);
+    expect(CommunityService.instance.backupPaused, false);
+  });
+  test('BACKUP camera profile must restore with settings', () async {
+    prefs.cameraLabel = 'Original';
+    prefs.cameraIso = 1600;
+    await prefs.save();
+    final bytes = await WildTrackBackupService.instance.buildBackup();
+    prefs.cameraLabel = 'Changed';
+    prefs.cameraIso = 100;
+    await prefs.save();
+    await WildTrackBackupService.instance.restore(bytes);
+    expect(prefs.cameraLabel, 'Original');
+    expect(prefs.cameraIso, 1600);
+  });
+  test('BACKUP moving devices must reconnect restored photo paths', () async {
+    final media = await MediaStorageService.instance.mediaDirectory;
+    final f = File('${media.path}/transfer.jpg');
+    await f.writeAsBytes([3, 4]);
+    await db.insertSighting(
+      row('transfer', photo: '/old-device/wildtrack_media/transfer.jpg'),
+    );
+    await db.replaceSightingPhotos('transfer', [
+      '/old-device/wildtrack_media/transfer.jpg',
+    ]);
+    final bytes = await WildTrackBackupService.instance.buildBackup();
+    await WildTrackBackupService.instance.restore(bytes);
+    final s = (await db.getSightings()).single;
+    expect(s.photoPath, f.path);
+    expect(await db.getSightingPhotos('transfer'), [f.path]);
+  });
+  test('BACKUP invalid format rejected without clearing database', () async {
+    await db.insertSighting(row('keep'));
+    await expectLater(
+      WildTrackBackupService.instance.restore(
+        Uint8List.fromList(utf8.encode('{"format":"wrong"}')),
+      ),
+      throwsFormatException,
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+  });
+  test('BACKUP invalid media must not destroy existing data', () async {
+    await db.insertSighting(row('keep'));
+    final corrupt = {
+      'format': 'wildtrack-backup',
+      'backupVersion': 1,
+      'appData': {
+        'database': empty,
+        'media': [
+          {'name': 'broken.jpg', 'data': '%%%'},
+        ],
+      },
+    };
+    await expectLater(
+      WildTrackBackupService.instance.restore(
+        Uint8List.fromList(utf8.encode(jsonEncode(corrupt))),
+      ),
+      throwsFormatException,
+    );
+    final remaining = await db.getSightings();
+    expect(remaining, hasLength(1));
+    expect(remaining.single.id, 'keep');
+  });
+  test('BACKUP SQL failure rolls back database, photos and settings', () async {
+    await db.insertSighting(row('keep'));
+    final media = await MediaStorageService.instance.mediaDirectory;
+    final photo = File('${media.path}/keep.jpg');
+    await photo.writeAsBytes([9, 8, 7]);
+    prefs.cameraLabel = 'Keep';
+    await prefs.save();
+    final backup = jsonDecode(
+      utf8.decode(await WildTrackBackupService.instance.buildBackup()),
+    ) as Map;
+    backup['appData']['database']['sightings'] = [
+      {'id': 'bad', 'unknown_column': 'invalid'},
+    ];
+    backup['appData']['profileAndSettings']['cameraLabel'] = 'Lose';
+    await expectLater(
+      WildTrackBackupService.instance.restore(
+        Uint8List.fromList(utf8.encode(jsonEncode(backup))),
+      ),
+      throwsA(anything),
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+    expect(await photo.readAsBytes(), [9, 8, 7]);
+    expect(prefs.cameraLabel, 'Keep');
+  });
+  test('BACKUP invalid preferences rejected without changing data', () async {
+    await db.insertSighting(row('keep'));
+    final backup = jsonDecode(
+      utf8.decode(await WildTrackBackupService.instance.buildBackup()),
+    ) as Map;
+    backup['appData']['profileAndSettings']['repeats'] = 1.5;
+    await expectLater(
+      WildTrackBackupService.instance.restore(
+        Uint8List.fromList(utf8.encode(jsonEncode(backup))),
+      ),
+      throwsFormatException,
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+  });
+  test(
+    'PREF overlapping saves complete without losing preferences file',
+    () async {
+      prefs.cameraLabel = 'Concurrent';
+      await Future.wait([prefs.save(), prefs.save(), prefs.save()]);
+      await prefs.load();
+      expect(prefs.cameraLabel, 'Concurrent');
+    },
+  );
+  test('BACKUP traversal names rejected before changing archive', () async {
+    await db.insertSighting(row('keep'));
+    final backup = jsonDecode(
+      utf8.decode(await WildTrackBackupService.instance.buildBackup()),
+    ) as Map;
+    backup['appData']['media'] = [
+      {'name': '../escape.jpg', 'data': 'AQI='},
+    ];
+    await expectLater(
+      WildTrackBackupService.instance.restore(
+        Uint8List.fromList(utf8.encode(jsonEncode(backup))),
+      ),
+      throwsFormatException,
+    );
+    expect((await db.getSightings()).single.id, 'keep');
+  });
+  test('AUDIO stop cancels pending requests through native bridge', () async {
+    var stops = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(AudioService.channel, (call) async {
+          if (call.method == 'stop') stops++;
+          return null;
+        });
+    AudioService.instance.current = 'Cervo';
+    final old = AudioService.instance.request;
+    await AudioService.instance.stop();
+    expect(AudioService.instance.current, null);
+    expect(AudioService.instance.request, greaterThan(old));
+    expect(stops, 1);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(AudioService.channel, null);
+  });
+
+  Future<void> mount(WidgetTester tester, Widget screen) async {
+    tester.view.physicalSize = const Size(411, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MaterialApp(theme: wildTrackTheme(Brightness.light), home: screen),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    });
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> click(WidgetTester tester, Finder finder) async {
+    if (finder.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        finder,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await tester.tap(finder);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'UI SESSION restores signed-in account on a new app root and honors logout',
+    (tester) async {
+      await tester.runAsync(
+        () => AuthService.instance.register('session.user', 'PassWord!27'),
+      );
+      Future<void> restart() async {
+        await tester.pumpWidget(const SizedBox());
+        await tester.runAsync(() async {
+          await tester.pumpWidget(
+            const MaterialApp(
+              home: SessionGate(
+                home: Text('RESTORED HOME'),
+                welcome: Text('WELCOME'),
+              ),
+            ),
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+        });
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 150)),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await restart();
+      expect(find.text('RESTORED HOME'), findsOneWidget);
+      await tester.runAsync(AuthService.instance.signOut);
+      await restart();
+      expect(find.text('WELCOME'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'UI ACCESS remembers actual account after changing display name and signs back in',
+    (tester) async {
+      await tester.runAsync(() async {
+        await AuthService.instance.register('login.user', 'PassWord!27');
+        await AuthService.instance.createRecoveryCode();
+        await AuthService.instance.signOut();
+        prefs.nickname = 'Nome visualizzato diverso';
+        await prefs.save();
+      });
+      await mount(
+        tester,
+        const AccessScreen(home: Scaffold(body: Text('SIGNED IN'))),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 150)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'login.user',
+      );
+      final field = tester.widget<TextField>(find.byType(TextField).last);
+      expect(field.autocorrect, false);
+      expect(field.enableSuggestions, false);
+      await tester.enterText(find.byType(TextField).last, 'wrong-password');
+      await click(tester, find.text('Accedi').last);
+      expect(find.text('Nome utente o password non corretti.'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, 'PassWord!27');
+      await click(tester, find.text('Accedi').last);
+      // Local password verification and preference writes are asynchronous IO.
+      // Wait for the destination instead of assuming every runner finishes in 100 ms.
+      for (var attempt = 0; attempt < 50 && find.text('SIGNED IN').evaluate().isEmpty; attempt++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump();
+      }
+      expect(find.text('SIGNED IN'), findsOneWidget);
+      expect(
+        await tester.runAsync(AuthService.instance.currentUsername),
+        'login.user',
+      );
+    },
+  );
+
+  Future<void> seedFeed() async {
+    final now = DateTime.now();
+    await File('${temp.path}/wildtrack_sapevi_che.json').writeAsString(
+      jsonEncode({
+        'updatedAt': now.toIso8601String(),
+        'items': List.generate(
+          4,
+          (i) => DidYouKnowItem(
+            id: 'test-$i',
+            category: 'FAUNA',
+            title: 'Articolo salvato $i',
+            body: 'Contenuto offline di prova',
+            asset: '',
+            source: 'MountainBlog',
+            publishedAt: now,
+            link: 'https://www.mountainblog.it/test-$i',
+            isLive: true,
+          ).toJson(),
+        ),
+      }),
+    );
+  }
+
+  testWidgets('UI FEED restores cached articles and scrolls horizontally', (
+    tester,
+  ) async {
+    await tester.runAsync(seedFeed);
+    await mount(tester, const Scaffold(body: DidYouKnowCarousel()));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 150)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Lo sapevi che…'), findsOneWidget);
+    expect(find.text('Articolo salvato 0'), findsOneWidget);
+    expect(find.text('LIVE'), findsWidgets);
+    expect(find.text('Contin · Monte Cavallo'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(-1180, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Articolo salvato 2'), findsOneWidget);
+    expect(tester.takeException(), null);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('UI HOME action icons remain below hero with long nickname and larger text', (tester) async {
+    await tester.runAsync(seedFeed);
+    final oldGps = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+    final oldName = prefs.nickname;
+    GeolocatorPlatform.instance = fake;
+    prefs.nickname = 'trek.king.dolomiti';
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    try {
+      await mount(tester, MediaQuery(data: const MediaQueryData(size: Size(360,900), textScaler: TextScaler.linear(1.25)), child: const PremiumHomeScreen()));
+      final hero = tester.getRect(find.byKey(const ValueKey('home-hero')));
+      for (final key in ['home-action-explore','home-action-sighting','home-action-record']) {
+        final card = find.byKey(ValueKey(key));
+        expect(tester.getRect(card).top, greaterThanOrEqualTo(hero.bottom));
+        expect(find.descendant(of: card, matching: find.byType(Icon)), findsWidgets);
+      }
+      expect(find.byIcon(Icons.notifications_none_outlined), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    } finally { prefs.nickname = oldName; GeolocatorPlatform.instance = oldGps; await fake.stream.close(); tester.view.resetPhysicalSize(); tester.view.resetDevicePixelRatio(); }
+  });
+
+  testWidgets(
+    'UI HOME species action opens catalogue instead of map and cards open premium details',
+    (tester) async {
+      await tester.runAsync(seedFeed);
+      final old = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+      GeolocatorPlatform.instance = fake;
+      try {
+        await mount(tester, const PremiumHomeScreen());
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 150)),
+        );
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(find.byType(DidYouKnowCarousel), 200, scrollable: find.byType(Scrollable).first);
+        expect(find.byType(DidYouKnowCarousel), findsOneWidget);
+        await click(tester, find.text('SOS'));
+        expect(find.byType(SosScreen), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.text('Cervo'), findsNothing); // No fixed Radar card without GPS.
+        await tester.scrollUntilVisible(
+          find.text('Vedi tutte'),
+          -200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await click(tester, find.text('Vedi tutte').first);
+        expect(find.byType(SpeciesScreen), findsOneWidget);
+        expect(find.text('Tutte le specie'), findsOneWidget);
+        // Every catalogue entry has a route to the shared premium screen.
+        for (final animal in animals) {
+          await tester.enterText(find.byType(TextField), animal.latin);
+          await tester.pumpAndSettle();
+          await click(tester, find.text(animal.name).first);
+          expect(
+            tester
+                .widget<PremiumAnimalScreen>(find.byType(PremiumAnimalScreen))
+                .animal
+                .name,
+            animal.name,
+          );
+          await click(tester, find.byIcon(Icons.arrow_back_ios_new));
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), null);
+        await tester.pumpWidget(const SizedBox());
+      } finally {
+        GeolocatorPlatform.instance = old;
+        await fake.stream.close();
+      }
+    },
+  );
+
+  test('SPECIES all catalogue records have detailed habitat and four seasonal levels', () {
+    expect(speciesDetails.keys.toSet(), animals.map((a) => a.name).toSet());
+    for (final detail in speciesDetails.values) {
+      expect(detail.habitat.split(' ').length, greaterThan(35));
+      expect(detail.seasonLevels, hasLength(4));
+      expect(
+        detail.seasonLevels.every((level) => level >= 0 && level <= 4),
+        true,
+      );
+    }
+  });
+
+  testWidgets(
+    'UI MAP deliberate map selection returns coordinates and saves manual sighting',
+    (tester) async {
+      LatLng? chosen;
+      await mount(
+        tester,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                chosen = await Navigator.push<LatLng>(
+                  context,
+                  MaterialPageRoute<LatLng>(
+                    builder: (_) =>
+                        MapPositionScreen(tileProvider: OfflineTestTiles()),
+                  ),
+                );
+              },
+              child: const Text('OPEN PICKER'),
+            ),
+          ),
+        ),
+      );
+      await click(tester, find.text('OPEN PICKER'));
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Usa questo punto'),
+            )
+            .onPressed,
+        null,
+      );
+      await tester.tapAt(
+        tester.getCenter(find.byType(FlutterMap)) + const Offset(35, 25),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.text('Nessun punto selezionato'), findsNothing);
+      await click(tester, find.text('Usa questo punto'));
+      expect(chosen, isNotNull);
+      await mount(tester, PremiumSightingScreen(initialPosition: chosen));
+      await click(tester, find.text('Salva privato'));
+      final rows = await tester.runAsync(db.getSightings);
+      expect(rows, hasLength(1));
+      expect(rows!.single.latitude, closeTo(chosen!.latitude, .000001));
+      expect(rows.single.longitude, closeTo(chosen!.longitude, .000001));
+      expect(rows.single.positionSource, 'manual');
+      expect(rows.single.accuracy, null);
+    },
+  );
+
+  test('OUTING deletion removes track points and updates totals while preserving sightings and other outings', () async {
+    await db.saveSession(session('delete-outing'), points());
+    await db.saveSession(session('keep-outing'), points());
+    await db.insertSighting(row('keep-sighting'));
+    await OutingManagementService.instance.delete(session('delete-outing'));
+    expect((await db.getSessions()).single.id, 'keep-outing');
+    expect(await db.getTrackPoints('delete-outing'), isEmpty);
+    expect(await db.getTrackPoints('keep-outing'), hasLength(points().length));
+    expect((await db.getSightings()).single.id, 'keep-sighting');
+  });
+  test(
+    'OUTING public removal failure preserves local route; success removes it',
+    () async {
+      final public = session('public-outing').copyWith(isPublic: true);
+      await db.saveSession(public, points());
+      await expectLater(
+        OutingManagementService(
+          deletePublic: (_) async => throw Exception('offline'),
+        ).delete(public),
+        throwsException,
+      );
+      expect(await db.getSessions(), hasLength(1));
+      expect(await db.getTrackPoints(public.id), isNotEmpty);
+      await OutingManagementService(deletePublic: (_) async {}).delete(public);
+      expect(await db.getSessions(), isEmpty);
+      expect(await db.getTrackPoints(public.id), isEmpty);
+    },
+  );
+  testWidgets(
+    'UI OUTING premium delete button confirms and updates distance list',
+    (tester) async {
+      await tester.runAsync(
+        () => db.saveSession(session('ui-outing'), points()),
+      );
+      await mount(
+        tester,
+        const DiaryMetricScreen(metric: DiaryMetric.distance),
+      );
+      expect(find.byType(OutingDeleteButton), findsOneWidget);
+      await click(tester, find.byTooltip('Elimina uscita'));
+      await click(tester, find.text('Annulla'));
+      expect(await tester.runAsync(db.getSessions), hasLength(1));
+      await click(tester, find.byTooltip('Elimina uscita'));
+      await click(tester, find.text('Elimina uscita'));
+      expect(await tester.runAsync(db.getSessions), isEmpty);
+      expect(find.text('0.00 km totali'), findsOneWidget);
+    },
+  );
+
+  test('DIARY public publication retains local original and imports own remote records', () async {
+    await db.insertSighting(row('original', photo: 'private.jpg'));
+    await db.retainPublicSighting({
+      'id': 'original',
+      'species': 'Cervo',
+      'lat': 46.0,
+      'lng': 12.0,
+    });
+    final original = (await db.getSightings()).single;
+    expect(original.isPublic, true);
+    expect(original.latitude, 46.1);
+    expect(original.photoPath, 'private.jpg');
+    await db.retainPublicSighting({
+      'id': 'remote',
+      'species': 'Volpe',
+      'count': 2,
+      'observedAt': '2026-09-20T09:00:00Z',
+    });
+    expect(
+      (await db.getSightings()).where((s) => s.id == 'remote').single.isPublic,
+      true,
+    );
+  });
+  test(
+    'DIARY deleting private record updates totals and keeps other records',
+    () async {
+      await db.insertSighting(row('remove'));
+      await db.insertSighting(row('keep', species: 'Volpe'));
+      await SightingManagementService.instance.delete(
+        (await db.getSightings()).firstWhere((s) => s.id == 'remove'),
+      );
+      expect((await db.getSightings()).single.id, 'keep');
+    },
+  );
+  test(
+    'DIARY public deletion failure retains record and success removes it',
+    () async {
+      await db.retainPublicSighting({'id': 'public', 'species': 'Cervo'});
+      final record = (await db.getSightings()).single;
+      await expectLater(
+        SightingManagementService(
+          deletePublic: (_) async => throw Exception('offline'),
+        ).delete(record),
+        throwsException,
+      );
+      expect((await db.getSightings()).single.id, 'public');
+      String? deleted;
+      await SightingManagementService(
+        deletePublic: (id) async {
+          deleted = id;
+        },
+      ).delete(record);
+      expect(deleted, 'public');
+      expect(await db.getSightings(), isEmpty);
+    },
+  );
+  test(
+    'DIARY queued deletion cancels durable publication before removing record',
+    () async {
+      final community = CommunityService.instance;
+      community.queueFile = File('${temp.path}/delete-outbox.json');
+      community.pending.add({'id': 'queued'});
+      await community.saveQueue();
+      await db.retainPublicSighting({
+        'id': 'queued',
+        'species': 'Cervo',
+      }, state: 'queued');
+      await SightingManagementService.instance.delete(
+        (await db.getSightings()).single,
+      );
+      expect(community.pending, isEmpty);
+      expect(jsonDecode(await community.queueFile.readAsString()), isEmpty);
+      expect(await db.getSightings(), isEmpty);
+    },
+  );
+  testWidgets(
+    'UI DIARY delete confirmation cancel preserves data and confirm updates statistics',
+    (tester) async {
+      await tester.runAsync(() => db.insertSighting(row('delete-ui')));
+      await mount(tester, const SightingDiaryScreen());
+      await click(tester, find.byTooltip('Elimina Cervo'));
+      await click(tester, find.text('Annulla'));
+      expect(await tester.runAsync(db.getSightings), hasLength(1));
+      await click(tester, find.byTooltip('Elimina Cervo'));
+      await click(tester, find.text('Elimina'));
+      expect(await tester.runAsync(db.getSightings), isEmpty);
+      expect(
+        find.text('Nessun avvistamento in questa categoria.'),
+        findsOneWidget,
+      );
+    },
+  );
+  testWidgets('UI STATS all four indicators open relevant saved data', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      await db.insertSighting(
+        Sighting(
+          id: 'metric',
+          latitude: null,
+          longitude: null,
+          species: 'Cervo',
+          count: 1,
+          notes: '',
+          timestamp: DateTime(2026, 9, 20),
+        ),
+      );
+      await db.saveSession(session('metric-track'), []);
+    });
+    for (final label in [
+      'Specie uniche',
+      'Km percorsi',
+      'Tempo sul campo',
+      'Avvistamenti',
+    ]) {
+      await mount(tester, const PremiumStatsScreen());
+      await click(tester, find.text(label).first);
+      if (label == 'Avvistamenti') {
+        expect(find.byType(SightingDiaryScreen), findsOneWidget);
+      } else {
+        expect(find.byType(DiaryMetricScreen), findsOneWidget);
+      }
+      if (label == 'Specie uniche') {
+        expect(find.text('Cervo'), findsOneWidget);
+        await click(tester, find.text('Cervo'));
+        expect(find.byType(PremiumAnimalScreen), findsOneWidget);
+      }
+      expect(tester.takeException(), null);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets(
+    'UI HOME diary indicators open observed species and recorded field time',
+    (tester) async {
+      await tester.runAsync(() async {
+        await seedFeed();
+        await db.insertSighting(row('home-metric'));
+        await db.saveSession(session('home-track'), []);
+      });
+      final old = GeolocatorPlatform.instance;
+      final fake = TestGps(enabled: false);
+      GeolocatorPlatform.instance = fake;
+      try {
+        for (final label in ['Specie uniche', 'Tempo sul campo']) {
+          await mount(tester, const PremiumHomeScreen());
+          await tester.scrollUntilVisible(
+            find.text(label),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await click(tester, find.text(label));
+          expect(find.byType(DiaryMetricScreen), findsOneWidget);
+          if (label == 'Specie uniche') {
+            await click(tester, find.text('Cervo'));
+            expect(find.byType(PremiumAnimalScreen), findsOneWidget);
+          } else {
+            expect(find.text('1 h 0 min totali'), findsOneWidget);
+          }
+          expect(tester.takeException(), null);
+          await tester.pumpWidget(const SizedBox());
+        }
+      } finally {
+        GeolocatorPlatform.instance = old;
+        await fake.stream.close();
+      }
+    },
+  );
+
+  testWidgets(
+    'UI STATS list contains every outing and selected outing opens its report',
+    (tester) async {
+      await tester.runAsync(() async {
+        for (var i = 1; i <= 7; i++) {
+          await db.saveSession(
+            TrackSession(
+              id: 'list-$i',
+              startedAt: DateTime(2026, 9, i, 8),
+              endedAt: DateTime(2026, 9, i, 9),
+              distanceMeters: i * 1000.0,
+              ascentMeters: 0,
+            ),
+            [],
+          );
+        }
+      });
+      await mount(tester, const PremiumStatsScreen());
+      await tester.scrollUntilVisible(
+        find.text('Lista uscite'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await click(tester, find.text('Lista uscite'));
+      expect(find.byType(DiaryMetricScreen), findsOneWidget);
+      expect(find.text('7 uscite registrate'), findsOneWidget);
+      final chosen = find.text(
+        DateFormat('d MMM yyyy · HH:mm').format(DateTime(2026, 9, 1, 8)),
+      );
+      await tester.scrollUntilVisible(
+        chosen,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await click(tester, chosen);
+      expect(
+        tester
+            .widget<OutingDiaryScreen>(find.byType(OutingDiaryScreen))
+            .session
+            .id,
+        'list-1',
+      );
+      expect(tester.takeException(), null);
+    },
+  );
+  testWidgets('UI HOME details opens only the latest outing', (tester) async {
+    await tester.runAsync(() async {
+      await seedFeed();
+      await db.saveSession(session('older'), []);
+      await db.saveSession(
+        TrackSession(
+          id: 'latest',
+          startedAt: DateTime(2026, 9, 27, 8),
+          endedAt: DateTime(2026, 9, 27, 9),
+          distanceMeters: 8000,
+          ascentMeters: 0,
+        ),
+        [],
+      );
+    });
+    final old = GeolocatorPlatform.instance;
+    final fake = TestGps(enabled: false);
+    GeolocatorPlatform.instance = fake;
+    try {
+      await mount(tester, const PremiumHomeScreen());
+      await tester.scrollUntilVisible(
+        find.text('Vedi dettagli'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await click(tester, find.text('Vedi dettagli'));
+      expect(
+        tester
+            .widget<OutingDiaryScreen>(find.byType(OutingDiaryScreen))
+            .session
+            .id,
+        'latest',
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      GeolocatorPlatform.instance = old;
+      await fake.stream.close();
+    }
+  });
+
+  testWidgets('UI ACCESS empty credentials show validation', (tester) async {
+    await mount(tester, const AccessScreen(home: SizedBox()));
+    await click(tester, find.text('Accedi').last);
+    expect(find.text('Inserisci nome utente e password.'), findsOneWidget);
+  });
+  testWidgets(
+    'UI SOS opens and handles GPS disabled without calling emergency services',
+    (tester) async {
+      final old = GeolocatorPlatform.instance, fake = TestGps(enabled: false);
+      GeolocatorPlatform.instance = fake;
+      try {
+        await mount(tester, const SosScreen());
+        expect(find.text('Attiva la posizione del telefono.'), findsOneWidget);
+      } finally {
+        GeolocatorPlatform.instance = old;
+        await fake.stream.close();
+      }
+    },
+  );
+  testWidgets('UI ACCESS password visibility can toggle', (tester) async {
+    await mount(tester, const AccessScreen(home: SizedBox()));
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).obscureText,
+      true,
+    );
+    await click(tester, find.byIcon(Icons.visibility_off_outlined));
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).obscureText,
+      false,
+    );
+  });
+  testWidgets('UI ACCESS passkey is explicitly not implemented', (
+    tester,
+  ) async {
+    await mount(tester, const AccessScreen(home: SizedBox()));
+    await click(tester, find.text('Accedi con passkey'));
+    expect(
+      find.text('Per ora l’accesso locale usa nome utente e password.'),
+      findsOneWidget,
+    );
+  });
+  testWidgets('UI ACCESS password recovery opens real recovery form', (
+    tester,
+  ) async {
+    await mount(tester, const AccessScreen(home: SizedBox()));
+    await click(tester, find.text('Hai dimenticato la password?'));
+    expect(find.text('Codice di recupero'), findsOneWidget);
+  });
+  testWidgets('UI SIGHTING count starts at one and increments', (tester) async {
+    await mount(tester, const PremiumSightingScreen());
+    await click(tester, find.byIcon(Icons.add).last);
+    expect(find.text('2'), findsOneWidget);
+    await click(tester, find.byIcon(Icons.remove));
+    expect(find.text('1'), findsOneWidget);
+  });
+  testWidgets('UI SIGHTING private save persists entered note without GPS', (
+    tester,
+  ) async {
+    await mount(tester, const PremiumSightingScreen());
+    await tester.scrollUntilVisible(
+      find.byType(TextField),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(find.byType(TextField), 'nota funzionale');
+    await click(tester, find.text('Salva privato'));
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if ((await db.getSightings()).isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    });
+    await tester.pumpAndSettle();
+    final rows = await tester.runAsync(db.getSightings);
+    expect(rows, hasLength(1));
+    expect(rows!.single.notes, 'nota funzionale');
+    expect(rows.single.hasPosition, false);
+  });
+  testWidgets('UI SPECIES full explanations open on tap', (tester) async {
+    await mount(
+      tester,
+      PremiumAnimalScreen(animals.firstWhere((e) => e.name == 'Cervo')),
+    );
+    await click(tester, find.text('Specie autoctona'));
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(
+      find.text(animals.firstWhere((e) => e.name == 'Cervo').description),
+      findsWidgets,
+    );
+  });
+  test('HEATMAP groups positioned sightings, ignores missing GPS and updates after coordinate edit', () {
+    final initial = [
+      row('first'),
+      row('second'),
+      Sighting(
+        id: 'no-gps',
+        latitude: null,
+        longitude: null,
+        species: 'Cervo',
+        count: 1,
+        notes: '',
+        timestamp: DateTime(2026),
+      ),
+    ];
+    final bins = RealHeatmap.cells(initial);
+    expect(bins.length, 1);
+    expect(bins.values.single.count, 2);
+    final changed = [
+      initial.first,
+      Sighting(
+        id: 'second',
+        species: 'Cervo',
+        count: 1,
+        notes: '',
+        latitude: 47,
+        longitude: 13,
+        timestamp: DateTime(2026),
+      ),
+    ];
+    expect(RealHeatmap.cells(changed).length, 2);
+    expect(RealHeatmap.cells([initial.first]).values.single.count, 1);
+    expect(RealHeatmap.cells([]), isEmpty);
+  });
+  testWidgets(
+    'UI HEATMAP renders saved geographic points and reloads changed positions',
+    (tester) async {
+      await mount(
+        tester,
+        RealHeatmap(
+          sightings: [row('one'), row('two')],
+          tileProvider: OfflineTestTiles(),
+        ),
+      );
+      expect(find.byType(FlutterMap), findsOneWidget);
+      final first = tester.widget<CircleLayer>(find.byType(CircleLayer));
+      expect(first.circles, hasLength(2));
+      expect(first.circles.first.point.latitude, closeTo(46.1, .001));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RealHeatmap(sightings: [], tileProvider: OfflineTestTiles()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(FlutterMap), findsNothing);
+      expect(
+        find.text(
+          'La heatmap comparirà quando avrai avvistamenti con posizione.',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+  testWidgets('UI CATALOGUE scientific search opens correct species', (
+    tester,
+  ) async {
+    await mount(tester, const SpeciesScreen());
+    await tester.enterText(find.byType(TextField), 'Cervus');
+    await tester.pumpAndSettle();
+    expect(find.text('Cervo'), findsOneWidget);
+    expect(find.text('Volpe'), findsNothing);
+    await click(tester, find.text('Cervo'));
+    expect(find.byType(PremiumAnimalScreen), findsOneWidget);
+  });
+  testWidgets('UI LENS manual track clues produce candidate species', (
+    tester,
+  ) async {
+    await mount(tester, const LensAssistantScreen());
+    await click(tester, find.byType(DropdownButtonFormField<String>).at(2));
+    await click(tester, find.text('4 dita').last);
+    await tester.scrollUntilVisible(
+      find.text('Analizza gli indizi'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await click(tester, find.text('Analizza gli indizi'));
+    expect(find.text('Possibili corrispondenze'), findsOneWidget);
+    expect(find.text('Volpe'), findsOneWidget);
+    expect(find.text('Lupo'), findsOneWidget);
+  });
+  testWidgets('UI CAMERA assistant saves edited profile', (tester) async {
+    await mount(tester, const CameraAssistantScreen());
+    await tester.enterText(find.byType(TextField), 'Corpo test + 300 mm');
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Corpo test + 300 mm',
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Salva profilo'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final saveButton = find.ancestor(
+      of: find.text('Salva profilo'),
+      matching: find.byType(FilledButton),
+    );
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
+    await click(tester, saveButton);
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        try {
+          final raw = jsonDecode(await prefs.file.readAsString()) as Map;
+          if (raw['cameraLabel'] == 'Corpo test + 300 mm') break;
+        } catch (_) {}
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    });
+    await tester.pumpAndSettle();
+    expect(prefs.cameraLabel, 'Corpo test + 300 mm');
+    final raw = await tester.runAsync(
+      () async => jsonDecode(await prefs.file.readAsString()) as Map,
+    );
+    expect(raw!['cameraLabel'], 'Corpo test + 300 mm');
+  });
+  testWidgets('UI species favorite button saves and removes species', (
+    tester,
+  ) async {
+    prefs.favoriteSpecies = {};
+    await mount(
+      tester,
+      PremiumAnimalScreen(animals.firstWhere((a) => a.name == 'Cervo')),
+    );
+    await click(tester, find.byIcon(Icons.favorite_border));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    expect(prefs.favoriteSpecies, contains('Cervo'));
+    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    await click(tester, find.byIcon(Icons.favorite));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    expect(prefs.favoriteSpecies, isNot(contains('Cervo')));
+  });
+  testWidgets('UI GUIDE offline checklist toggles selected item', (
+    tester,
+  ) async {
+    await mount(tester, const GuideScreen());
+    expect(find.text('Guida sul campo'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Checklist prima di uscire'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await click(tester, find.text('Checklist prima di uscire'));
+    await tester.scrollUntilVisible(
+      find.byType(CheckboxListTile).first,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      tester
+          .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
+          .value,
+      false,
+    );
+    await click(tester, find.byType(CheckboxListTile).first);
+    expect(
+      tester
+          .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
+          .value,
+      true,
+    );
+  });
+}
+

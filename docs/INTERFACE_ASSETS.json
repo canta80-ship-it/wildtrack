@@ -1,0 +1,189 @@
+[
+  {
+    "source": "09-1000270525.png",
+    "box": [
+      88,
+      272,
+      776,
+      489
+    ],
+    "output": "access_land2.jpg",
+    "source_sha256": "1b9b48c7a5d23c7fca7fe430d299afe234675de152798a6a3b7bc1be3d3d7ea6"
+  },
+  {
+    "source": "08-1000270526.png",
+    "box": [
+      88,
+      326,
+      776,
+      834
+    ],
+    "output": "welcome_scene.jpg",
+    "source_sha256": "9dd3ee1f4d02d7c987b09aa0f8ba240ac28888814a18c3eb6e82e0681526b84a"
+  },
+  {
+    "source": "10-1000270523.png",
+    "box": [
+      111,
+      736,
+      251,
+      860
+    ],
+    "output": "cervo_thumb.jpg",
+    "source_sha256": "0c7e694556452c662b9e211cf7a04d3d76f029cfec75ca3b906911b176c443f7"
+  },
+  {
+    "source": "10-1000270523.png",
+    "box": [
+      284,
+      736,
+      422,
+      860
+    ],
+    "output": "capriolo_thumb.jpg",
+    "source_sha256": "0c7e694556452c662b9e211cf7a04d3d76f029cfec75ca3b906911b176c443f7"
+  },
+  {
+    "source": "10-1000270523.png",
+    "box": [
+      450,
+      736,
+      589,
+      860
+    ],
+    "output": "volpe_thumb.jpg",
+    "source_sha256": "0c7e694556452c662b9e211cf7a04d3d76f029cfec75ca3b906911b176c443f7"
+  },
+  {
+    "source": "10-1000270523.png",
+    "box": [
+      618,
+      736,
+      752,
+      860
+    ],
+    "output": "poiana_thumb.jpg",
+    "source_sha256": "0c7e694556452c662b9e211cf7a04d3d76f029cfec75ca3b906911b176c443f7"
+  },
+  {
+    "source": "10-1000270523.png",
+    "box": [
+      110,
+      1017,
+      403,
+      1210
+    ],
+    "output": "outing_scene.jpg",
+    "source_sha256": "0c7e694556452c662b9e211cf7a04d3d76f029cfec75ca3b906911b176c443f7"
+  },
+  {
+    "source": "02-1000270528.png",
+    "box": [
+      425,
+      170,
+      765,
+      474
+    ],
+    "output": "cervo_hero.jpg",
+    "source_sha256": "800dfa4253992e1ccf38c1cc791ca26d12822f25eb32fc6af7858bf40470b89e"
+  },
+  {
+    "source": "02-1000270528.png",
+    "box": [
+      110,
+      679,
+      395,
+      783
+    ],
+    "output": "habitat.jpg",
+    "source_sha256": "800dfa4253992e1ccf38c1cc791ca26d12822f25eb32fc6af7858bf40470b89e"
+  },
+  {
+    "source": "02-1000270528.png",
+    "box": [
+      110,
+      913,
+      258,
+      1028
+    ],
+    "output": "impronta.jpg",
+    "source_sha256": "800dfa4253992e1ccf38c1cc791ca26d12822f25eb32fc6af7858bf40470b89e"
+  },
+  {
+    "source": "02-1000270528.png",
+    "box": [
+      280,
+      913,
+      422,
+      1028
+    ],
+    "output": "fatte.jpg",
+    "source_sha256": "800dfa4253992e1ccf38c1cc791ca26d12822f25eb32fc6af7858bf40470b89e"
+  },
+  {
+    "source": "02-1000270528.png",
+    "box": [
+      448,
+      913,
+      590,
+      1028
+    ],
+    "output": "sfregamenti.jpg",
+    "source_sha256": "800dfa4253992e1ccf38c1cc791ca26d12822f25eb32fc6af7858bf40470b89e"
+  },
+  {
+    "source": "02-1000270528.png",
+    "box": [
+      616,
+      913,
+      755,
+      1028
+    ],
+    "output": "palchi.jpg",
+    "source_sha256": "800dfa4253992e1ccf38c1cc791ca26d12822f25eb32fc6af7858bf40470b89e"
+  },
+  {
+    "source": "07-1000270533.png",
+    "box": [
+      115,
+      315,
+      250,
+      426
+    ],
+    "output": "kind_animal.jpg",
+    "source_sha256": "1a88dcd2a625c357619edd979dd2c69e8af5087511ab65d1ec5e4c30e0cf0c45"
+  },
+  {
+    "source": "07-1000270533.png",
+    "box": [
+      278,
+      315,
+      415,
+      426
+    ],
+    "output": "kind_track.jpg",
+    "source_sha256": "1a88dcd2a625c357619edd979dd2c69e8af5087511ab65d1ec5e4c30e0cf0c45"
+  },
+  {
+    "source": "07-1000270533.png",
+    "box": [
+      446,
+      315,
+      584,
+      426
+    ],
+    "output": "kind_feather.jpg",
+    "source_sha256": "1a88dcd2a625c357619edd979dd2c69e8af5087511ab65d1ec5e4c30e0cf0c45"
+  },
+  {
+    "source": "07-1000270533.png",
+    "box": [
+      616,
+      315,
+      752,
+      426
+    ],
+    "output": "kind_unknown.jpg",
+    "source_sha256": "1a88dcd2a625c357619edd979dd2c69e8af5087511ab65d1ec5e4c30e0cf0c45"
+  }
+]

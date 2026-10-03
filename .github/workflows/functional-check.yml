@@ -1,0 +1,108 @@
+name: WildTrack functional diagnosis
+on:
+  push:
+    branches: [interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16, recovery-0-7-16]
+    paths: ['**.dart', tool/android_smoke.py, tool/wait_for_build.py, .github/workflows/functional-check.yml, pubspec.yaml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  functional:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Prepare exact production sources and assets
+        run: |
+          mkdir -p lib/screens lib/services lib/models assets/approved
+          for file in *_screen.dart *_widget.dart; do [ ! -f "$file" ] || mv "$file" lib/screens/; done
+          for file in *_service.dart; do [ ! -f "$file" ] || mv "$file" lib/services/; done
+          for file in sighting.dart track_point.dart track_session.dart; do mv "$file" lib/models/; done
+          cp premium_ui.dart lib/premium_ui.dart
+          cp premium_ui.dart lib/screens/premium_ui.dart
+          rm premium_ui.dart
+          mv main.dart lib/
+          unzip -oq approved_assets.zip -d assets/approved
+          unzip -oq editorial_fonts.zip -d assets/approved
+          find lib -name '*.dart' -type f -print0 | xargs -0 sed -i 's/Icons\.feather_outlined/Icons.article_outlined/g; s/Icons\.offline_map_outlined/Icons.map_outlined/g'
+          sed -i "/Yellowstone sound library - Grizzly Bears Roar - 001.mp3/d; /Vocalizzazione · orso bruno, registrazione nordamericana/d" lib/screens/species_screen.dart
+          sed -i "1i import 'premium_explore_screen.dart';" lib/screens/home_screen.dart
+          sed -i 's/const ExplorationScreen()/const PremiumExploreScreen()/g' lib/screens/home_screen.dart
+          sed -i "/import 'exploration_screen.dart';/d" lib/screens/home_screen.dart
+          python3 normalize_ui.py
+          python3 final_fixes.py
+          python3 prepare_nature.py
+      - run: flutter pub get
+      - name: Run functional checks and retain individual results
+        run: flutter test test/functional_test.dart test/map_feed_regression_test.dart test/radar_regression_test.dart test/home_time_test.dart test/outdoor_tools_test.dart test/community_radar_update_test.dart test/profile_regression_test.dart test/community_photo_test.dart test/recovery_flow_test.dart --reporter json > functional-results.json
+      - name: Retain functional diagnostic output even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WildTrack-functional-results
+          path: functional-results.json
+          if-no-files-found: warn
+  android:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[android]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for signed APK built from this commit
+        id: build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tool/wait_for_build.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: ${{ steps.build.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: tested-apk
+      - name: Download previously delivered APK for coexistence check
+        uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 36934000179
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: legacy-apk
+      - name: Enable Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test signed production APK on Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 tool/android_smoke.py tested-apk/WildTrack-release.apk it.wildtrack.preview legacy-apk/WildTrack-release.apk
+      - name: Retain native screenshots and per-step results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WildTrack-Android-functional-results
+          path: android-results/
+          if-no-files-found: warn
+  online:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only checks of public service endpoints
+        run: python3 tool/online_checks.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WildTrack-online-results
+          path: online-results.json
+
