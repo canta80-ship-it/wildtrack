@@ -1,3 +1,5 @@
+import 'community_photo_widget.dart';
+import 'profile_avatar_widget.dart';
 import 'community_sighting_map_screen.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -178,6 +180,7 @@ Future<void> showSighting(
             '${s['species']} · ${s['count']}',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
+          Row(children: [ProfileAvatar(url: s['avatarUrl'] as String?), const SizedBox(width: 8), Expanded(child: Text('${s['authorName'] ?? 'Autore non disponibile'}', style: const TextStyle(fontWeight: FontWeight.bold, color: WildColors.forest)))]),
           Text(timeLabel(s['observedAt'])),
           Text(
             s['groupId'] == null
@@ -187,16 +190,7 @@ Future<void> showSighting(
           if (s['photo'] != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Image.network(
-                '$communityUrl/api/photo?id=${s['id']}',
-                headers: {
-                  'Authorization':
-                      'Bearer ${PreferencesService.instance.token}',
-                },
-                height: 220,
-                fit: BoxFit.contain,
-                errorBuilder: (_, e, st) => const Text('Foto non disponibile'),
-              ),
+              child: CommunityPhoto(sightingId: '${s['id']}'),
             ),
           Text(s['notes'] as String? ?? ''),
           CommunitySightingMapButton(sighting: s),
