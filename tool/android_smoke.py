@@ -215,8 +215,12 @@ try:
                         result('Periodo migliore '+name, 'PASS' if 'periodo migliore' in visible_text() else 'FAIL')
                         shot('new-period-'+name.replace(' ','-'))
                         adb('shell','input','keyevent','4');time.sleep(1)
-                adb('shell','input','keyevent','4');time.sleep(1)
-            for _ in range(3):
+                # Search focus can consume Android Back after returning from a
+                # detail route. Use the catalogue AppBar navigation action.
+                if not tap('Back') and not tap('Indietro'):
+                    adb('shell','input','tap','72','135');time.sleep(1)
+                result('Catalogo ritorna alla home','PASS' if 'tutte le specie' not in visible_text() else 'FAIL')
+            for _ in range(8):
                 if 'lo sapevi che' in visible_text():break
                 adb('shell','input','swipe','540','1450','540','800','350');time.sleep(1)
             result('Carosello Lo sapevi che presente in home','PASS' if 'lo sapevi che' in visible_text() else 'FAIL');shot('home-feed')
@@ -248,4 +252,3 @@ finally:
     (out/'crash-lines.txt').write_text('\n'.join(x for x in logs.splitlines() if 'FATAL EXCEPTION' in x or 'AndroidRuntime' in x or 'ANR in '+package in x))
     (out/'results.json').write_text(json.dumps({'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'package':package,'android_api':35,'cases':results,'fatal_detected':fatal,'scope':'Emulator checks; camera, physical GPS, Bluetooth routing, push delivery and real account chat are not certified.'},ensure_ascii=False,indent=2))
     if any(x['status']=='FAIL' for x in results):sys.exit(1)
-
