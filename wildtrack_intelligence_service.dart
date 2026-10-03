@@ -256,6 +256,8 @@ class WildTrackIntelligenceService {
     if (w.wind != null && w.wind!>25) {score-=8; reasons.add('vento forte');}
     if (w.precipitation != null && w.precipitation!>2) {score-=8; reasons.add('pioggia intensa');}
     if (!habitatKnown) score=math.min(score,38.0);
+    if (habitatKnown && !compatible) score=math.min(score,15.0);
+    if (altitude != null && (altitude < p.minAltitude || altitude > p.maxAltitude)) score=math.min(score,15.0);
     if (!inSeason || dormant) score=math.min(score,15.0);
     if (sun.dark) score=math.min(score,32.0);
     final visits = surveys.where((s)=>s.species==name && s.phase==sun.phase && s.minutes>=15 && now.difference(s.at)>=Duration.zero && now.difference(s.at).inDays<=90 && _distance.as(LengthUnit.Kilometer,LatLng(pos.latitude,pos.longitude),LatLng(s.latitude,s.longitude))<=2).toList();

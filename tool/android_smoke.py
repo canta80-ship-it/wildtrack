@@ -203,6 +203,18 @@ try:
                         adb('shell','input','swipe','540','1450','540','800','350');time.sleep(1)
                     shot('roe-deer-premium-signs')
                     adb('shell','input','keyevent','4');time.sleep(1)
+                for name, latin in [('Lepre','Lepus europaeus'),('Scoiattolo','Sciurus vulgaris'),('Upupa','Upupa epops'),('Gheppio','Falco tinnunculus'),('Assiolo','Otus scops'),('Nibbio reale','Milvus milvus'),('Nibbio bruno','Milvus migrans')]:
+                    enter_field(0,latin.replace(' ','%s'),clear=True)
+                    opened=tap(name)
+                    result('Nuova scheda '+name, 'PASS' if opened and latin.lower() in visible_text() else 'FAIL')
+                    if opened:
+                        shot('new-'+name.replace(' ','-'))
+                        for _ in range(10):
+                            if 'periodo migliore' in visible_text():break
+                            adb('shell','input','swipe','20','1450','20','650','350');time.sleep(1)
+                        result('Periodo migliore '+name, 'PASS' if 'periodo migliore' in visible_text() else 'FAIL')
+                        shot('new-period-'+name.replace(' ','-'))
+                        adb('shell','input','keyevent','4');time.sleep(1)
                 adb('shell','input','keyevent','4');time.sleep(1)
             for _ in range(3):
                 if 'lo sapevi che' in visible_text():break

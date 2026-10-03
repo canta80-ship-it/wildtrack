@@ -78,6 +78,11 @@ void main(){
   final s=engine.evaluate(now:now,position:position(now,altitude:2000));
   expect(s.habitat.primary,'unknown');expect(s.species.every((s)=>s.score<=38),true);
  });
+ test('Incompatible mapped habitat or reliable altitude cannot promote a species',(){
+  final now=DateTime.utc(2026,10,3,11);
+  final s=engine.evaluate(now:now,position:position(now),habitat:const HabitatContext(primary:'forest',tags:{'forest'},elevation:500,mapped:true));
+  expect(s.species.where((s)=>{'Germano reale','Airone cenerino','Stambecco','Marmotta'}.contains(s.name)),isEmpty);
+ });
  test('Negative surveys are explicit descriptive counts, not predicted probabilities',(){
   final now=DateTime.utc(2026,10,3,11);
   final s=engine.evaluate(now:now,position:position(now),habitat:habitat,surveys:[RadarSurvey(species:'Cervo',latitude:46,longitude:13,at:now.subtract(const Duration(days:1)),minutes:30,seen:false,phase:'day')]);

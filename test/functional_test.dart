@@ -1018,10 +1018,7 @@ void main() {
         expect(find.byType(SosScreen), findsOneWidget);
         await tester.pageBack();
         await tester.pumpAndSettle();
-        await click(tester, find.text('Cervo').first);
-        expect(find.byType(PremiumAnimalScreen), findsOneWidget);
-        await click(tester, find.byIcon(Icons.arrow_back_ios_new));
-        await tester.pumpAndSettle();
+        expect(find.text('Cervo'), findsNothing); // No fixed Radar card without GPS.
         await tester.scrollUntilVisible(
           find.text('Vedi tutte'),
           -200,
