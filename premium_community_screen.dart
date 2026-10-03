@@ -1,3 +1,4 @@
+import 'community_photo_widget.dart';
 import 'profile_avatar_widget.dart';
 import 'premium_explore_screen.dart';
 import 'package:latlong2/latlong.dart';
@@ -377,23 +378,7 @@ class _FeedSighting extends StatelessWidget {
                 if (s['photo'] != null)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      '$communityUrl/api/photo?id=${s['id']}',
-                      headers: {
-                        'Authorization':
-                            'Bearer ${PreferencesService.instance.token}',
-                      },
-                      height: 160,
-                      width: double.infinity,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => SizedBox(
-                        height: 150,
-                        child: WildLandscape(
-                          height: 150,
-                          animal: '${s['species'] ?? 'Animale'}',
-                        ),
-                      ),
-                    ),
+                    child: CommunityPhoto(sightingId: '${s['id']}', height: 160),
                   )
                 else
                   SizedBox(
