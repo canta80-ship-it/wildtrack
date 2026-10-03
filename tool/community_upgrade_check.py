@@ -5,7 +5,7 @@ old,new=map(Path,sys.argv[1:3]); package='it.wildtrack.preview'
 root=f'/data/user/0/{package}/databases'; out=Path('upgrade-results');out.mkdir(exist_ok=True)
 checks=[]
 def adb(*args):
- return subprocess.run(['adb',*args],check=True,capture_output=True,text=True,timeout=60).stdout.strip()
+ return subprocess.run(['adb','-s','emulator-5554',*args],check=True,capture_output=True,text=True,timeout=60).stdout.strip()
 def check(name,ok):
  checks.append({'name':name,'status':'PASS' if ok else 'FAIL'});print(name,checks[-1]['status'],flush=True)
  if not ok:raise AssertionError(name)
@@ -23,7 +23,13 @@ def tap(label):
  return False
 def read(name):return json.loads(adb('shell','cat',root+'/'+name))
 try:
- adb('root');adb('wait-for-device');adb('install','-r',str(old));start()
+ for attempt in range(3):
+  result=subprocess.run(['adb','-s','emulator-5554','root'],capture_output=True,text=True,timeout=60)
+  print('Emulator preparation:',result.stdout.strip(),result.stderr.strip(),flush=True)
+  time.sleep(3);adb('wait-for-device')
+  if adb('shell','id','-u')=='0':break
+ else:raise RuntimeError('Emulator does not allow local fixture preparation')
+ adb('install','-r',str(old));start()
  for _ in range(4):
   if tap('Continua come ospite'):break
   adb('shell','input','swipe','20','1450','20','600','350')
@@ -50,11 +56,11 @@ try:
    check(name+': identità originale conservata',read('wildtrack_preferences.json')['token']==token)
    check(name+': identità separata migrata',read('wildtrack_identity.json')['token']==token)
    check(name+': account e sessione conservati',read('wildtrack_local_account.json')==account)
-   check(name+': foto invariata',hashlib.sha256(subprocess.run(['adb','exec-out','cat',photo],check=True,capture_output=True).stdout).digest()==hashlib.sha256(png).digest())
+   check(name+': foto invariata',hashlib.sha256(subprocess.run(['adb','-s','emulator-5554','exec-out','cat',photo],check=True,capture_output=True).stdout).digest()==hashlib.sha256(png).digest())
    check(name+': diario visibile',tap('Diario'))
    text=' '.join(n.get('text','')+' '+n.get('content-desc','') for n in ui().iter('node')).lower()
    check(name+': Volpe presente nel diario','volpe' in text)
-   (out/('diary-'+str(len(checks))+'.png')).write_bytes(subprocess.run(['adb','exec-out','screencap','-p'],check=True,capture_output=True).stdout)
+   (out/('diary-'+str(len(checks))+'.png')).write_bytes(subprocess.run(['adb','-s','emulator-5554','exec-out','screencap','-p'],check=True,capture_output=True).stdout)
    adb('shell','am','force-stop',package)
    adb('pull',root+'/wildtrack.db',str(dbfile));con=sqlite3.connect(dbfile)
    check(name+': specie, conteggio e foto nel database',con.execute('SELECT species,count,photo_path,publication_state FROM sightings WHERE id=?',('upgrade-volpe-fixture',)).fetchone()==('Volpe',2,photo,'public'))

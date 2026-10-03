@@ -2,6 +2,7 @@ name: Build WildTrack APK
 on:
   push:
     branches: [main, next-release, interface-reference, radar-0-7-12]
+    paths-ignore: [.github/workflows/community-upgrade.yml, tool/community_upgrade_check.py]
   workflow_dispatch:
 permissions:
   contents: read
