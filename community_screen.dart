@@ -1,3 +1,5 @@
+import 'recovery_screen.dart';
+import '../premium_ui.dart';
 import 'community_photo_widget.dart';
 import 'profile_avatar_widget.dart';
 import 'community_sighting_map_screen.dart';
@@ -198,6 +200,8 @@ Future<void> showSighting(
           if (s['approximate'] == 1)
             const Text('Posizione approssimata a circa 1 km.'),
           const Text('Segnalazione pubblicata da un utente, non verificata.'),
+          if (s['mine'] != 1)
+            TextButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RecoveryScreen(sighting: s))), icon: const Icon(Icons.manage_accounts_outlined), label: const Text('Recupera proprietà')),
           if (s['mine'] == 1)
             TextButton.icon(
               onPressed: () async {
