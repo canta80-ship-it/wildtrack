@@ -1,3 +1,6 @@
+import 'profile_avatar_widget.dart';
+import 'premium_explore_screen.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -335,11 +338,7 @@ class _FeedSighting extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CircleAvatar(
-            radius: 21,
-            backgroundColor: WildColors.sage,
-            child: Icon(Icons.person_outline, color: WildColors.forest),
-          ),
+          ProfileAvatar(url: s['avatarUrl'] as String?),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -461,7 +460,7 @@ class _PeopleState extends State<_People> {
             const _Placeholder(
               icon: Icons.people_outline,
               title: 'Nessuno nelle vicinanze',
-              body: 'Non risultano altri utenti entro il raggio consentito che abbiano scelto di condividere la posizione.',
+              body: 'Nessun utente visibile entro 15 km. Entrambi dovete attivare la condivisione; la posizione scade dopo 3 minuti senza aggiornamenti.',
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -482,36 +481,16 @@ class _PeopleState extends State<_People> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: WildColors.sage,
-                  child: Text(
-                    '${p['nickname'] ?? '?'}'.characters.first.toUpperCase(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: WildColors.forest,
-                    ),
-                  ),
-                ),
+                leading: ProfileAvatar(url: p['avatarUrl'] as String?),
                 title: Text(
-                  '${p['nickname'] ?? 'Esploratore'}',
+                  '${p['nickname'] ?? 'Esploratore'} · Vedi su mappa',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                subtitle: const Text(
-                  'Posizione approssimata condivisa volontariamente',
-                ),
-                trailing: const Icon(Icons.chat_bubble_outline),
+                subtitle: Text('${((p['distanceM'] as num? ?? 0) / 1000).toStringAsFixed(1)} km · posizione condivisa'),
+                trailing: IconButton(tooltip: 'Apri chat', icon: const Icon(Icons.chat_bubble_outline), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: '${p['id'] ?? ''}', nickname: '${p['nickname'] ?? 'Esploratore'}')))),
                 onTap: () {
-                  final id = '${p['id'] ?? p['token'] ?? ''}';
-                  if (id.isEmpty) return;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => ChatScreen(
-                        peer: id,
-                        nickname: '${p['nickname'] ?? 'Esploratore'}',
-                      ),
-                    ),
-                  );
+                  if (p['lat'] is! num || p['lng'] is! num) return;
+                  Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PremiumExploreScreen(initialPosition: LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()), initialCommunity: true)));
                 },
               ),
             ),
