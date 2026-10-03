@@ -16,7 +16,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os, time, urllib.request
-          u='https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37107020536'
+          u='https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37107434190'
           for _ in range(240):
               q=urllib.request.Request(u,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
               with urllib.request.urlopen(q) as r: d=json.load(r)
@@ -30,13 +30,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 37107020536
+          run-id: 37107434190
           github-token: ${{ github.token }}
           path: apk
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-interface-previews
-          run-id: 37107020536
+          run-id: 37107434190
           github-token: ${{ github.token }}
           path: previews
       - name: Prepare bounded delivery parts and artwork checks
