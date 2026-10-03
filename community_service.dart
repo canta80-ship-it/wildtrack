@@ -52,14 +52,24 @@ class CommunityService extends ChangeNotifier {
       }
       await hide();
       final String restored;
+      Map<String, dynamic>? recoveredProfile;
       if (undo) {
         restored = PreferencesService.instance.previousCommunityToken ?? (throw StateError('Nessuna identità precedente disponibile.'));
       } else {
         final result = await api('recovery-code', method: 'POST', body: {'action': 'restore', 'code': code});
         restored = result['token'] as String;
+        if (result['profile'] is Map) recoveredProfile = Map<String, dynamic>.from(result['profile'] as Map);
       }
       await PreferencesService.instance.replaceCommunityIdentity(restored);
-      _syncedProfile = null;
+      final prefs = PreferencesService.instance;
+      if (recoveredProfile != null) {
+        prefs.nickname = recoveredProfile['nickname'] as String;
+        prefs.avatarBase64 = recoveredProfile['avatarBase64'] as String?;
+        await prefs.save();
+      }
+      // Preserve the restored owner's server profile; do not overwrite it with
+      // the other identity's local photo during the first refresh.
+      _syncedProfile = jsonEncode([prefs.token, prefs.nickname, prefs.avatarBase64]);
       sightings = []; people = []; nextOffset = null;
     } finally {
       backupPaused = false;
