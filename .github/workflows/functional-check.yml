@@ -50,7 +50,7 @@ jobs:
   android:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[android]')
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Wait for signed APK built from this commit
@@ -105,4 +105,3 @@ jobs:
         with:
           name: WildTrack-online-results
           path: online-results.json
-

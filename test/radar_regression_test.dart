@@ -59,6 +59,9 @@ void main(){
   final now=DateTime.utc(2026,1,15,11);
   final s=engine.evaluate(now:now,position:position(now,altitude:1500),habitat:const HabitatContext(primary:'mosaic',tags:{'meadow','rock','forest','park','water','farmland'},elevation:1500));
   expect(s.species.where((s)=>{'Upupa','Assiolo','Nibbio bruno','Marmotta'}.contains(s.name)),isEmpty);
+  final night=DateTime.utc(2026,1,15,21);
+  final listening=engine.evaluate(now:night,position:position(night),habitat:habitat,evidence:[RadarEvidence('gbif:summer-owl','Assiolo',46,13,DateTime.utc(2025,7,15),'GBIF')]);
+  expect(listening.listening.where((s)=>s.name=='Assiolo'),isEmpty);
  });
  test('Old, distant, unpositioned and trace records cannot confirm a local encounter',(){
   final now=DateTime.utc(2026,10,3,11);

@@ -188,7 +188,7 @@ class WildTrackIntelligenceService {
     for (final entry in radarProfiles.entries) {
       final result = _forecast(entry.key,entry.value,now,pos,weather,habitat,history,evidence,surveys,sun);
       if (result.score >= 20 && (!sun.dark || entry.value.cycle != 'diurnal')) visual.add(result);
-      if (entry.value.audible && sun.dark && entry.value.cycle == 'nocturnal' && result.presenceSupported && result.score >= 12) {
+      if (entry.value.audible && sun.dark && entry.value.cycle == 'nocturnal' && result.presenceSupported && result.score >= 20) {
         listening.add(SpeciesForecast(name:result.name,score:math.min(80,result.score+25),confidence:result.confidence,reason:'Ascolto passivo: attività notturna; ${result.reason}',bestWindow:'Dopo il tramonto, senza playback',presenceSupported:true,quality:result.quality));
       }
     }
@@ -290,7 +290,8 @@ class WildTrackIntelligenceService {
   }
   Future<HabitatContext> _habitat(Position p) async {
     final key=_cell(p), now=DateTime.now(), cached=_habitatCache[_cell(p)];
-    if(cached!=null && now.difference(cached.$1)<const Duration(hours:1))return cached.$2;
+    final elevation=p.altitude.isFinite && p.altitudeAccuracy>0 && p.altitudeAccuracy<=100?p.altitude:null;
+    if(cached!=null && now.difference(cached.$1)<const Duration(hours:1))return HabitatContext(primary:cached.$2.primary,tags:cached.$2.tags,elevation:elevation,mapped:cached.$2.mapped,fetchedAt:cached.$2.fetchedAt);
     // Include multipolygons as well as ways; no altitude-based fabricated habitat.
     final query='[out:json][timeout:5];(way(around:1400,${p.latitude},${p.longitude})[natural];relation(around:1400,${p.latitude},${p.longitude})[natural];way(around:1400,${p.latitude},${p.longitude})[landuse];relation(around:1400,${p.latitude},${p.longitude})[landuse];way(around:1400,${p.latitude},${p.longitude})[leisure=park];);out tags 100;';
     Map<String,dynamic>? data;
@@ -310,7 +311,6 @@ class WildTrackIntelligenceService {
       if(['residential','commercial','industrial'].contains(landuse))tags.add('urban');
       if(t['leisure']=='park')tags.add('park');
     }
-    final elevation=p.altitude.isFinite && p.altitudeAccuracy>0 && p.altitudeAccuracy<=100?p.altitude:null;
     final result=HabitatContext(primary:tags.isEmpty?'unknown':tags.length>1?'mosaic':tags.first,tags:tags.isEmpty?const {'unknown'}:tags,elevation:elevation,mapped:tags.isNotEmpty,fetchedAt:now);
     if(tags.isNotEmpty){_habitatCache[key]=(now,result);if(_habitatCache.length>30)_habitatCache.remove(_habitatCache.keys.first);}return result;
   }
@@ -421,4 +421,3 @@ class WildTrackIntelligenceService {
     return out.take(5).toList();
   }
 }
-
