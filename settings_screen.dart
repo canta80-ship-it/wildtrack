@@ -1,3 +1,4 @@
+import 'recovery_screen.dart';
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:image_picker/image_picker.dart';
@@ -500,6 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         },
                 ),
                 const SizedBox(height: 14),
+                ListTile(leading: const Icon(Icons.manage_accounts_outlined), title: const Text('Recupero avvistamenti'), subtitle: const Text('Recupera i vecchi post anche senza backup'), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecoveryScreen()))),
                 const Text('Profilo e persone vicine', style: WildText.h2),
                 const SizedBox(height: 12),
                 Center(child: ProfileAvatar(base64: p.avatarBase64, radius: 42)),
