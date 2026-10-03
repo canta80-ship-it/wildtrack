@@ -11,6 +11,7 @@ import '../premium_ui.dart';
 import '../services/database_service.dart';
 import '../services/preferences_service.dart';
 import '../services/radar_service.dart';
+import '../services/solar_context_service.dart';
 import 'outing_diary_screen.dart';
 import 'premium_explore_screen.dart';
 import 'premium_sighting_screen.dart';
@@ -31,6 +32,7 @@ class PremiumHomeScreen extends StatefulWidget {
 
 class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindingObserver {
   Timer? _radarTimer;
+  Timer? _clockTimer;
   bool _radarBusy = false;
   late Future<RadarSnapshot> radar;
   List<Sighting> sightings = [];
@@ -46,12 +48,26 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
     radar = RadarService.instance.load();
     DatabaseService.instance.changes.addListener(_onDatabaseChanged);
     _reloadLocal();
+    _scheduleClockTick();
+  }
+
+  void _scheduleClockTick() {
+    _clockTimer?.cancel();
+    final now = DateTime.now();
+    _clockTimer = Timer(Duration(milliseconds: 60000 - now.second * 1000 - now.millisecond), () {
+      if (!mounted) return;
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        setState(() {});
+        _scheduleClockTick();
+      }
+    });
   }
 
   @override
   void dispose() {
     DatabaseService.instance.changes.removeListener(_onDatabaseChanged);
     _radarTimer?.cancel();
+    _clockTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -71,7 +87,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) { if (state == AppLifecycleState.resumed) unawaited(_refresh()); }
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _scheduleClockTick();
+      unawaited(_refresh());
+    } else {
+      _clockTimer?.cancel();
+    }
+  }
 
   Future<void> _refresh() async {
     if (_radarBusy || !mounted) return;
@@ -112,14 +135,21 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
           future: radar,
           builder: (context, radarSnapshot) {
             final data = radarSnapshot.data;
+            final now = DateTime.now();
+            final freshPosition = data?.hasPosition == true && data?.generatedAt != null && now.difference(data!.generatedAt!).abs() <= const Duration(minutes: 5);
+            final sun = freshPosition && data?.latitude != null && data?.longitude != null
+                ? SolarContext.at(now, data!.latitude!, data.longitude!)
+                : null;
             return CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
-                  child: _Hero(
+                  child: PremiumHomeHero(
                     nickname: nickname,
                     activity: data?.activity ?? 'IN AGGIORNAMENTO',
-                    phase: data?.solar?.label ?? 'Fase solare non disponibile',
-                    hasPosition: data?.hasPosition ?? false,
+                    phase: sun?.label ?? 'Fase solare non disponibile',
+                    phaseCode: sun?.phase,
+                    clockTime: now,
+                    hasPosition: freshPosition,
                     temperature: data?.temperature,
                     onBell: () => Navigator.push(
                       context,
@@ -245,20 +275,37 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
   }
 }
 
-class _Hero extends StatelessWidget {
-  const _Hero({
+class PremiumHomeHero extends StatelessWidget {
+  const PremiumHomeHero({
     required this.nickname,
     required this.activity,
     required this.onBell,
     this.temperature,
     required this.phase, required this.hasPosition,
+    this.phaseCode, this.clockTime,
   });
   final String nickname;
   final String activity;
   final String phase;
+  final String? phaseCode;
+  final DateTime? clockTime;
   final bool hasPosition;
   final double? temperature;
   final VoidCallback onBell;
+
+  static String greeting(DateTime now) => now.hour >= 5 && now.hour < 12 ? 'Buongiorno' : now.hour >= 12 && now.hour < 18 ? 'Buon pomeriggio' : 'Buonasera';
+  static IconData phaseIcon(String? phase) => switch (phase) {
+    'day' => Icons.wb_sunny_outlined,
+    'dawn' || 'dusk' => Icons.wb_twilight_outlined,
+    'night' => Icons.nightlight_round,
+    _ => Icons.help_outline,
+  };
+  static Color phaseColor(String? phase) => switch (phase) {
+    'day' => const Color(0xFFEEC16A),
+    'dawn' || 'dusk' => const Color(0xFFF0AA74),
+    'night' => const Color(0xFFB9D8F3),
+    _ => const Color(0xFFD5D9D5),
+  };
 
   @override
   Widget build(BuildContext context) => Container(
@@ -277,14 +324,14 @@ class _Hero extends StatelessWidget {
             Semantics(button: true, label: 'SOS · Emergenza', child: Material(color: const Color(0xFF9F3F32), shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SosScreen())), child: const SizedBox(width: 44, height: 44, child: Center(child: Text('SOS', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900))))))),
           ]),
           const SizedBox(height: 22),
-          Text('${DateTime.now().hour >= 5 && DateTime.now().hour < 12 ? 'Buongiorno' : DateTime.now().hour >= 12 && DateTime.now().hour < 18 ? 'Buon pomeriggio' : 'Buonasera'},\n$nickname', style: const TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 27, height: 1.08, fontWeight: FontWeight.w800)),
+          Text('${greeting(clockTime ?? DateTime.now())},\n$nickname', style: const TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 27, height: 1.08, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           Row(children: [const Icon(Icons.location_on, color: Colors.white, size: 19), const SizedBox(width: 4), Text(hasPosition ? 'La tua zona' : 'Posizione da acquisire', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800))]),
           const SizedBox(height: 14),
           Row(children: [
             Expanded(child: _HeroChip(icon: Icons.bar_chart_rounded, iconColor: const Color(0xFF94D571), text: 'Condizioni: $activity', fill: WildColors.forest)),
             const SizedBox(width: 8),
-            Expanded(child: _HeroChip(icon: Icons.wb_twilight_outlined, iconColor: const Color(0xFFEEC16A), text: temperature == null ? phase : '${temperature!.toStringAsFixed(0)}° · $phase', fill: const Color(0x805C5847))),
+            Expanded(child: _HeroChip(icon: phaseIcon(phaseCode), iconColor: phaseColor(phaseCode), text: temperature == null ? phase : '${temperature!.toStringAsFixed(0)}° · $phase', fill: const Color(0x805C5847))),
           ]),
         ]),
       )),
@@ -689,4 +736,3 @@ class _DiaryCard extends StatelessWidget {
     ),
   );
 }
-
