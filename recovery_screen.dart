@@ -64,6 +64,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
   String status(dynamic value) => switch (value) {'approved' => 'Approvata: ora puoi gestire l’avvistamento', 'rejected' => 'Non approvata', _ => 'In attesa di verifica del gestore'};
   @override
   Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Recupero Community')), body: RefreshIndicator(onRefresh: () async {await load();if (widget.api == null) await CommunityService.instance.refresh();}, child: ListView(padding: const EdgeInsets.all(20), children: [
+    if (busy) const LinearProgressIndicator(),
     if (error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(error!, semanticsLabel: error, style: TextStyle(color: Theme.of(context).colorScheme.error))),
     Text('Recupero con codice personale', style: Theme.of(context).textTheme.titleLarge),
     const SizedBox(height: 8),
