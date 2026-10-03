@@ -33,6 +33,7 @@ class MainActivity: FlutterActivity() {
     private var remaining = 0
     private var generation = 0
     private val backupRequestCode = 4011
+    private val backupFileRequestCode = 4012
     private val prefsName = "wildtrack_backup"
     private val folderKey = "tree_uri"
 
@@ -93,10 +94,22 @@ class MainActivity: FlutterActivity() {
                     val bytes = call.argument<ByteArray>("data") ?: byteArrayOf()
                     writeBackup(name, bytes, result)
                 }
-                "readLatest" -> readLatestBackup(result)
+                "readLatest" -> Thread { readLatestBackup(result) }.start()
+                "pickBackupFile" -> pickBackupFile(result)
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun pickBackupFile(result: MethodChannel.Result) {
+        if (backupResult != null) { result.error("BUSY", "Selettore backup già aperto", null); return }
+        backupResult = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivityForResult(intent, backupFileRequestCode)
     }
 
     private fun pickBackupFolder(result: MethodChannel.Result) {
@@ -115,6 +128,19 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == backupFileRequestCode) {
+            val pending = backupResult
+            backupResult = null
+            if (resultCode != Activity.RESULT_OK || data?.data == null) { pending?.success(null); return }
+            val uri = data.data!!
+            Thread {
+                try {
+                    val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalStateException("File non leggibile")
+                    runOnUiThread { pending?.success(mapOf("data" to bytes)) }
+                } catch (e: Exception) { runOnUiThread { pending?.error("READ", "File non accessibile. Scaricalo dal cloud e riprova: ${e.message}", null) } }
+            }.start()
+            return
+        }
         if (requestCode == backupRequestCode) {
             val pending = backupResult
             backupResult = null
@@ -182,7 +208,7 @@ class MainActivity: FlutterActivity() {
         try {
             val backups = children(tree)
                 .filter { it.third.endsWith(".wildtrack") }
-                .sortedByDescending { it.second }
+                .sortedWith(compareByDescending<Triple<String, Long, String>> { it.third }.thenByDescending { it.second })
             for (entry in backups.drop(5)) {
                 val uri = DocumentsContract.buildDocumentUriUsingTree(tree, entry.first)
                 try { DocumentsContract.deleteDocument(contentResolver, uri) } catch (_: Exception) {}
@@ -212,22 +238,22 @@ class MainActivity: FlutterActivity() {
     private fun readLatestBackup(result: MethodChannel.Result) {
         val tree = savedTreeUri()
         if (tree == null) {
-            result.error("NO_FOLDER", "Scegli prima una cartella backup", null)
+            runOnUiThread { result.error("NO_FOLDER", "Scegli prima una cartella backup", null) }
             return
         }
         try {
             val latest = children(tree)
                 .filter { it.third.endsWith(".wildtrack") }
-                .maxByOrNull { it.second }
+                .sortedWith(compareByDescending<Triple<String, Long, String>> { it.third }.thenByDescending { it.second }).firstOrNull()
                 ?: run {
-                    result.success(null)
+                    runOnUiThread { result.success(null) }
                     return
                 }
             val uri = DocumentsContract.buildDocumentUriUsingTree(tree, latest.first)
             val bytes = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-            result.success(mapOf("name" to latest.third, "data" to bytes))
+            runOnUiThread { result.success(mapOf("name" to latest.third, "data" to bytes)) }
         } catch (e: Exception) {
-            result.error("READ", e.message ?: "Ripristino non riuscito", null)
+            runOnUiThread { result.error("READ", "Cartella non accessibile. Selezionala nuovamente o usa Scegli file da ripristinare: ${e.message}", null) }
         }
     }
 
