@@ -29,6 +29,7 @@ class CommunityService extends ChangeNotifier {
   int presenceGeneration = 0;
   StreamSubscription<Position>? backgroundLocation;
   bool presenceBusy = false;
+  bool backupPaused = false;
   String? _syncedProfile;
   Future<void> syncProfile() async {
     final p = PreferencesService.instance;
@@ -41,6 +42,7 @@ class CommunityService extends ChangeNotifier {
   Future<void> queueWrites = Future<void>.value();
 
   bool get canShare =>
+      !backupPaused &&
       PreferencesService.instance.visible &&
       (foreground ||
           (PreferencesService.instance.backgroundSharing &&
@@ -303,7 +305,7 @@ class CommunityService extends ChangeNotifier {
   }
 
   Future<void> refresh({bool more = false}) async {
-    if (syncing) return;
+    if (syncing || backupPaused) return;
     syncing = true;
     try {
       await syncProfile();
