@@ -1,7 +1,7 @@
 name: WildTrack functional diagnosis
 on:
   push:
-    branches: [interface-reference, radar-0-7-12]
+    branches: [interface-reference, radar-0-7-12, profiles-0-7-16]
     paths: ['**.dart', tool/android_smoke.py, tool/wait_for_build.py, .github/workflows/functional-check.yml, pubspec.yaml]
   workflow_dispatch:
 permissions:
@@ -39,7 +39,7 @@ jobs:
           python3 prepare_nature.py
       - run: flutter pub get
       - name: Run functional checks and retain individual results
-        run: flutter test test/functional_test.dart test/map_feed_regression_test.dart test/radar_regression_test.dart test/home_time_test.dart test/outdoor_tools_test.dart test/community_radar_update_test.dart --reporter json > functional-results.json
+        run: flutter test test/functional_test.dart test/map_feed_regression_test.dart test/radar_regression_test.dart test/home_time_test.dart test/outdoor_tools_test.dart test/community_radar_update_test.dart test/profile_regression_test.dart --reporter json > functional-results.json
       - name: Retain functional diagnostic output even on failure
         if: always()
         uses: actions/upload-artifact@v4
