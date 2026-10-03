@@ -1000,6 +1000,12 @@ void main() {
       expect(find.text('Nome utente o password non corretti.'), findsOneWidget);
       await tester.enterText(find.byType(TextField).last, 'PassWord!27');
       await click(tester, find.text('Accedi').last);
+      // Local password verification and preference writes are asynchronous IO.
+      // Wait for the destination instead of assuming every runner finishes in 100 ms.
+      for (var attempt = 0; attempt < 50 && find.text('SIGNED IN').evaluate().isEmpty; attempt++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump();
+      }
       expect(find.text('SIGNED IN'), findsOneWidget);
       expect(
         await tester.runAsync(AuthService.instance.currentUsername),
