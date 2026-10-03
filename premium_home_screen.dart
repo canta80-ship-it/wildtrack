@@ -46,7 +46,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _radarTimer = Timer.periodic(RadarService.refreshInterval, (_) { if (mounted && WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) unawaited(_refresh(forceRefresh: false)); });
+    _radarTimer = Timer.periodic(RadarService.refreshInterval, (_) { if (mounted && WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) unawaited(_refresh()); });
     radar = RadarService.instance.load();
     DatabaseService.instance.changes.addListener(_onDatabaseChanged);
     _reloadLocal();
