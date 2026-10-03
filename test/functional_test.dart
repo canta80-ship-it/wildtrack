@@ -756,6 +756,16 @@ void main() {
       expect((await store.points()).single.name,'Auto backup');
     } finally {await store.restoreSnapshot(original);}
   });
+  test('BACKUP profile photo can be restored as empty after choosing a new photo', () async {
+    prefs.avatarBase64 = null;
+    await prefs.save();
+    final bytes = await WildTrackBackupService.instance.buildBackup();
+    prefs.avatarBase64 = 'new-photo';
+    await prefs.save();
+    await WildTrackBackupService.instance.restore(bytes);
+    expect(prefs.avatarBase64, isNull);
+    expect(CommunityService.instance.backupPaused, false);
+  });
   test('BACKUP camera profile must restore with settings', () async {
     prefs.cameraLabel = 'Original';
     prefs.cameraIso = 1600;
