@@ -1,3 +1,4 @@
+import 'package:share_plus/share_plus.dart';
 import 'expedition_tools_screen.dart';
 
 import 'package:flutter/cupertino.dart';
@@ -18,7 +19,8 @@ class PrivateMapsScreen extends StatefulWidget {
 }
 
 class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
-  List<Map<String, dynamic>> maps = [], members = [];
+  List<Map<String, dynamic>> maps = [], members = [], requests = [];
+  bool acting = false;
   String? error;
   bool loading = false;
   ExpeditionState? expedition;
@@ -52,6 +54,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
         setState(() {
           maps = loadedMaps;
           members = loadedMembers;
+          requests = (d['requests'] as List? ?? []).map((x) => Map<String, dynamic>.from(x as Map)).toList();
           expedition = state;
           error = null;
         });
@@ -90,6 +93,8 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
   }
 
   Future<void> action(Map<String, dynamic> body) async {
+    if (acting) return;
+    setState(() => acting = true);
     try {
       final d = await CommunityService.instance.api(
         'maps',
@@ -101,7 +106,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
         await showDialog<void>(
           context: context,
           builder: (c) => AlertDialog(
-            title: const Text('Invito personale'),
+            title: const Text('Invita nella spedizione'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,6 +134,11 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
                 },
                 child: const Text('Copia'),
               ),
+              TextButton.icon(
+                icon: const Icon(Icons.share_outlined),
+                label: const Text('Condividi invito'),
+                onPressed: () async {await SharePlus.instance.share(ShareParams(text: 'Invito WildTrack. Apri Community → Gruppi → Usa invito e incolla questo codice:\n${d['code']}\nValido 24 ore, per una persona. Attendi l’approvazione del proprietario.'));},
+              ),
               TextButton(
                 onPressed: () => Navigator.pop(c),
                 child: const Text('Chiudi'),
@@ -143,7 +153,15 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
       await CommunityService.instance.refresh();
     } catch (e) {
       if (mounted) message(context, e);
-    }
+    } finally {if (mounted) setState(() => acting = false);}
+  }
+
+  Future<void> _join() async {
+    final text = await input('Usa invito', 'Incolla codice o messaggio ricevuto');
+    if (text == null) return;
+    final code = RegExp(r'(?<![a-fA-F0-9])[a-fA-F0-9]{32}(?![a-fA-F0-9])').firstMatch(text)?.group(0);
+    if (code == null) {if (mounted) message(context, 'Il codice deve contenere 32 caratteri. Copialo dal messaggio d’invito.');return;}
+    await action({'action': 'join', 'code': code.toLowerCase(), 'nickname': PreferencesService.instance.nickname});
   }
 
   Future<void> _setDuration(Duration value) async {
@@ -449,7 +467,9 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                if (loading) const LinearProgressIndicator(),
+                if (loading || acting) const LinearProgressIndicator(),
+                WildOutlineButton(label: 'Usa invito ricevuto', onPressed: acting ? null : _join),
+                for (final request in requests) ListTile(leading: const Icon(Icons.hourglass_top), title: Text('${request["name"]}'), subtitle: const Text('Richiesta inviata · in attesa di approvazione'), trailing: TextButton(onPressed: acting ? null : () => action({'action': 'cancelRequest', 'mapId': request["id"]}), child: const Text('Annulla'))),
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.all(10),
@@ -643,15 +663,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
         const SizedBox(height: 9),
         WildOutlineButton(
           label: 'Usa invito',
-          onPressed: () async {
-            final code = await input('Chiedi accesso', 'Codice ricevuto');
-            if (code != null && code.isNotEmpty)
-              await action({
-                'action': 'join',
-                'code': code,
-                'nickname': PreferencesService.instance.nickname,
-              });
-          },
+          onPressed: acting ? null : _join,
         ),
       ],
     ),
@@ -667,7 +679,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
     builder: (c) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -681,7 +693,9 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
               icon: const Icon(Icons.person_add_alt),
               label: const Text('Crea invito personale'),
             ),
-            for (final p in rows)
+            TextButton.icon(onPressed: () {Navigator.pop(c);action({'action': 'revokeInvites', 'mapId': m['id']});}, icon: const Icon(Icons.link_off), label: const Text('Revoca inviti non utilizzati')),
+            Text('${rows.where((p) => p['approved'] != 1).length} richieste in attesa'),
+            for (final p in [...rows.where((p) => p['approved'] != 1), ...rows.where((p) => p['approved'] == 1)])
               ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person_outline)),
                 title: Text(p['nickname'] as String),
@@ -694,6 +708,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
                   children: [
                     if (p['approved'] != 1)
                       IconButton(
+                        tooltip: 'Approva richiesta',
                         onPressed: () {
                           Navigator.pop(c);
                           action({
@@ -705,7 +720,10 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
                         icon: const Icon(Icons.check),
                       ),
                     IconButton(
-                      onPressed: () {
+                      tooltip: p['approved'] == 1 ? 'Rimuovi membro' : 'Rifiuta richiesta',
+                      onPressed: () async {
+                        final approved = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(title: Text(p['approved'] == 1 ? 'Rimuovere il membro?' : 'Rifiutare la richiesta?'), content: Text('${p['nickname']} perderà l’accesso al gruppo.'), actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Annulla')), FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Conferma'))]));
+                        if (approved != true || !c.mounted) return;
                         Navigator.pop(c);
                         action({
                           'action': 'remove',
@@ -719,7 +737,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
                 ),
               ),
           ],
-        ),
+        )),
       ),
     ),
   );
