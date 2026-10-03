@@ -39,6 +39,35 @@ class CommunityService extends ChangeNotifier {
     _syncedProfile = signature;
     notifyListeners();
   }
+  Future<void> restoreCommunityIdentity({String? code, bool undo = false}) async {
+    if (backupPaused) throw StateError('Un ripristino è già in corso.');
+    if (pending.isNotEmpty) throw StateError('Invia o annulla prima gli avvistamenti in coda: appartengono all’identità attuale.');
+    final running = timer != null;
+    backupPaused = true; timer?.cancel(); timer = null;
+    try {
+      final deadline = DateTime.now().add(const Duration(seconds: 45));
+      while (syncing || presenceBusy) {
+        if (DateTime.now().isAfter(deadline)) throw StateError('Sincronizzazione in corso. Riprova tra poco.');
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      await hide();
+      final String restored;
+      if (undo) {
+        restored = PreferencesService.instance.previousCommunityToken ?? (throw StateError('Nessuna identità precedente disponibile.'));
+      } else {
+        final result = await api('recovery-code', method: 'POST', body: {'action': 'restore', 'code': code});
+        restored = result['token'] as String;
+      }
+      await PreferencesService.instance.replaceCommunityIdentity(restored);
+      _syncedProfile = null;
+      sightings = []; people = []; nextOffset = null;
+    } finally {
+      backupPaused = false;
+      if (running) start();
+      notifyListeners();
+    }
+    await refresh();
+  }
   Future<void> queueWrites = Future<void>.value();
 
   bool get canShare =>
