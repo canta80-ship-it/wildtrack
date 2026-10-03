@@ -18,9 +18,9 @@ jobs:
           python3 - <<'PY'
           import json,os,time,urllib.request
           for _ in range(240):
-              q=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37117835143',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              q=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37118008618',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
               with urllib.request.urlopen(q) as r:d=json.load(r)
-              assert d['head_sha']=='879bf07fdc5cba8232b47fd971d9491e7d780657'
+              assert d['head_sha']=='d59771a903a14050402c02f78c778d06f16388ed'
               if d['status']=='completed':
                   assert d['conclusion']=='success',d['conclusion']
                   break
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 37117835143
+          run-id: 37118008618
           github-token: ${{ github.token }}
           path: apk
       - name: Check retained update signature
@@ -106,7 +106,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 879bf07fdc5cba8232b47fd971d9491e7d780657
+          ref: d59771a903a14050402c02f78c778d06f16388ed
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -114,7 +114,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 37117835143
+          run-id: 37118008618
           github-token: ${{ github.token }}
           path: tested-apk
       - name: Enable emulator acceleration
