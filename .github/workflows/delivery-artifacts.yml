@@ -2,6 +2,7 @@ name: Package verified WildTrack delivery
 on:
   push:
     branches: [delivery-0-7-12]
+    paths: [.github/workflows/delivery-artifacts.yml]
 permissions:
   contents: read
   actions: read
@@ -15,62 +16,48 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          import json, os, time, urllib.request
-          u='https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37108150778'
+          import json,os,time,urllib.request
           for _ in range(240):
-              q=urllib.request.Request(u,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
-              with urllib.request.urlopen(q) as r: d=json.load(r)
-              assert d['head_sha']=='71be46b6cbc8ffa2d8d3fa9b02fcdc81d0cfdb32'
+              q=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37115988578',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(q) as r:d=json.load(r)
+              assert d['head_sha']=='4d581e9293b0d76941212d6ee1577f7cbc3f9778'
               if d['status']=='completed':
-                  assert d['conclusion']=='success', d['conclusion']
+                  assert d['conclusion']=='success',d['conclusion']
                   break
               time.sleep(5)
-          else: raise TimeoutError('Build not completed')
+          else:raise TimeoutError('Build not complete')
           PY
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 37108150778
+          run-id: 37115988578
           github-token: ${{ github.token }}
           path: apk
-      - uses: actions/download-artifact@v4
-        with:
-          name: WildTrack-interface-previews
-          run-id: 37108150778
-          github-token: ${{ github.token }}
-          path: previews
       - name: Check retained update signature
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs apk/WildTrack-release.apk > signing.txt
           ACTUAL_CERT=$(sed -n 's/.*certificate SHA-256 digest: //p' signing.txt | head -n 1)
           test "$ACTUAL_CERT" = "891acf5af65eaaff81d0a1f493d64f2b21311e9c64f2801db5ad5f015bcf42bc"
-      - name: Prepare bounded delivery parts and artwork checks
+      - name: Prepare bounded delivery parts
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import hashlib, shutil
+          import hashlib
           root=Path('transfer');root.mkdir()
           p=Path('apk/WildTrack-release.apk')
           with p.open('rb') as f:
               for i in range(8):
                   b=f.read(24*1024*1024)
-                  if not b: break
+                  if not b:break
                   (root/f'WildTrack.part-{i}').write_bytes(b)
               assert not f.read(1),'Too many parts'
-          (root/'SHA256.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  WildTrack-0.7.12.apk\n')
-          picks=Path('selected-previews');picks.mkdir()
-          names=('lepre','scoiattolo','upupa','gheppio','assiolo','nibbio')
-          for p in Path('previews').glob('*.png'):
-              if any(n in p.name.lower() for n in names): shutil.copy(p,picks/p.name)
-          print('Preview files:',[p.name for p in picks.iterdir()])
+          (root/'SHA256.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  WildTrack-0.7.13.apk\n')
           PY
       - uses: actions/upload-artifact@v4
         with:
           name: WildTrack-delivery-checks
-          path: |
-            transfer/SHA256.txt
-            selected-previews/
+          path: transfer/SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
           name: WildTrack-part-0
