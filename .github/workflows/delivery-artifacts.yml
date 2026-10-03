@@ -18,9 +18,9 @@ jobs:
           python3 - <<'PY'
           import json,os,time,urllib.request
           for _ in range(240):
-              q=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37115988578',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              q=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37117694283',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
               with urllib.request.urlopen(q) as r:d=json.load(r)
-              assert d['head_sha']=='4d581e9293b0d76941212d6ee1577f7cbc3f9778'
+              assert d['head_sha']=='6db54efa8120a3777235887ab1fc09644078dd8c'
               if d['status']=='completed':
                   assert d['conclusion']=='success',d['conclusion']
                   break
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 37115988578
+          run-id: 37117694283
           github-token: ${{ github.token }}
           path: apk
       - name: Check retained update signature
@@ -98,3 +98,43 @@ jobs:
           name: WildTrack-part-7
           path: transfer/WildTrack.part-7
           if-no-files-found: ignore
+
+  native-tools:
+    needs: delivery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6db54efa8120a3777235887ab1fc09644078dd8c
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 37117694283
+          github-token: ${{ github.token }}
+          path: tested-apk
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test premium checklist and GPS return on signed Android APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 tool/outdoor_android_smoke.py tested-apk/WildTrack-release.apk it.wildtrack.preview
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WildTrack-outdoor-native-results
+          path: android-results/
+          if-no-files-found: warn
