@@ -21,21 +21,12 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: wildtrack-preview-signing-v1
-      - name: Ensure stable preview signing key
+      - name: Verify original update signing key
         run: |
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore ~/.android/debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=WildTrack Preview,OU=WildTrack,O=WildTrack,L=Udine,ST=Friuli-Venezia Giulia,C=IT"
-          fi
-          keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep -E 'SHA256:|Owner:' || true
+          test -f ~/.android/debug.keystore || { echo 'Original signing key missing. Refusing to create an incompatible APK.'; exit 1; }
+          EXPECTED_CERT=891acf5af65eaaff81d0a1f493d64f2b21311e9c64f2801db5ad5f015bcf42bc
+          KEY_CERT=$(keytool -exportcert -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | sha256sum | cut -d' ' -f1)
+          test "$KEY_CERT" = "$EXPECTED_CERT" || { echo 'Signing certificate differs from previously delivered APKs.'; exit 1; }
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -96,7 +87,7 @@ jobs:
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk | tee apk-signing.txt
-          EXPECTED_CERT=$(keytool -exportcert -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | sha256sum | cut -d' ' -f1)
+          EXPECTED_CERT=891acf5af65eaaff81d0a1f493d64f2b21311e9c64f2801db5ad5f015bcf42bc
           ACTUAL_CERT=$(sed -n 's/.*certificate SHA-256 digest: //p' apk-signing.txt | head -n 1)
           test "$EXPECTED_CERT" = "$ACTUAL_CERT"
           AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
