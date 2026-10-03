@@ -95,7 +95,7 @@ class _PremiumCommunityScreenState extends State<PremiumCommunityScreen> {
         SliverToBoxAdapter(
           child: WildHero(
             image: '',
-            height: 203,
+            height: 280,
             child: SafeArea(
               bottom: false,
               child: Padding(
