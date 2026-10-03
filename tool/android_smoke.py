@@ -224,6 +224,9 @@ try:
                 if 'lo sapevi che' in visible_text():break
                 adb('shell','input','swipe','540','1450','540','800','350');time.sleep(1)
             result('Carosello Lo sapevi che presente in home','PASS' if 'lo sapevi che' in visible_text() else 'FAIL');shot('home-feed')
+            for _ in range(8):
+                if target('Diario'):break
+                adb('shell','input','swipe','20','600','20','1450','350');time.sleep(1)
             if tap('Diario'):
                 for label,title in [('Specie uniche','le tue specie uniche'),('Km percorsi','km percorsi'),('Tempo sul campo','tempo sul campo'),('Avvistamenti','i tuoi avvistamenti')]:
                     ok=tap(label)
