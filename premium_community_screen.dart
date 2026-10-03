@@ -7,6 +7,7 @@ import '../services/did_you_know_service.dart';
 import '../services/preferences_service.dart';
 import '../services/push_service.dart';
 import 'community_screen.dart';
+import 'community_sighting_map_screen.dart';
 import 'private_maps_screen.dart';
 import 'settings_screen.dart';
 import '../premium_ui.dart';
@@ -295,7 +296,7 @@ class _ChatAndFeed extends StatelessWidget {
                 const _Info(
                   text: 'Nessun avvistamento pubblico caricato in questo momento.',
                 ),
-              for (final s in c.sightings.take(5)) _FeedSighting(s: s),
+              for (final s in c.sightings) _FeedSighting(s: s),
             ],
           );
         },
@@ -399,6 +400,8 @@ class _FeedSighting extends StatelessWidget {
                       animal: '${s['species'] ?? 'Animale'}',
                     ),
                   ),
+                const SizedBox(height: 10),
+                CommunitySightingMapButton(sighting: s),
                 const SizedBox(height: 7),
                 const Row(
                   children: [
@@ -747,3 +750,4 @@ class _Info extends StatelessWidget {
     ),
   );
 }
+

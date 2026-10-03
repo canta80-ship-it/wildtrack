@@ -1,3 +1,4 @@
+import 'community_sighting_map_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -197,6 +198,7 @@ Future<void> showSighting(
               ),
             ),
           Text(s['notes'] as String? ?? ''),
+          CommunitySightingMapButton(sighting: s),
           Text('Coordinate: ${s['lat']}, ${s['lng']}'),
           if (s['approximate'] == 1)
             const Text('Posizione approssimata a circa 1 km.'),
@@ -860,3 +862,4 @@ class _ChatScreenState extends State<ChatScreen> {
     ),
   );
 }
+

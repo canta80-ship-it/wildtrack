@@ -74,7 +74,7 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Verify Radar engine and catalogue
-        run: flutter test test/radar_regression_test.dart test/home_time_test.dart test/outdoor_tools_test.dart
+        run: flutter test test/radar_regression_test.dart test/home_time_test.dart test/outdoor_tools_test.dart test/community_radar_update_test.dart
       - name: Verify responsive interface controls
         run: flutter test test/interface_layout_test.dart
       - uses: actions/upload-artifact@v4
@@ -106,4 +106,5 @@ jobs:
           path: WildTrack-release.apk
           if-no-files-found: error
           retention-days: 30
+
 

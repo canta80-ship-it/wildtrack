@@ -46,7 +46,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _radarTimer = Timer.periodic(const Duration(minutes: 2), (_) { if (mounted && WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) unawaited(_refresh()); });
+    _radarTimer = Timer.periodic(RadarService.refreshInterval, (_) { if (mounted && WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) unawaited(_refresh(forceRefresh: false)); });
     radar = RadarService.instance.load();
     DatabaseService.instance.changes.addListener(_onDatabaseChanged);
     _reloadLocal();
@@ -74,7 +74,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
     super.dispose();
   }
 
-  void _onDatabaseChanged() { unawaited(_refresh()); }
+  void _onDatabaseChanged() { unawaited(_reloadLocal()); }
 
   Future<void> _reloadLocal() async {
     final values = await Future.wait<dynamic>([
@@ -92,17 +92,17 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _scheduleClockTick();
-      unawaited(_refresh());
+      unawaited(_refresh(forceRefresh: false));
     } else {
       _clockTimer?.cancel();
     }
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool forceRefresh = true}) async {
     if (_radarBusy || !mounted) return;
     _radarBusy = true;
     try {
-    final next = RadarService.instance.load();
+    final next = RadarService.instance.load(forceRefresh: forceRefresh);
     setState(() => radar = next);
     await Future.wait([next, _reloadLocal()]);
     } catch (_) { } finally { _radarBusy = false; }
@@ -138,7 +138,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
           builder: (context, radarSnapshot) {
             final data = radarSnapshot.data;
             final now = DateTime.now();
-            final freshPosition = data?.hasPosition == true && data?.generatedAt != null && now.difference(data!.generatedAt!).abs() <= const Duration(minutes: 5);
+            final freshPosition = data?.hasPosition == true && data?.generatedAt != null && now.difference(data!.generatedAt!).abs() <= RadarService.refreshInterval;
             final sun = freshPosition && data?.latitude != null && data?.longitude != null
                 ? SolarContext.at(now, data!.latitude!, data.longitude!)
                 : null;
@@ -190,7 +190,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
                       Card(child: ListTile(leading: const Icon(Icons.near_me_outlined), title: const Text('Torna al mio punto'), subtitle: const Text('Salva auto, bivio o postazione'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ReturnPointScreen())))),
                       const SizedBox(height: 18),
                       _SectionHeader(
-                        title: 'Catalogo animali',
+                        title: 'Catalogo specie',
                         action: 'Vedi tutte',
                         onTap: () => Navigator.push(
                           context,
@@ -741,3 +741,4 @@ class _DiaryCard extends StatelessWidget {
     ),
   );
 }
+

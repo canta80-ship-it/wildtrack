@@ -447,8 +447,6 @@ class _Hero extends StatelessWidget {
                     onTap: () => Navigator.pop(context),
                   ),
                   const Spacer(),
-                  const WildLogo(compact: true),
-                  const Spacer(),
                   ListenableBuilder(
                     listenable: PreferencesService.instance,
                     builder: (context, _) => _CircleButton(
@@ -947,3 +945,4 @@ class _Tip extends StatelessWidget {
     ),
   );
 }
+
