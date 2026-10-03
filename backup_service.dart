@@ -11,6 +11,7 @@ import 'database_service.dart';
 import 'preferences_service.dart';
 import 'media_storage_service.dart';
 import 'expedition_service.dart';
+import 'outdoor_tools_service.dart';
 
 class BackupFolderInfo {
   const BackupFolderInfo({required this.label, required this.uri});
@@ -117,6 +118,7 @@ class WildTrackBackupService {
         'database': await DatabaseService.instance.exportSnapshot(),
         'profileAndSettings': await _preferencesSnapshot(),
         'expeditions': await _expeditionsSnapshot(),
+        'outdoorTools': await OutdoorToolsStore.instance.exportSnapshot(),
         'media': await _mediaSnapshot(),
       },
     };
@@ -197,6 +199,9 @@ class WildTrackBackupService {
     final expeditions = Map<String, dynamic>.from(
       appData['expeditions'] as Map? ?? const {},
     );
+    final outdoor = appData['outdoorTools'] == null ? null : OutdoorToolsStore.validate(Map<String, dynamic>.from(appData['outdoorTools'] as Map));
+    final previousOutdoor = await OutdoorToolsStore.instance.exportSnapshot();
+    var outdoorChanged = false;
     final prefs = PreferencesService.instance;
     final mediaDir = await MediaStorageService.instance.mediaDirectory;
     final stage = await mediaDir.parent.createTemp('.restore-stage-');
@@ -284,8 +289,13 @@ class WildTrackBackupService {
         await prefs.load();
         await prefs.save();
         await ExpeditionService.instance.reloadFromDisk();
+        if (outdoor != null) {
+          await OutdoorToolsStore.instance.restoreSnapshot(outdoor);
+          outdoorChanged = true;
+        }
         discardPreviousMedia = true;
       } catch (_) {
+        if (outdoorChanged) await OutdoorToolsStore.instance.restoreSnapshot(previousOutdoor);
         if (databaseChanged)
           await DatabaseService.instance.restoreSnapshot(previousDatabase);
         if (mediaSwapped && await mediaDir.exists())

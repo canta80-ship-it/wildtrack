@@ -39,7 +39,7 @@ jobs:
           python3 prepare_nature.py
       - run: flutter pub get
       - name: Run functional checks and retain individual results
-        run: flutter test test/functional_test.dart test/map_feed_regression_test.dart test/radar_regression_test.dart test/home_time_test.dart --reporter json > functional-results.json
+        run: flutter test test/functional_test.dart test/map_feed_regression_test.dart test/radar_regression_test.dart test/home_time_test.dart test/outdoor_tools_test.dart --reporter json > functional-results.json
       - name: Retain functional diagnostic output even on failure
         if: always()
         uses: actions/upload-artifact@v4

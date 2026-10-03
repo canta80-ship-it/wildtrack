@@ -1,3 +1,5 @@
+import 'outing_preparation_screen.dart';
+import 'return_point_screen.dart';
 import 'dart:async';
 import 'radar_panel_widget.dart';
 import 'diary_metric_screen.dart';
@@ -183,6 +185,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
                             ),
                           ),
                       ),
+                      const SizedBox(height: 18),
+                      Card(child: ListTile(leading: const Icon(Icons.checklist_rtl), title: const Text('Prepara l’uscita'), subtitle: const Text('Checklist per specie, stagione e attività'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const OutingPreparationScreen())))),
+                      Card(child: ListTile(leading: const Icon(Icons.near_me_outlined), title: const Text('Torna al mio punto'), subtitle: const Text('Salva auto, bivio o postazione'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ReturnPointScreen())))),
                       const SizedBox(height: 18),
                       _SectionHeader(
                         title: 'Catalogo animali',

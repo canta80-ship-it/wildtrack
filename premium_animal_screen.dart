@@ -1,3 +1,4 @@
+import 'outing_preparation_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -368,6 +369,8 @@ class PremiumAnimalScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                WildOutlineButton(label: 'Prepara un’uscita', icon: Icons.checklist_rtl, onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => OutingPreparationScreen(initialSpecies: animal.name)))),
                 const SizedBox(height: 12),
                 WildOutlineButton(
                   label: 'Fonte naturalistica',
