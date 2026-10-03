@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
+import 'package:image_picker/image_picker.dart';
+import 'profile_avatar_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -84,6 +88,25 @@ class _SettingsScreenState extends State<SettingsScreen>
     } finally {
       if (mounted) setState(() => saving = false);
     }
+  }
+
+  Future<void> _profilePhoto({bool remove = false}) async {
+    if (saving) return;
+    final p = PreferencesService.instance;
+    String? encoded;
+    try {
+      if (!remove) {
+        final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
+        if (picked == null) return;
+        final codec = await ui.instantiateImageCodec(await picked.readAsBytes(), targetWidth: 256, targetHeight: 256, allowUpscaling: false);
+        try {final frame = await codec.getNextFrame();try {final bytes = await frame.image.toByteData(format: ui.ImageByteFormat.png);if (bytes == null || bytes.lengthInBytes > 300000) throw Exception('Foto non utilizzabile. Scegli un’altra immagine.');encoded = base64Encode(bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes));} finally {frame.image.dispose();}} finally {codec.dispose();}
+      }
+      if (!mounted) return;
+      setState(() => saving = true);
+      p.avatarBase64 = encoded;
+      await p.save();
+      try {await CommunityService.instance.syncProfile();await CommunityService.instance.refresh();if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(remove ? 'Foto profilo rimossa' : 'Foto profilo aggiornata')));} catch (_) {if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Foto salvata sul telefono. Verrà sincronizzata al ritorno della connessione.')));}
+    } catch (e) {if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Foto non salvata: $e')));} finally {if (mounted) setState(() => saving = false);}
   }
 
   Future<void> _permissionToggle(Permission permission, bool enable) async {
@@ -478,6 +501,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 const SizedBox(height: 14),
                 const Text('Profilo e persone vicine', style: WildText.h2),
+                const SizedBox(height: 12),
+                Center(child: ProfileAvatar(base64: p.avatarBase64, radius: 42)),
+                const SizedBox(height: 8),
+                WildOutlineButton(label: 'Carica foto profilo', onPressed: saving ? null : () => _profilePhoto()),
+                if (p.avatarBase64 != null) TextButton(onPressed: saving ? null : () => _profilePhoto(remove: true), child: const Text('Rimuovi foto profilo')),
+                const Text('Nome e foto sono visibili nei tuoi post Community.', textAlign: TextAlign.center),
                 const SizedBox(height: 8),
                 TextField(
                   controller: nickname,
@@ -495,13 +524,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                           if (nickname.text.trim().length < 2) return;
                           p.nickname = nickname.text.trim();
                           await save();
-                          await CommunityService.instance.updatePresence();
+                          await CommunityService.instance.refresh();
                         },
                 ),
                 const SizedBox(height: 8),
                 _ToggleTile(
                   title: 'Condividi la mia posizione',
-                  subtitle: 'Visibile alle persone entro 5 km che condividono a loro volta la posizione.',
+                  subtitle: 'Visibile alle persone entro 15 km che condividono a loro volta la posizione.',
                   value: p.visible,
                   onChanged: saving
                       ? null
@@ -513,7 +542,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           if (v) {
                             await CommunityService.instance
                                 .configureBackgroundSharing();
-                            await CommunityService.instance.updatePresence();
+                            await CommunityService.instance.refresh();
                           } else {
                             await CommunityService.instance.hide();
                           }
