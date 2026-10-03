@@ -153,6 +153,18 @@ class DatabaseService {
     changes.value++;
   }
 
+  Future<void> attachRecoveredPhoto(String id, String path) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      final rows = await txn.query('sightings', where: 'id = ?', whereArgs: [id]);
+      if (rows.isEmpty) return;
+      await txn.update('sightings', {'photo_path': path}, where: 'id = ?', whereArgs: [id]);
+      await txn.delete('sighting_photos', where: 'sighting_id = ?', whereArgs: [id]);
+      await txn.insert('sighting_photos', {'sighting_id': id, 'path': path, 'position': 0});
+    });
+    changes.value++;
+  }
+
   Future<void> deleteSighting(String id) async {
     final db = await database;
     await db.transaction((txn) async {

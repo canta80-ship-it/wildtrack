@@ -76,14 +76,30 @@ class PreferencesService extends ChangeNotifier {
       cameraRaw = p['cameraRaw'] != false;
       cameraFocalMm = (p['cameraFocalMm'] as num?)?.toInt() ?? cameraFocalMm;
     } catch (_) {}
+    // Keep Community ownership independent of mutable settings. Migrate the
+    // existing credential verbatim so previously published posts remain ours.
+    final identityFile = File('${file.parent.path}/wildtrack_identity.json');
+    if (await identityFile.exists()) {
+      final identity = jsonDecode(await identityFile.readAsString()) as Map;
+      final saved = identity['token'];
+      if (saved is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(saved)) {
+        throw StateError('Identità Community danneggiata. Ripristina il backup prima di pubblicare.');
+      }
+      token = saved;
+    }
     if (token.isEmpty) {
       final r = Random.secure();
       token = List.generate(
         32,
         (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0'),
       ).join();
-      await save();
     }
+    if (!await identityFile.exists()) {
+      final temporary = File('${identityFile.path}.tmp');
+      await temporary.writeAsString(jsonEncode({'token': token}), flush: true);
+      await temporary.rename(identityFile.path);
+    }
+    await save();
   }
 
   Future<void> toggleFavorite(String species) async {

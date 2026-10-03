@@ -8,6 +8,8 @@ import '../services/preferences_service.dart';
 import '../services/push_service.dart';
 import 'community_screen.dart';
 import 'community_sighting_map_screen.dart';
+import 'community_delete_widget.dart';
+import '../services/preferences_service.dart';
 import 'private_maps_screen.dart';
 import 'settings_screen.dart';
 import '../premium_ui.dart';
@@ -365,6 +367,8 @@ class _FeedSighting extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
+                Text('${s['authorName'] ?? 'Esploratore'}', style: const TextStyle(fontWeight: FontWeight.w600, color: WildColors.forest)),
+                const SizedBox(height: 4),
                 Text(
                   s['notes'] as String? ??
                       'Avvistamento condiviso con la community.',
@@ -378,7 +382,7 @@ class _FeedSighting extends StatelessWidget {
                       '$communityUrl/api/photo?id=${s['id']}',
                       headers: {
                         'Authorization':
-                            'Bearer ${CommunityService.instance.preferences.token}',
+                            'Bearer ${PreferencesService.instance.token}',
                       },
                       height: 160,
                       width: double.infinity,
@@ -402,6 +406,7 @@ class _FeedSighting extends StatelessWidget {
                   ),
                 const SizedBox(height: 10),
                 CommunitySightingMapButton(sighting: s),
+                CommunityDeleteButton(sighting: s),
                 const SizedBox(height: 7),
                 const Row(
                   children: [

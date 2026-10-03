@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wildtrack_mvp/screens/community_delete_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,18 @@ class OfflineTiles extends TileProvider {
 }
 
 void main() {
+  testWidgets('Premium delete button appears only for the creator', (tester) async {
+    for (final mine in [0, 1]) {
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: CommunityDeleteButton(sighting: {'id':'post','mine':mine}))));
+      expect(find.text('Elimina avvistamento'), mine == 1 ? findsOneWidget : findsNothing);
+      if (mine == 1) {
+        await tester.tap(find.text('Elimina avvistamento')); await tester.pumpAndSettle();
+        expect(find.text('Eliminare questo avvistamento?'), findsOneWidget);
+        await tester.tap(find.text('Annulla')); await tester.pumpAndSettle();
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   test('Automatic Radar loads reuse snapshot up to one hour and expire at boundary', () async {
     var now = DateTime(2026, 10, 3, 12), calls = 0;
     final radar = RadarService(clock: () => now, loader: (_) async { calls++; return const RadarSnapshot(activity: 'BUONE', species: []); });

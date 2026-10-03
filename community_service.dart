@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'preferences_service.dart';
 import 'database_service.dart';
 import 'location_service.dart';
+import 'media_storage_service.dart';
 import 'privacy_service.dart';
 
 const communityUrl = 'https://wildtrack-community.canta80.chatgpt.site';
@@ -239,6 +240,7 @@ class CommunityService extends ChangeNotifier {
     final protected = item['groupId'] == null
         ? WildlifePrivacyService.instance.protectPayload(item)
         : Map<String, dynamic>.from(item);
+    protected.putIfAbsent('authorName', () => PreferencesService.instance.nickname);
     final index = pending.indexWhere((s) => s['id'] == protected['id']);
     if (index >= 0 && syncing) {
       throw Exception(
@@ -305,8 +307,14 @@ class CommunityService extends ChangeNotifier {
           await DatabaseService.instance.retainPublicSighting(item);
         }
         pending.removeAt(readyIndex);
-        await saveQueue();
+        try {
+          await saveQueue();
+        } catch (_) {
+          pending.insert(readyIndex, item);
+          rethrow;
+        }
       }
+      await restoreMySightings();
       final data = await api(
         'sightings?offset=${more ? (nextOffset ?? 0) : 0}',
       );
@@ -333,6 +341,57 @@ class CommunityService extends ChangeNotifier {
       notifyListeners();
     }
     await updatePresence();
+  }
+
+  bool isMine(Map<String, dynamic> row) => row['mine'] == 1 || row['mine'] == true;
+
+  Future<void> restoreMySightings() async {
+    int? offset = 0;
+    do {
+      final data = await api('sightings?mine=1&offset=$offset');
+      for (final raw in data['items'] as List) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        if (isMine(row)) {
+          await DatabaseService.instance.retainPublicSighting(row);
+          await restorePhoto(row);
+        }
+      }
+      final next = data['nextOffset'] as int?;
+      if (next != null && next <= offset!) throw StateError('Paginazione non valida');
+      offset = next;
+    } while (offset != null);
+  }
+
+  Future<void> restorePhoto(Map<String, dynamic> row) async {
+    if (row['photo'] == null) return;
+    final id = '${row['id']}';
+    final existing = await DatabaseService.instance.getSightingPhotos(id);
+    for (final path in existing) {
+      if (await File(path).exists()) return;
+    }
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+    try {
+      final req = await client.getUrl(Uri.parse('$communityUrl/api/photo?id=${Uri.encodeQueryComponent(id)}'));
+      req.headers.set('Authorization', 'Bearer ${PreferencesService.instance.token}');
+      final response = await req.close().timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) return;
+      final bytes = <int>[];
+      await for (final chunk in response.timeout(const Duration(seconds: 20))) {
+        bytes.addAll(chunk);
+        if (bytes.length > 1000000) throw StateError('Foto troppo grande');
+      }
+      if (bytes.length < 8 || !listEquals(bytes.take(8).toList(), [137,80,78,71,13,10,26,10])) return;
+      final dir = await MediaStorageService.instance.mediaDirectory;
+      // Never use a remote identifier as a filesystem path.
+      final safe = base64Url.encode(utf8.encode(id)).replaceAll('=', '');
+      final target = File('${dir.path}/community-$safe.png');
+      final tmp = File('${target.path}.tmp');
+      await tmp.writeAsBytes(bytes, flush: true);
+      await tmp.rename(target.path);
+      await DatabaseService.instance.attachRecoveredPhoto(id, target.path);
+    } catch (_) {
+      // Keep the diary record. A later refresh retries unavailable photos.
+    } finally { client.close(force: true); }
   }
 
   Future<void> deleteGroup(Map<String, dynamic> group) async {
@@ -369,7 +428,14 @@ class CommunityService extends ChangeNotifier {
   }
 
   Future<void> deleteSighting(String id) async {
-    await api('sightings?id=${Uri.encodeQueryComponent(id)}', method: 'DELETE');
+    if (syncing) throw Exception('Attendi la fine della sincronizzazione');
+    // The server checks the authenticated owner even if no feed page is cached.
+    final cached = sightings.where((s) => s['id'] == id);
+    if (cached.isNotEmpty && !isMine(cached.first)) {
+      throw Exception('Solo il creatore può eliminare questo post.');
+    }
+    final result = await api('sightings?id=${Uri.encodeQueryComponent(id)}', method: 'DELETE');
+    if (result['deleted'] != true) throw Exception('Eliminazione non confermata');
     sightings.removeWhere((s) => s['id'] == id);
     await DatabaseService.instance.deleteSighting(id);
     notifyListeners();

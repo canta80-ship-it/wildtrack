@@ -56,7 +56,7 @@ jobs:
           unzip -o approved_assets.zip -d assets/approved
           unzip -o editorial_fonts.zip -d assets/approved
           python3 tool/verify_interface_assets.py
-          find lib -name '*.dart' -type f -print0 | xargs -0 sed -i 's/Icons\.feather_outlined/Icons.article_outlined/g; s/Icons\.offline_map_outlined/Icons.map_outlined/g; s/CommunityService\.instance\.preferences\.token/""/g'
+          find lib -name '*.dart' -type f -print0 | xargs -0 sed -i 's/Icons\.feather_outlined/Icons.article_outlined/g; s/Icons\.offline_map_outlined/Icons.map_outlined/g'
           sed -i "/Yellowstone sound library - Grizzly Bears Roar - 001.mp3/d; /Vocalizzazione · orso bruno, registrazione nordamericana/d" lib/screens/species_screen.dart
           sed -i "1i import 'premium_explore_screen.dart';" lib/screens/home_screen.dart
           sed -i 's/const ExplorationScreen()/const PremiumExploreScreen()/g' lib/screens/home_screen.dart

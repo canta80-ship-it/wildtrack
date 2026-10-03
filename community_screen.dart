@@ -17,6 +17,7 @@ import 'package:uuid/uuid.dart';
 
 import '../services/community_service.dart';
 import '../services/database_service.dart';
+import '../services/media_storage_service.dart';
 import '../services/preferences_service.dart';
 import 'private_maps_screen.dart';
 import 'species_screen.dart';
@@ -401,18 +402,27 @@ class _PublishScreenState extends State<PublishScreen> {
         }
       }
       final original = widget.initial;
-      if (original != null) {
-        final row = original.toMap();
-        row['species'] = species;
-        row['count'] = n;
-        row['notes'] = notes.text.trim();
-        await DatabaseService.instance.insertSighting(Sighting.fromMap(row));
+      final localId = original?.id ?? const Uuid().v4();
+      final storedPhoto = await MediaStorageService.instance.persistPhoto(photo?.path, localId);
+      final row = Sighting(
+        id: localId, species: species, count: n, notes: notes.text.trim(),
+        latitude: location!.latitude, longitude: location!.longitude,
+        timestamp: observedAt, photoPath: storedPhoto ?? original?.photoPath,
+        kind: original?.kind ?? 'Animale', accuracy: accuracy,
+        positionSource: original?.positionSource ?? 'manual',
+        publicationState: original?.publicationState ?? 'private',
+      );
+      await DatabaseService.instance.insertSighting(row);
+      if (storedPhoto != null) {
+        final previous = await DatabaseService.instance.getSightingPhotos(localId);
+        await DatabaseService.instance.replaceSightingPhotos(localId, {...previous, storedPhoto}.toList());
       }
       final p = location!;
       await CommunityService.instance.add({
         'id':
-            '${widget.initial?.id ?? const Uuid().v4()}${groupId == null ? '' : '-$groupId'}',
+            '${localId}${groupId == null ? '' : '-$groupId'}',
         'groupId': groupId,
+        'authorName': PreferencesService.instance.nickname,
         'species': species,
         'count': n,
         'notes': notes.text.trim(),

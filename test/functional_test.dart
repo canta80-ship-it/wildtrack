@@ -186,6 +186,41 @@ void main() {
     await temp.delete(recursive: true);
   });
 
+  test('Community identity survives settings removal and reload', () async {
+    final identity = prefs.token;
+    await prefs.save();
+    await prefs.file.delete();
+    final fresh = PreferencesService();
+    await fresh.load();
+    expect(fresh.token, identity);
+    fresh.nickname = 'Nuovo nickname';
+    await fresh.save();
+    await prefs.load();
+    expect(prefs.token, identity);
+  });
+
+  test('Restored own public sighting recovers diary photo without duplicates', () async {
+    final payload = <String, dynamic>{'id': 'recovered', 'species': 'Upupa', 'count': 2,
+      'observedAt': '2026-10-01T08:00:00Z', 'lat': 46.0, 'lng': 13.0};
+    await db.retainPublicSighting(payload);
+    final photo = File('${temp.path}/recovered.png');
+    await photo.writeAsBytes([137,80,78,71,13,10,26,10]);
+    await db.attachRecoveredPhoto('recovered', photo.path);
+    await db.retainPublicSighting(payload);
+    final rows = await db.getSightings();
+    expect(rows, hasLength(1)); expect(rows.single.species, 'Upupa');
+    expect(rows.single.photoPath, photo.path); expect(rows.single.isPublic, true);
+    expect(await db.getSightingPhotos('recovered'), [photo.path]);
+  });
+
+  test('Another creator cannot delete a cached Community post', () async {
+    final community = CommunityService.instance;
+    community.sightings = [{'id': 'other-post', 'mine': 0}];
+    await expectLater(community.deleteSighting('other-post'), throwsException);
+    expect(community.sightings.single['id'], 'other-post');
+    community.sightings = [];
+  });
+
   test(
     'MODEL sighting roundtrip preserves coordinates photo kind accuracy',
     () {
