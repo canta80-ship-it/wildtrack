@@ -73,7 +73,7 @@ class CommunityService extends ChangeNotifier {
       sightings = []; people = []; nextOffset = null;
     } finally {
       backupPaused = false;
-      if (running) start();
+      if (running) start(refreshNow: false);
       notifyListeners();
     }
     await refresh();
@@ -189,7 +189,7 @@ class CommunityService extends ChangeNotifier {
     }
   }
 
-  void start() {
+  void start({bool refreshNow = true}) {
     timer?.cancel();
     foreground = true;
     unawaited(
@@ -198,7 +198,7 @@ class CommunityService extends ChangeNotifier {
         notifyListeners();
       }),
     );
-    unawaited(refresh());
+    if (refreshNow) unawaited(refresh());
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (foreground) {
         unawaited(refresh());
