@@ -14,6 +14,15 @@ def launch():
     adb('shell','am','start','-W','-n',package+'/it.wildtrack.wildtrack_mvp.MainActivity');time.sleep(7)
     text=visible_text()
     if any(label in text for label in ['continua come ospite','osserva. registra.','crea account']):require('Ingresso ospite',tap('Continua come ospite',scroll=True))
+def inspect_return():
+    # Inspect the entire scrollable card on smaller emulator displays.
+    for _ in range(3):adb('shell','input','swipe','20','500','20','1450','200')
+    time.sleep(1)
+    text=visible_text()
+    for _ in range(2):
+        adb('shell','input','swipe','20','1450','20','900','200');time.sleep(1)
+        text+=' '+visible_text()
+    return text
 def back_home():
     if not tap('Back'):adb('shell','input','keyevent','4');time.sleep(2)
 try:
@@ -31,11 +40,11 @@ try:
     text=visible_text();require('Attività e progresso persistono dopo arresto', 'fotografia' in text and bool(re.search(r'1/\d+ completati',text)),text[-700:]);shot('preparation-reopened')
     back_home();require('Home apre ritorno premium',tap('Torna al mio punto',scroll=True))
     require('Salva auto apre nome',tap('Salva auto'));enter_field(0,'AutoTest',clear=True);require('Salvataggio punto GPS',tap('Salva qui'))
-    time.sleep(8);text=visible_text();require('Punto salvato e arrivo', 'autotest' in text and 'sei nell’area del punto' in text,text[-800:]);shot('return-saved')
+    time.sleep(8);text=inspect_return();require('Punto salvato e arrivo', 'autotest' in text and 'sei nell’area del punto' in text,text[-800:]);shot('return-saved')
     position[0]=13.001;time.sleep(18)
-    text=visible_text();require('Spostamento GPS aggiorna distanza e direzione',bool(re.search(r'circa (?:7\d|8\d) m',text)) and 'dal nord' in text and 'sei nell’area' not in text,text[-1000:]);shot('return-moving')
+    text=inspect_return();require('Spostamento GPS aggiorna distanza e direzione',bool(re.search(r'circa (?:7\d|8\d) m',text)) and 'dal nord' in text and 'sei nell’area' not in text,text[-1000:]);shot('return-moving')
     adb('shell','am','force-stop',package);launch();require('Ritorno riaperto',tap('Torna al mio punto',scroll=True));time.sleep(8)
-    text=visible_text();require('Auto e guida persistono dopo riavvio', 'autotest' in text and 'dal nord' in text,text[-800:]);shot('return-reopened')
+    text=inspect_return();require('Auto e guida persistono dopo riavvio', 'autotest' in text and 'dal nord' in text,text[-800:]);shot('return-reopened')
     require('Eliminazione richiede conferma',tap('Elimina AutoTest',scroll=True));require('Annullamento eliminazione',tap('Annulla'));require('Auto conservata dopo annullamento','autotest' in visible_text())
     require('Seconda eliminazione apre conferma',tap('Elimina AutoTest',scroll=True));require('Conferma eliminazione',tap('Elimina'));require('Archivio punti vuoto','nessun punto salvato' in visible_text());shot('return-deleted')
 except Exception as e:
