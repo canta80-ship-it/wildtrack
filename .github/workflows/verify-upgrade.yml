@@ -2,7 +2,7 @@ name: Verify Android upgrade installation
 on:
   push:
     branches: [interface-reference]
-    paths: [.github/workflows/verify-upgrade.yml]
+    paths: ['**.dart', pubspec.yaml, .github/workflows/verify-upgrade.yml]
   workflow_dispatch:
 permissions:
   contents: read
@@ -60,4 +60,4 @@ jobs:
             grep INSTALL_FAILED_UPDATE_INCOMPATIBLE incompatible-install.txt
             adb install -r new-apk/WildTrack-release.apk
             adb shell cat /data/user/0/it.wildtrack.preview/cache/upgrade-sentinel | grep wildtrack-existing-data
-            adb shell dumpsys package it.wildtrack.preview | grep versionName=0.7.18
+            adb shell dumpsys package it.wildtrack.preview | grep "versionName=$(sed -n 's/^version: \\([^+]*\\)+.*/\\1/p' pubspec.yaml)"
