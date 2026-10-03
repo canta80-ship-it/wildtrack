@@ -1,0 +1,45 @@
+name: Recheck focused catalogue navigation
+on:
+  push:
+    branches: [delivery-0-7-12]
+    paths: [tool/android_navigation_recheck.py, .github/workflows/navigation-recheck.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  navigation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 37108150778
+          github-token: ${{ github.token }}
+          path: apk
+      - name: Use corrected production test helpers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/canta80-ship-it/wildtrack/contents/tool/android_smoke.py?ref=a6c8d02e6612f481d92dfa7207bf02cc9e21f4d8 --jq .content | base64 -d > tool/android_smoke.py
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 tool/android_navigation_recheck.py apk/WildTrack-release.apk it.wildtrack.preview
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WildTrack-navigation-recheck
+          path: android-results/
+          if-no-files-found: warn
