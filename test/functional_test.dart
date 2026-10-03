@@ -1029,6 +1029,7 @@ void main() {
           () => Future<void>.delayed(const Duration(milliseconds: 150)),
         );
         await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(find.byType(DidYouKnowCarousel), 200, scrollable: find.byType(Scrollable).first);
         expect(find.byType(DidYouKnowCarousel), findsOneWidget);
         await click(tester, find.text('SOS'));
         expect(find.byType(SosScreen), findsOneWidget);

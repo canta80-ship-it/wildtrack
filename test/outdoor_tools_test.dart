@@ -62,8 +62,8 @@ void main(){
   testWidgets('Premium checklist saves checkbox and selected activity across reopening',(t)async{
     t.view.physicalSize=const Size(360,844);t.view.devicePixelRatio=1;addTearDown(t.view.resetPhysicalSize);addTearDown(t.view.resetDevicePixelRatio);
     await t.pumpWidget(MaterialApp(home:OutingPreparationScreen(store:store,initialSpecies:'Cervo')));await flush(t);
-    final dropdown=t.widget<DropdownButtonFormField<OutingActivity>>(find.byKey(const ValueKey('preparation-activity')));dropdown.onChanged!(OutingActivity.fotografia);await flush(t);
-    final checkbox=find.byKey(const ValueKey('check-weather'));await t.ensureVisible(checkbox);await t.tap(checkbox);await flush(t);
+    final dropdown=t.widget<DropdownButtonFormField<OutingActivity>>(find.byKey(const ValueKey('preparation-activity')));await t.runAsync(() async {dropdown.onChanged!(OutingActivity.fotografia);await store.exportSnapshot();await Future<void>.delayed(const Duration(milliseconds:100));});await flush(t);
+    final checkbox=find.byKey(const ValueKey('check-weather'));await t.ensureVisible(checkbox);await t.runAsync(()async {t.widget<CheckboxListTile>(checkbox).onChanged!(true);await store.exportSnapshot();});await flush(t);
     expect(t.widget<CheckboxListTile>(checkbox).value,isTrue);expect(t.takeException(),isNull);
     await t.pumpWidget(const SizedBox());await flush(t);await t.pumpWidget(MaterialApp(home:OutingPreparationScreen(store:OutdoorToolsStore(directory:dir))));await flush(t);
     expect(t.widget<DropdownButtonFormField<OutingActivity>>(find.byKey(const ValueKey('preparation-activity'))).initialValue,OutingActivity.fotografia);
