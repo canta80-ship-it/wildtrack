@@ -1,0 +1,54 @@
+name: Retain exact native release review
+on:
+  push:
+    branches: [delivery-0-7-12]
+    paths: [.github/workflows/native-review.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Wait for exact native release checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,os,time,urllib.request
+          for _ in range(360):
+              q=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37108150785',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(q) as r:d=json.load(r)
+              assert d['head_sha']=='71be46b6cbc8ffa2d8d3fa9b02fcdc81d0cfdb32'
+              if d['status']=='completed':
+                  assert d['conclusion']=='success',d['conclusion']
+                  break
+              time.sleep(5)
+          else:raise TimeoutError('Native checks not complete')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-Android-functional-results
+          run-id: 37108150785
+          github-token: ${{ github.token }}
+          path: native
+      - name: Retain test evidence and new species screens within transfer bound
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          dest=Path('native-review');dest.mkdir()
+          paths=list(Path('native').rglob('*'))
+          for p in paths:
+              if p.is_file() and (p.name in ('results.json','crash-lines.txt','02-home.png','home-feed.png') or (p.suffix=='.png' and p.name.startswith('new-') and not p.name.startswith('new-period-'))):
+                  shutil.copy(p,dest/p.name)
+          for p in paths:
+              if p.is_file() and p.name.startswith('new-period-') and sum(f.stat().st_size for f in dest.iterdir())+p.stat().st_size<29*1024*1024:shutil.copy(p,dest/p.name)
+          assert (dest/'results.json').exists()
+          print('Retained',len(list(dest.iterdir())),'files')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WildTrack-native-release-review
+          path: native-review/
