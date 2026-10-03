@@ -16,7 +16,8 @@ void main() {
   });
   testWidgets('Loaded Community photo opens with pinch zoom and closes', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: CommunityPhoto(sightingId: 'loaded-photo', imageBuilder: (_) => const AssetImage('assets/approved/cervo_thumb.jpg')))));
-    await tester.pumpAndSettle();
+    await tester.runAsync(() async {await precacheImage(const AssetImage('assets/approved/cervo_thumb.jpg'), tester.element(find.byType(CommunityPhoto)));});
+    await tester.pump();
     await tester.tap(find.byType(Image).first);
     await tester.pumpAndSettle();
     expect(find.byType(InteractiveViewer), findsOneWidget);
