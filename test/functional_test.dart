@@ -1,3 +1,4 @@
+import 'package:wildtrack_mvp/services/outdoor_tools_service.dart';
 import 'package:wildtrack_mvp/screens/outing_diary_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:wildtrack_mvp/services/outing_management_service.dart';
@@ -693,6 +694,21 @@ void main() {
     expect((await db.getSightings()).single.id, 'backup');
     expect(prefs.nickname, 'backup-user');
     expect(await f.readAsBytes(), [7, 8, 9]);
+  });
+  test('BACKUP includes preparation progress and private return points', () async {
+    final store=OutdoorToolsStore.instance;
+    final original=await store.exportSnapshot();
+    try {
+      final snapshot=OutdoorToolsStore.empty();
+      snapshot['checklists']={'cervo-autumn-photo':['weather','camera']};
+      snapshot['points']=[ReturnPoint(id:'backup-auto',name:'Auto backup',kind:ReturnPointKind.auto,latitude:46,longitude:13,accuracy:5,savedAt:DateTime.utc(2026,10,3)).toJson()];
+      await store.restoreSnapshot(snapshot);
+      final bytes=await WildTrackBackupService.instance.buildBackup();
+      await store.restoreSnapshot(OutdoorToolsStore.empty());
+      await WildTrackBackupService.instance.restore(bytes);
+      expect(await store.checks('cervo-autumn-photo'),{'weather','camera'});
+      expect((await store.points()).single.name,'Auto backup');
+    } finally {await store.restoreSnapshot(original);}
   });
   test('BACKUP camera profile must restore with settings', () async {
     prefs.cameraLabel = 'Original';
