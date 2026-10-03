@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'community_service.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -148,6 +150,15 @@ class WildTrackBackupService {
     return true;
   }
 
+  Future<bool> restoreFile() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>('pickBackupFile');
+    if (result == null) return false;
+    final data = result['data'];
+    if (data == null) throw const FormatException('Backup vuoto o non leggibile');
+    await restore(data is Uint8List ? data : Uint8List.fromList(List<int>.from(data as List)));
+    return true;
+  }
+
   Future<void> restoreLatest() async {
     final result = await _channel.invokeMapMethod<String, dynamic>(
       'readLatest',
@@ -169,10 +180,21 @@ class WildTrackBackupService {
   Future<void> restore(Uint8List bytes) async {
     if (_restoring) throw StateError('Un ripristino è già in corso.');
     _restoring = true;
+    final community = CommunityService.instance;
+    final wasRunning = community.timer?.isActive == true;
+    community.backupPaused = true;
+    community.timer?.cancel();
     try {
+      final limit = DateTime.now().add(const Duration(seconds: 45));
+      while (community.syncing || community.presenceBusy) {
+        if (DateTime.now().isAfter(limit)) throw StateError('Sincronizzazione ancora in corso. Riprova tra poco.');
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
       await _restore(bytes);
     } finally {
       _restoring = false;
+      community.backupPaused = false;
+      if (wasRunning) community.start();
     }
   }
 
@@ -262,6 +284,7 @@ class WildTrackBackupService {
       for (final entry in profile.entries) {
         final old = previousSettings[entry.key];
         final value = entry.value;
+        if (entry.key == 'avatarBase64' && (value == null || value is String)) continue;
         if ((old is String && value is! String) ||
             (old is bool && value is! bool) ||
             (old is int && value is! int) ||
