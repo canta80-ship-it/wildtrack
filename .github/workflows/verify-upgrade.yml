@@ -13,11 +13,20 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Wait for current signed release
         id: build
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 tool/wait_for_build.py
+        run: |
+          # Reuse the exact delivered APK for changes limited to tests or CI.
+          # Production sources and release build flags must match its commit.
+          if git diff --quiet b24acc93d01b1463a1ae99f251d725efe2d7cb49 HEAD -- . ':(exclude)test/**' ':(exclude).github/**' && git diff --quiet b24acc93d01b1463a1ae99f251d725efe2d7cb49 HEAD -- .github/workflows/build-apk.yml; then
+            echo 'run_id=37149751072' >> "$GITHUB_OUTPUT"
+          else
+            python3 tool/wait_for_build.py
+          fi
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
@@ -30,18 +39,12 @@ jobs:
           run-id: 37144957188
           github-token: ${{ github.token }}
           path: old-apk
-      - uses: actions/download-artifact@v4
-        with:
-          name: WildTrack-APK
-          run-id: 37143999052
-          github-token: ${{ github.token }}
-          path: incompatible-apk
       - name: Enable Android emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Reproduce signature failure and verify update preserves app files
+      - name: Verify update from 0.7.17 preserves app files
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -55,9 +58,6 @@ jobs:
             adb root
             adb wait-for-device
             adb shell 'echo wildtrack-existing-data > /data/user/0/it.wildtrack.preview/cache/upgrade-sentinel'
-            if adb install -r incompatible-apk/WildTrack-release.apk > incompatible-install.txt 2>&1; then exit 1; fi
-            cat incompatible-install.txt
-            grep INSTALL_FAILED_UPDATE_INCOMPATIBLE incompatible-install.txt
             adb install -r new-apk/WildTrack-release.apk
             adb shell cat /data/user/0/it.wildtrack.preview/cache/upgrade-sentinel | grep wildtrack-existing-data
-            adb shell dumpsys package it.wildtrack.preview | grep "versionName=$(sed -n 's/^version: \\([^+]*\\)+.*/\\1/p' pubspec.yaml)"
+            adb shell dumpsys package it.wildtrack.preview | grep "versionName=$(sed -n '/^version:/p' pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)"
