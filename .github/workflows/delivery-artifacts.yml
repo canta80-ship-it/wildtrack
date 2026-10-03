@@ -16,11 +16,11 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os, time, urllib.request
-          u='https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37107434190'
+          u='https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37107696020'
           for _ in range(240):
               q=urllib.request.Request(u,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
               with urllib.request.urlopen(q) as r: d=json.load(r)
-              assert d['head_sha']=='ff28b5c360e1a43f5bcc3f1cef35057003b121f7'
+              assert d['head_sha']=='9311f018af0414e4b85adef1b926aec986f35c32'
               if d['status']=='completed':
                   assert d['conclusion']=='success', d['conclusion']
                   break
@@ -30,15 +30,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 37107434190
+          run-id: 37107696020
           github-token: ${{ github.token }}
           path: apk
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-interface-previews
-          run-id: 37107434190
+          run-id: 37107696020
           github-token: ${{ github.token }}
           path: previews
+      - name: Check retained update signature
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          "$APKSIGNER" verify --verbose --print-certs apk/WildTrack-release.apk > signing.txt
+          ACTUAL_CERT=$(sed -n 's/.*certificate SHA-256 digest: //p' signing.txt | head -n 1)
+          test "$ACTUAL_CERT" = "891acf5af65eaaff81d0a1f493d64f2b21311e9c64f2801db5ad5f015bcf42bc"
       - name: Prepare bounded delivery parts and artwork checks
         run: |
           python3 - <<'PY'
