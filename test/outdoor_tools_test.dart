@@ -19,7 +19,7 @@ class FakeGps implements PointLocationSource {
   @override Stream<Position> watch()=>events.stream;
 }
 Future<void> flush(WidgetTester t)async {
-  for(var i=0;i<6;i++){await t.runAsync(()=>Future<void>.delayed(const Duration(milliseconds:30)));await t.pump();}
+  for(var i=0;i<30;i++){await t.runAsync(()=>Future<void>.delayed(const Duration(milliseconds:50)));await t.pump();}
   await t.pumpAndSettle();
 }
 void main(){
