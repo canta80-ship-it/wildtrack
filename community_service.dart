@@ -29,6 +29,15 @@ class CommunityService extends ChangeNotifier {
   int presenceGeneration = 0;
   StreamSubscription<Position>? backgroundLocation;
   bool presenceBusy = false;
+  String? _syncedProfile;
+  Future<void> syncProfile() async {
+    final p = PreferencesService.instance;
+    final signature = jsonEncode([p.token, p.nickname, p.avatarBase64]);
+    if (_syncedProfile == signature) return;
+    await api('profile', method: 'POST', body: {'nickname': p.nickname, 'avatar': p.avatarBase64});
+    _syncedProfile = signature;
+    notifyListeners();
+  }
   Future<void> queueWrites = Future<void>.value();
 
   bool get canShare =>
@@ -297,6 +306,7 @@ class CommunityService extends ChangeNotifier {
     if (syncing) return;
     syncing = true;
     try {
+      await syncProfile();
       while (pending.isNotEmpty) {
         final readyIndex = pending.indexWhere(_readyForPublication);
         if (readyIndex < 0) break;
