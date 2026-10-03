@@ -16,11 +16,11 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os, time, urllib.request
-          u='https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37107696020'
+          u='https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37108150778'
           for _ in range(240):
               q=urllib.request.Request(u,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
               with urllib.request.urlopen(q) as r: d=json.load(r)
-              assert d['head_sha']=='9311f018af0414e4b85adef1b926aec986f35c32'
+              assert d['head_sha']=='71be46b6cbc8ffa2d8d3fa9b02fcdc81d0cfdb32'
               if d['status']=='completed':
                   assert d['conclusion']=='success', d['conclusion']
                   break
@@ -30,13 +30,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 37107696020
+          run-id: 37108150778
           github-token: ${{ github.token }}
           path: apk
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-interface-previews
-          run-id: 37107696020
+          run-id: 37108150778
           github-token: ${{ github.token }}
           path: previews
       - name: Check retained update signature
