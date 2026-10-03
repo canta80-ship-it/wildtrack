@@ -256,7 +256,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                           seasonIndex: i,
                           level: detail.seasonLevels[i] / 4,
                           levelText: [
-                            'In letargo',
+                            'Molto basso',
                             'Basso',
                             'Medio',
                             'Alto',
@@ -944,4 +944,3 @@ class _Tip extends StatelessWidget {
     ),
   );
 }
-

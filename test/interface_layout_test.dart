@@ -116,6 +116,8 @@ void main() {
             );
             await settleImages(tester);
             expect(find.byType(LinearProgressIndicator), findsNWidgets(4));
+            // Low seasonal suitability is not a diagnosis of hibernation.
+            expect(find.text('In letargo'), findsNothing);
 
             for (final text in tester.widgetList<Text>(find.byType(Text))) {
               expect(text.overflow, isNot(TextOverflow.ellipsis));
