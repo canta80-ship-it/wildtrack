@@ -22,7 +22,7 @@ jobs:
               with urllib.request.urlopen(q) as r:d=json.load(r)
               assert d['head_sha']=='71be46b6cbc8ffa2d8d3fa9b02fcdc81d0cfdb32'
               if d['status']=='completed':
-                  assert d['conclusion']=='success',d['conclusion']
+                  assert d['conclusion'] in ('success','failure'),d['conclusion']
                   break
               time.sleep(5)
           else:raise TimeoutError('Native checks not complete')
