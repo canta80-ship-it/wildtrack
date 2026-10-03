@@ -71,10 +71,11 @@ void main(){
     await t.pumpWidget(const SizedBox());await flush(t);
   });
   testWidgets('Return screen responds to movement stale GPS and proximity without layout errors',(t)async{
+    final semantics=t.ensureSemantics();addTearDown(semantics.dispose);
     final gps=FakeGps();await t.runAsync(()=>store.savePoint(name:'Auto',kind:ReturnPointKind.auto,position:fix(lat:.001),now:at));
     t.view.physicalSize=const Size(360,844);t.view.devicePixelRatio=1;addTearDown(t.view.resetPhysicalSize);addTearDown(t.view.resetDevicePixelRatio);
     await t.pumpWidget(MaterialApp(home:ReturnPointScreen(store:store,locationSource:gps,now:()=>at)));await flush(t);
-    expect(find.text('Circa 111 m'),findsOneWidget);expect(find.text('N · 0° dal Nord'),findsOneWidget);
+    expect(find.text('Circa 111 m'),findsOneWidget);expect(find.bySemanticsLabel('Circa 111 m'),findsOneWidget);expect(find.text('N · 0° dal Nord'),findsOneWidget);
     gps.events.add(fix(lat:.0005));await t.pump();await t.pump();expect(find.text('Circa 56 m'),findsOneWidget);
     gps.events.add(fix(time:at.subtract(const Duration(minutes:2))));await t.pump();await t.pump();expect(find.byKey(const ValueKey('return-arrow')),findsNothing);
     gps.events.add(fix(lat:.001));await t.pump();await t.pump();expect(find.byKey(const ValueKey('return-near')),findsOneWidget);expect(t.takeException(),isNull);

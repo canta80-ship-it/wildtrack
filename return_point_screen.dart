@@ -79,11 +79,11 @@ class _ReturnPointScreenState extends State<ReturnPointScreen> with WidgetsBindi
       const SizedBox(height:12),OutlinedButton.icon(onPressed:busy?null:()=>_refresh(),icon:const Icon(Icons.my_location),label:const Text('Autorizza e aggiorna GPS')),
       if(busy||loading)const LinearProgressIndicator(),
       if(error!=null)Padding(padding:const EdgeInsets.symmetric(vertical:10),child:Text(error!,style:const TextStyle(color:Colors.red))),
-      if(p!=null)Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(children:[
-        Text(p.name,style:const TextStyle(fontFamily:'serif',fontWeight:FontWeight.bold,fontSize:24)),
+      if(p!=null)Card(child:Semantics(container:true,explicitChildNodes:true,child:Padding(padding:const EdgeInsets.all(16),child:Column(children:[
+        Semantics(container:true,child:Text(p.name,style:const TextStyle(fontFamily:'serif',fontWeight:FontWeight.bold,fontSize:24))),
         if(g==null)const Padding(padding:EdgeInsets.all(16),child:Text('Serve una posizione recente e precisa per calcolare il ritorno.'))
         else ...[
-          const SizedBox(height:12),Text(g.distanceLabel,key:const ValueKey('return-distance'),style:const TextStyle(fontSize:28,fontWeight:FontWeight.bold)),
+          const SizedBox(height:12),Semantics(container:true,child:Text(g.distanceLabel,key:const ValueKey('return-distance'),style:const TextStyle(fontSize:28,fontWeight:FontWeight.bold))),
           if(g.near)...[const Icon(Icons.near_me,color:WildColors.forest,size:50),const Text('Sei nell’area del punto',key:ValueKey('return-near'))]
           else ...[
             if(g.relativeBearing==null)const Text('N',style:TextStyle(fontWeight:FontWeight.bold)),
@@ -94,9 +94,9 @@ class _ReturnPointScreenState extends State<ReturnPointScreen> with WidgetsBindi
           const SizedBox(height:8),Text('Precisione GPS dichiarata: attuale ${fix!.accuracy.round()} m · punto ${p.accuracy.round()} m',textAlign:TextAlign.center),
         ],
         const SizedBox(height:12),const Text('Distanza in linea d’aria. Sentieri, ostacoli e dislivello non sono calcolati.',textAlign:TextAlign.center),
-        const SizedBox(height:8),SelectableText('${p.latitude.toStringAsFixed(6)}, ${p.longitude.toStringAsFixed(6)}'),
+        const SizedBox(height:8),Semantics(container:true,explicitChildNodes:true,child:SelectableText('${p.latitude.toStringAsFixed(6)}, ${p.longitude.toStringAsFixed(6)}')),
         TextButton.icon(onPressed:()=>_openMap(p),icon:const Icon(Icons.map_outlined),label:const Text('Apri sulla mappa')),
-      ]))),
+      ])))),
       const SizedBox(height:20),const Text('I tuoi punti',style:TextStyle(fontFamily:'serif',fontSize:22,fontWeight:FontWeight.bold)),
       if(!loading&&points.isEmpty)const Padding(padding:EdgeInsets.symmetric(vertical:12),child:Text('Nessun punto salvato. Salva l’auto prima di partire o un bivio lungo il percorso.')),
       for(final point in points)Card(child:ListTile(key:ValueKey('point-${point.id}'),selected:point.id==selected,onTap:()=>setState(()=>selected=point.id),title:Text(point.name),subtitle:Text('${point.kind.label} · ${point.savedAt.toLocal().day}/${point.savedAt.toLocal().month}/${point.savedAt.toLocal().year} · GPS ${point.accuracy.round()} m'),leading:const Icon(Icons.place_outlined),trailing:IconButton(tooltip:'Elimina ${point.name}',onPressed:()=>_remove(point),icon:const Icon(Icons.delete_outline)))),
