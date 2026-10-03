@@ -19,6 +19,7 @@ class PreferencesService extends ChangeNotifier {
   String? avatarBase64;
   String loginIdentifier = '';
   String token = '';
+  String? previousCommunityToken;
   Set<String> favoriteSpecies = {};
 
   // Generic camera assistant profile. Brand/model are optional labels only.
@@ -89,6 +90,8 @@ class PreferencesService extends ChangeNotifier {
         throw StateError('Identità Community danneggiata. Ripristina il backup prima di pubblicare.');
       }
       token = saved;
+      final previous = identity['previousToken'];
+      if (previous is String && RegExp(r'^[a-f0-9]{64}$').hasMatch(previous)) previousCommunityToken = previous;
     }
     if (token.isEmpty) {
       final r = Random.secure();
@@ -103,6 +106,22 @@ class PreferencesService extends ChangeNotifier {
       await temporary.rename(identityFile.path);
     }
     await save();
+  }
+
+  Future<void> replaceCommunityIdentity(String value) async {
+    if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(value)) throw StateError('Identità di recupero non valida.');
+    if (value == token) return;
+    final old = token, oldPrevious = previousCommunityToken;
+    final identity = File('${file.parent.path}/wildtrack_identity.json');
+    final temporary = File('${identity.path}.tmp');
+    await temporary.writeAsString(jsonEncode({'token': value, 'previousToken': old}), flush: true);
+    await temporary.rename(identity.path);
+    token = value; previousCommunityToken = old;
+    try {await save();} catch (_) {
+      await temporary.writeAsString(jsonEncode({'token': old, 'previousToken': oldPrevious}), flush: true);
+      await temporary.rename(identity.path);
+      token = old; previousCommunityToken = oldPrevious; rethrow;
+    }
   }
 
   Future<void> toggleFavorite(String species) async {
