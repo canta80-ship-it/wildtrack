@@ -284,7 +284,7 @@ void main() {
       final radar = await RadarService.instance.load();
       expect(radar.hasPosition, false);
       expect(radar.weatherAvailable, false);
-      expect(radar.species, isNotEmpty);
+      expect(radar.species, isEmpty);
       for (final s in radar.species) expect(s.score, inInclusiveRange(0, 100));
     } finally {
       GeolocatorPlatform.instance = old;
@@ -662,11 +662,11 @@ void main() {
     expect(r.keys, ['Cervo']);
   });
   test(
-    'SPECIES all 24 records have distinct artwork complete signs and sources',
+    'SPECIES all 31 records have distinct artwork complete signs and sources',
     () {
-      expect(animals, hasLength(24));
-      expect(speciesDetails, hasLength(24));
-      expect(speciesDetails.values.map((e) => e.asset).toSet(), hasLength(24));
+      expect(animals, hasLength(31));
+      expect(speciesDetails, hasLength(31));
+      expect(speciesDetails.values.map((e) => e.asset).toSet(), hasLength(31));
       for (final animal in animals) {
         final d = speciesDetails[animal.name]!;
         expect(d.signs, hasLength(4));
@@ -1687,3 +1687,4 @@ void main() {
     );
   });
 }
+

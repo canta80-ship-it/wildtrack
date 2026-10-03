@@ -178,7 +178,7 @@ try:
             result('Password errata respinta','PASS' if 'nome utente o password non corretti' in visible_text() else 'FAIL')
             enter_field(1,'TrailTest2026',clear=True)
             if not tap('Accedi',scroll=True):raise RuntimeError('Second login submit missing')
-            result('Accesso con password originale dopo logout','PASS' if 'trailtester' in visible_text() and 'buongiorno' in visible_text() else 'FAIL');shot('auth-signed-back-in')
+            result('Accesso con password originale dopo logout','PASS' if 'trailtester' in visible_text() and any(g in visible_text() for g in ['buongiorno','buon pomeriggio','buonasera']) else 'FAIL');shot('auth-signed-back-in')
             if tap('Esplora zona',scroll=True):
                 time.sleep(3)
                 visible=visible_text()
@@ -236,3 +236,4 @@ finally:
     (out/'crash-lines.txt').write_text('\n'.join(x for x in logs.splitlines() if 'FATAL EXCEPTION' in x or 'AndroidRuntime' in x or 'ANR in '+package in x))
     (out/'results.json').write_text(json.dumps({'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'package':package,'android_api':35,'cases':results,'fatal_detected':fatal,'scope':'Emulator checks; camera, physical GPS, Bluetooth routing, push delivery and real account chat are not certified.'},ensure_ascii=False,indent=2))
     if any(x['status']=='FAIL' for x in results):sys.exit(1)
+

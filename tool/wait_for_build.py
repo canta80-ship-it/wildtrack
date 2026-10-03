@@ -1,5 +1,5 @@
 import json, os, time, urllib.request
-url = 'https://api.github.com/repos/' + os.environ['GITHUB_REPOSITORY'] + '/actions/workflows/build-apk.yml/runs?branch=interface-reference&per_page=20'
+url = 'https://api.github.com/repos/' + os.environ['GITHUB_REPOSITORY'] + '/actions/workflows/build-apk.yml/runs?branch=' + os.environ['GITHUB_REF_NAME'] + '&per_page=20'
 for attempt in range(90):
     request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + os.environ['GITHUB_TOKEN'], 'Accept': 'application/vnd.github+json'})
     with urllib.request.urlopen(request) as response:
@@ -16,3 +16,4 @@ for attempt in range(90):
     time.sleep(10)
 else:
     raise SystemExit('Timed out waiting for current-commit APK')
+

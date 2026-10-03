@@ -15,16 +15,16 @@ class PremiumAnimalScreen extends StatelessWidget {
   bool get isDeer => animal.name.toLowerCase() == 'cervo';
 
   SpeciesDetail get detail => speciesDetails[animal.name]!;
-  String get heroAsset => 'assets/approved/${detail.asset}_hero.jpg';
+  String get heroAsset => '${detail.newArtwork ? 'assets/radar_species' : 'assets/approved'}/${detail.asset}_hero.jpg';
   String get footprintType => switch (animal.name) {
     'Volpe' || 'Lupo' || 'Sciacallo dorato' => 'canide',
     'Orso bruno' || 'Tasso' || 'Ermellino' => 'cinque_dita',
-    'Marmotta' => 'roditore',
+    'Marmotta' || 'Scoiattolo' || 'Lepre' => 'roditore',
     'Germano reale' => 'palmata',
-    'Picchio nero' || 'Allocco' || 'Gufo reale' || 'Barbagianni' => 'due_due',
+    'Picchio nero' || 'Allocco' || 'Gufo reale' || 'Barbagianni' || 'Assiolo' => 'due_due',
     _ => animal.group == 'Mammiferi' ? 'zoccolo' : 'uccello',
   };
-  List<(String, String)> get signs => [
+  List<(String, String)> get signs => detail.newArtwork ? detail.signs : [
     (
       'Impronta',
       animal.name == 'Marmotta'
@@ -153,6 +153,17 @@ class PremiumAnimalScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
+                _Panel(title: 'Abitudini e comportamento', icon: Icons.pets_outlined,
+                  child: Text(animal.behaviour, style: const TextStyle(fontSize: 12, height: 1.5))),
+                if (detail.diet.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _Panel(title: 'Alimentazione', icon: Icons.eco_outlined,
+                    child: Text(detail.diet, style: const TextStyle(fontSize: 12, height: 1.5))),
+                  const SizedBox(height: 12),
+                  _Panel(title: 'Riproduzione', icon: Icons.nature_outlined,
+                    child: Text(detail.breeding, style: const TextStyle(fontSize: 12, height: 1.5))),
+                ],
+                const SizedBox(height: 12),
                 _SectionTitle(
                   title: 'Habitat',
                   action: 'Vedi sulla mappa',
@@ -195,7 +206,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                             ),
                             child: _SignCard(
                               illustration: !isDeer
-                                  ? SignPlateIllustration(asset: 'assets/signs/${detail.asset}.webp', index: i, label: '${animal.name}: ${signs[i].$1}')
+                                  ? SignPlateIllustration(asset: detail.newArtwork ? 'assets/radar_species/${detail.asset}_signs.webp' : 'assets/signs/${detail.asset}.webp', grid: detail.newArtwork, index: i, label: '${animal.name}: ${signs[i].$1}')
                                   : null,
                               title: signs[i].$1,
                               body: signs[i].$2,
@@ -264,6 +275,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
+                if (detail.bestPeriod.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(detail.bestPeriod, style: const TextStyle(fontSize: 12, height: 1.5))),
                 const Text(
                   'Possibilità di osservazione indicativa: le barre confrontano livelli stagionali, non percentuali misurate. Luogo, meteo e presenza locale cambiano il risultato.',
                   style: TextStyle(fontSize: 10, color: WildColors.muted),
@@ -312,17 +324,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                         title: 'Versi',
                         icon: Icons.volume_up_outlined,
                         child: animal.audio == null
-                            ? const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 10),
-                                child: Text(
-                                  'Registrazione verificata non disponibile per questa specie.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    height: 1.3,
-                                    color: WildColors.muted,
-                                  ),
-                                ),
-                              )
+                            ? Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text(detail.voiceDescription.isNotEmpty ? detail.voiceDescription : 'Ascolta e documenta i richiami senza sollecitare l’animale. Consulta la fonte della scheda per registrazioni identificate.', style: const TextStyle(fontSize: 11, height: 1.4, color: WildColors.muted)))
                             : Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -942,3 +944,4 @@ class _Tip extends StatelessWidget {
     ),
   );
 }
+

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'radar_panel_widget.dart';
 import 'diary_metric_screen.dart';
 
 import 'package:flutter/cupertino.dart';
@@ -27,7 +29,9 @@ class PremiumHomeScreen extends StatefulWidget {
   State<PremiumHomeScreen> createState() => _PremiumHomeScreenState();
 }
 
-class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
+class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindingObserver {
+  Timer? _radarTimer;
+  bool _radarBusy = false;
   late Future<RadarSnapshot> radar;
   List<Sighting> sightings = [];
   List<TrackSession> sessions = [];
@@ -37,16 +41,22 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _radarTimer = Timer.periodic(const Duration(minutes: 2), (_) { if (mounted && WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) unawaited(_refresh()); });
     radar = RadarService.instance.load();
-    DatabaseService.instance.changes.addListener(_reloadLocal);
+    DatabaseService.instance.changes.addListener(_onDatabaseChanged);
     _reloadLocal();
   }
 
   @override
   void dispose() {
-    DatabaseService.instance.changes.removeListener(_reloadLocal);
+    DatabaseService.instance.changes.removeListener(_onDatabaseChanged);
+    _radarTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+
+  void _onDatabaseChanged() { unawaited(_refresh()); }
 
   Future<void> _reloadLocal() async {
     final values = await Future.wait<dynamic>([
@@ -60,10 +70,17 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) { if (state == AppLifecycleState.resumed) unawaited(_refresh()); }
+
   Future<void> _refresh() async {
+    if (_radarBusy || !mounted) return;
+    _radarBusy = true;
+    try {
     final next = RadarService.instance.load();
     setState(() => radar = next);
     await Future.wait([next, _reloadLocal()]);
+    } catch (_) { } finally { _radarBusy = false; }
   }
 
   void _openLastOuting() {
@@ -100,7 +117,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
                 SliverToBoxAdapter(
                   child: _Hero(
                     nickname: nickname,
-                    activity: data?.activity ?? 'ALTA',
+                    activity: data?.activity ?? 'IN AGGIORNAMENTO',
+                    phase: data?.solar?.label ?? 'Fase solare non disponibile',
+                    hasPosition: data?.hasPosition ?? false,
                     temperature: data?.temperature,
                     onBell: () => Navigator.push(
                       context,
@@ -136,7 +155,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
                       ),
                       const SizedBox(height: 18),
                       _SectionHeader(
-                        title: 'Specie probabili adesso',
+                        title: 'Catalogo animali',
                         action: 'Vedi tutte',
                         onTap: () => Navigator.push(
                           context,
@@ -146,7 +165,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      _SpeciesStrip(snapshot: data),
+                      RadarPanel(snapshot: data, onRefresh: _refresh, loading: radarSnapshot.connectionState == ConnectionState.waiting, error: radarSnapshot.hasError),
                       const SizedBox(height: 14),
                       const DidYouKnowCarousel(),
                       const SizedBox(height: 14),
@@ -232,9 +251,12 @@ class _Hero extends StatelessWidget {
     required this.activity,
     required this.onBell,
     this.temperature,
+    required this.phase, required this.hasPosition,
   });
   final String nickname;
   final String activity;
+  final String phase;
+  final bool hasPosition;
   final double? temperature;
   final VoidCallback onBell;
 
@@ -255,14 +277,14 @@ class _Hero extends StatelessWidget {
             Semantics(button: true, label: 'SOS · Emergenza', child: Material(color: const Color(0xFF9F3F32), shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SosScreen())), child: const SizedBox(width: 44, height: 44, child: Center(child: Text('SOS', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900))))))),
           ]),
           const SizedBox(height: 22),
-          Text('Buongiorno,\n$nickname', style: const TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 27, height: 1.08, fontWeight: FontWeight.w800)),
+          Text('${DateTime.now().hour >= 5 && DateTime.now().hour < 12 ? 'Buongiorno' : DateTime.now().hour >= 12 && DateTime.now().hour < 18 ? 'Buon pomeriggio' : 'Buonasera'},\n$nickname', style: const TextStyle(fontFamily: 'serif', color: Colors.white, fontSize: 27, height: 1.08, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
-          const Row(children: [Icon(Icons.location_on, color: Colors.white, size: 19), SizedBox(width: 4), Text('La tua zona', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800))]),
+          Row(children: [const Icon(Icons.location_on, color: Colors.white, size: 19), const SizedBox(width: 4), Text(hasPosition ? 'La tua zona' : 'Posizione da acquisire', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800))]),
           const SizedBox(height: 14),
           Row(children: [
-            Expanded(child: _HeroChip(icon: Icons.bar_chart_rounded, iconColor: const Color(0xFF94D571), text: 'Attività fauna: $activity', fill: WildColors.forest)),
+            Expanded(child: _HeroChip(icon: Icons.bar_chart_rounded, iconColor: const Color(0xFF94D571), text: 'Condizioni: $activity', fill: WildColors.forest)),
             const SizedBox(width: 8),
-            Expanded(child: _HeroChip(icon: Icons.wb_twilight_outlined, iconColor: const Color(0xFFEEC16A), text: temperature == null ? 'Condizioni locali in calcolo' : '${temperature!.toStringAsFixed(0)}° · alba ideale', fill: const Color(0x805C5847))),
+            Expanded(child: _HeroChip(icon: Icons.wb_twilight_outlined, iconColor: const Color(0xFFEEC16A), text: temperature == null ? phase : '${temperature!.toStringAsFixed(0)}° · $phase', fill: const Color(0x805C5847))),
           ]),
         ]),
       )),
@@ -491,136 +513,6 @@ class _SectionHeader extends StatelessWidget {
   );
 }
 
-class _SpeciesStrip extends StatelessWidget {
-  const _SpeciesStrip({required this.snapshot});
-  final RadarSnapshot? snapshot;
-
-  int _score(String name, int fallback) {
-    final rows = snapshot?.species ?? const [];
-    for (final row in rows) {
-      if (row.name.toLowerCase() == name.toLowerCase()) return row.score;
-    }
-    return fallback;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('Cervo', _score('Cervo', 82), 'assets/approved/cervo_thumb.jpg'),
-      (
-        'Capriolo',
-        _score('Capriolo', 64),
-        'assets/approved/capriolo_thumb.jpg',
-      ),
-      ('Volpe', _score('Volpe', 41), 'assets/approved/volpe_thumb.jpg'),
-      ('Poiana', _score('Poiana', 37), 'assets/approved/poiana_thumb.jpg'),
-    ];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(width: 7),
-          Expanded(
-            child: _SpeciesCard(
-              name: items[i].$1,
-              score: items[i].$2,
-              asset: items[i].$3,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _SpeciesCard extends StatelessWidget {
-  const _SpeciesCard({
-    required this.name,
-    required this.score,
-    required this.asset,
-  });
-  final String name;
-  final int score;
-  final String asset;
-
-  @override
-  Widget build(BuildContext context) {
-    final bar = score >= 60 ? const Color(0xFF62A958) : const Color(0xFFB98233);
-    return Semantics(
-      button: true,
-      label: 'Apri scheda $name',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => PremiumAnimalScreen(
-              animals.firstWhere((animal) => animal.name == name),
-            ),
-          ),
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEFCF7),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0D000000),
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(13),
-                child: SizedBox(
-                  height: 73,
-                  width: double.infinity,
-                  child: Image.asset(
-                    asset,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontFamily: 'serif',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
-              ),
-              Text(
-                '$score%',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 3),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: score / 100,
-                  minHeight: 6,
-                  color: bar,
-                  backgroundColor: const Color(0xFFE2E0D9),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _LastOutingCard extends StatelessWidget {
   const _LastOutingCard({
     required this.session,
@@ -797,3 +689,4 @@ class _DiaryCard extends StatelessWidget {
     ),
   );
 }
+

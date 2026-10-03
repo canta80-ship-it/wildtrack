@@ -70,7 +70,7 @@ class _FieldToolsScreenState extends State<FieldToolsScreen> {
             if (loading) const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LinearProgressIndicator()),
             const SizedBox(height: 18),
             Row(children: [
-              Expanded(child: _StatusCard(icon: Icons.radar, title: 'Radar', value: snapshot?.activity ?? '…', body: snapshot == null ? 'calcolo' : '${snapshot.species.first.name} ${snapshot.species.first.score}%')),
+              Expanded(child: _StatusCard(icon: Icons.radar, title: 'Radar', value: snapshot?.activity ?? '…', body: snapshot == null ? 'calcolo' : snapshot.species.isEmpty ? 'Dati insufficienti' : '${snapshot.species.first.name} · condizioni orientative')),
               const SizedBox(width: 9),
               Expanded(child: _StatusCard(icon: Icons.landscape_outlined, title: 'Habitat', value: snapshot?.habitat.primary ?? '—', body: snapshot?.hasPosition == true ? 'contesto locale' : 'GPS non autorizzato')),
             ]),
@@ -336,3 +336,4 @@ class _InfoCard extends StatelessWidget {
 extension _FirstOrNull<T> on List<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+

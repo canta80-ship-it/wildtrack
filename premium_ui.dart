@@ -280,8 +280,9 @@ class WildAnimalIllustration extends StatelessWidget {
       'barbagianni': 'barbagianni',
       'ghiandaia': 'ghiandaia',
     };
+    const newAssets = <String,String>{'lepre':'lepre','scoiattolo':'scoiattolo','upupa':'upupa','gheppio':'gheppio','assiolo':'assiolo','nibbio reale':'nibbio_reale','nibbio bruno':'nibbio_bruno'};
     final imageAsset =
-        asset ?? (otherAssets[n] == null ? null : '${otherAssets[n]}_hero.jpg');
+        newAssets[n] != null ? '${newAssets[n]}_hero.jpg' : asset ?? (otherAssets[n] == null ? null : '${otherAssets[n]}_hero.jpg');
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: SizedBox(
@@ -289,8 +290,8 @@ class WildAnimalIllustration extends StatelessWidget {
         height: size,
         child: imageAsset != null
             ? Image.asset(
-                'assets/approved/$imageAsset',
-                fit: asset != null ? BoxFit.contain : BoxFit.cover,
+                '${newAssets[n] != null ? 'assets/radar_species' : 'assets/approved'}/$imageAsset',
+                fit: asset != null || newAssets[n] != null ? BoxFit.contain : BoxFit.cover,
                 alignment: Alignment.centerRight,
                 filterQuality: FilterQuality.high,
               )
@@ -417,3 +418,4 @@ class WildIcons {
   WildIcons._();
   static const binoculars = IconData(0xe900, fontFamily: 'WildTrackIcons');
 }
+

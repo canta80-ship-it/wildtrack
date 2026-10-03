@@ -59,7 +59,7 @@ class CameraAssistantCard extends StatelessWidget {
                   ),
                   if (target != null)
                     Text(
-                      'Suggerimenti contestuali: ${target.name} ${target.score}%',
+                      'Suggerimenti contestuali: ${target.name} · condizioni ${target.conditions.toLowerCase()}',
                       style: const TextStyle(
                         fontSize: 10,
                         color: WildColors.forest,
@@ -281,7 +281,7 @@ class _CameraAssistantScreenState extends State<CameraAssistantScreen> {
                       if (target != null) ...[
                         const SizedBox(height: 7),
                         Text(
-                          'Target probabile: ${target.name} · ${target.score}%',
+                          'Specie suggerita: ${target.name} · condizioni ${target.conditions.toLowerCase()}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
@@ -510,3 +510,4 @@ class _Dropdown extends StatelessWidget {
     },
   );
 }
+

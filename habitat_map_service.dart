@@ -22,6 +22,14 @@ class HabitatMapService {
     'Sciacallo dorato': {'forest','farmland','scrub'}, 'Marmotta': {'grass','rock'}, 'Ermellino': {'grass','rock'},
     'Tasso': {'forest','farmland','grass'}, 'Gracchio alpino': {'rock','grass'}, 'Gufo reale': {'rock','grass','forest'},
     'Barbagianni': {'farmland','grass'}, 'Ghiandaia': {'forest','park'},
+    "Lepre": {"grass","farmland"},
+    "Scoiattolo": {"forest","park"},
+    "Upupa": {"grass","farmland","park"},
+    "Gheppio": {"grass","farmland","rock"},
+    "Assiolo": {"farmland","park","scrub"},
+    "Nibbio reale": {"grass","farmland","forest"},
+    "Nibbio bruno": {"water","wetland","forest","farmland"},
+
   };
   static const _selectors = <String, List<String>>{
     'forest': ['[landuse=forest]','[natural=wood]'],
@@ -140,3 +148,4 @@ class HabitatMapService {
     } finally { client.close(force:true); }
   }
 }
+

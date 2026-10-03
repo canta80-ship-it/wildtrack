@@ -51,7 +51,7 @@ void main() {
     final service = MapLocationService(permission: () async => false);
     await service.start(); expect(service.point, isNull); expect(service.error, isNotNull); service.dispose();
   });
-  test('Habitat profiles cover all 24 species and exclude unsuitable mapped cover', () {
+  test('Habitat profiles cover all 31 species and exclude unsuitable mapped cover', () {
     expect(HabitatMapService.profiles.keys.toSet(), animals.map((a) => a.name).toSet());
     final geometry = [{'lat':46.0,'lon':12.0},{'lat':46.1,'lon':12.0},{'lat':46.1,'lon':12.1},{'lat':46.0,'lon':12.0}];
     final data = {'elements':[{'type':'way','id':1,'tags':{'natural':'wood'},'geometry':geometry},{'type':'way','id':2,'tags':{'natural':'water'},'geometry':geometry}]};
@@ -86,12 +86,13 @@ void main() {
   });
   for (final animal in animals.where((a) => a.name != 'Cervo')) {
     testWidgets('Premium illustration plate bundled for ${animal.name}', (tester) async {
-      final asset='assets/signs/${speciesDetails[animal.name]!.asset}.webp';
+      final d=speciesDetails[animal.name]!; final asset=d.newArtwork ? 'assets/radar_species/${d.asset}_signs.webp' : 'assets/signs/${d.asset}.webp';
       expect((await rootBundle.load(asset)).lengthInBytes, greaterThan(10000));
-      await tester.pumpWidget(MaterialApp(home: SizedBox(height:90, child: SignPlateIllustration(asset:asset,index:3,label:animal.name))));
+      await tester.pumpWidget(MaterialApp(home: SizedBox(height:90, child: SignPlateIllustration(asset:asset,grid:d.newArtwork,index:3,label:animal.name))));
       expect(tester.widget<Image>(find.byType(Image)).fit, BoxFit.contain);
       expect(tester.takeException(),isNull);
       await tester.pumpWidget(const SizedBox());
     });
   }
 }
+

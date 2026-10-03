@@ -533,14 +533,14 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                                         ),
                                       ),
                                       Text(
-                                        'Probabilità ${data?.activity.toLowerCase() ?? '…'}: $top',
+                                        'Condizioni ${data?.activity.toLowerCase() ?? '…'}: $top',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 12,
                                         ),
                                       ),
                                       const Text(
-                                        'Stima basata su ora, stagione, meteo e storico privato',
+                                        'Indice orientativo · consulta dati e motivazioni nella home',
                                         style: TextStyle(
                                           fontSize: 9,
                                           color: WildColors.muted,
@@ -633,3 +633,4 @@ class _Filters extends StatelessWidget {
     ),
   );
 }
+
