@@ -1,0 +1,87 @@
+name: Export verified WildTrack APK
+on:
+  push:
+    branches: [apk-export-0-7-21]
+    paths: [.github/workflows/export-apk.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  export:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 37376741862
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare exact download parts
+        run: |
+          mkdir -p parts
+          mv WildTrack-release.apk WildTrack-0.7.21.apk
+          sha256sum WildTrack-0.7.21.apk > parts/WildTrack-0.7.21.sha256
+          split -b 24M WildTrack-0.7.21.apk parts/WildTrack.apk.part-
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WildTrack-APK-checksum
+          path: parts/WildTrack-0.7.21.sha256
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('parts/WildTrack.apk.part-aa') != ''
+        with:
+          name: WildTrack-APK-part-aa
+          path: parts/WildTrack.apk.part-aa
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('parts/WildTrack.apk.part-ab') != ''
+        with:
+          name: WildTrack-APK-part-ab
+          path: parts/WildTrack.apk.part-ab
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('parts/WildTrack.apk.part-ac') != ''
+        with:
+          name: WildTrack-APK-part-ac
+          path: parts/WildTrack.apk.part-ac
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('parts/WildTrack.apk.part-ad') != ''
+        with:
+          name: WildTrack-APK-part-ad
+          path: parts/WildTrack.apk.part-ad
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('parts/WildTrack.apk.part-ae') != ''
+        with:
+          name: WildTrack-APK-part-ae
+          path: parts/WildTrack.apk.part-ae
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('parts/WildTrack.apk.part-af') != ''
+        with:
+          name: WildTrack-APK-part-af
+          path: parts/WildTrack.apk.part-af
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('parts/WildTrack.apk.part-ag') != ''
+        with:
+          name: WildTrack-APK-part-ag
+          path: parts/WildTrack.apk.part-ag
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('parts/WildTrack.apk.part-ah') != ''
+        with:
+          name: WildTrack-APK-part-ah
+          path: parts/WildTrack.apk.part-ah
+          compression-level: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-interface-previews
+          run-id: 37376741862
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: previews
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WildTrack-Radar-controls
+          path: previews/radar_controls_layout_fixture.png
+          if-no-files-found: error
