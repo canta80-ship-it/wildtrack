@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 3c68de0186fa32561c6907fb63c5d86dbb1897dd
+          ref: 21cbfe99534e76c411d6bfd553289bb0a7e85b08
       - name: Probe live news sources
         run: |
           python3 - <<'PY'
@@ -47,7 +47,7 @@ jobs:
           python3 - <<'PY'
           import json,os,time,urllib.request
           for attempt in range(120):
-            req=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37349429382',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
+            req=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37349887002',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
             run=json.load(urllib.request.urlopen(req))
             if run['status']=='completed':
               assert run['conclusion']=='success',run['conclusion']
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: WildTrack-APK
-          run-id: 37349429382
+          run-id: 37349887002
           github-token: ${{ github.token }}
           path: new-apk
       - uses: actions/download-artifact@v4
