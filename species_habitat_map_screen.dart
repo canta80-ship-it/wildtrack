@@ -77,7 +77,7 @@ class _SpeciesHabitatMapScreenState extends State<SpeciesHabitatMapScreen> {
         }),
         children: [
           PremiumMapSurface(child: TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.preview', tileProvider: widget.tileProvider)),
-          PolygonLayer(polygons: patches.map((patch) => Polygon(points: RadarMapService.softRing(patch.points), holePointsList: patch.holes.map(RadarMapService.softRing).toList(), color: const Color(0xFFB9CCAA).withValues(alpha: .34), borderColor: WildColors.forest, borderStrokeWidth: 2.2, pattern: const StrokePattern.dashed(segments: [7,5]))).toList()),
+          PolygonLayer(polygons: patches.map((patch) => Polygon(points: RadarMapService.softRing(patch.points), holePointsList: patch.holes.map(RadarMapService.softRing).toList(), color: const Color(0xFFB9CCAA).withValues(alpha: .34), borderColor: WildColors.forest, borderStrokeWidth: 2.2, pattern: StrokePattern.dashed(segments: [7,5]))).toList()),
           if (location.point != null) MarkerLayer(markers: [premiumPositionMarker(location.point!)]),
           const Positioned(bottom: 3, right: 6, child: ColoredBox(color: Colors.white, child: Text('© OpenStreetMap contributors', style: TextStyle(fontSize: 10)))),
         ],

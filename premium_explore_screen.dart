@@ -465,7 +465,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                   userAgentPackageName: 'it.wildtrack.app',
                 )),
                 if (showRadar && radarMode != 1)
-                  PolygonLayer(polygons: [for (final patch in displayedPatches) Polygon(points: RadarMapService.softRing(patch.points), holePointsList: patch.holes.map(RadarMapService.softRing).toList(), color: radarSage.withValues(alpha: .34), borderColor: WildColors.forest.withValues(alpha: .85), borderStrokeWidth: 2.2, pattern: const StrokePattern.dashed(segments: [7, 5]))]),
+                  PolygonLayer(polygons: [for (final patch in displayedPatches) Polygon(points: RadarMapService.softRing(patch.points), holePointsList: patch.holes.map(RadarMapService.softRing).toList(), color: radarSage.withValues(alpha: .34), borderColor: WildColors.forest.withValues(alpha: .85), borderStrokeWidth: 2.2, pattern: StrokePattern.dashed(segments: [7, 5]))]),
                 if (showTrails && activeTrail != null)
                   PolylineLayer(
                     polylines: [
