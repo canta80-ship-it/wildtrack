@@ -1,6 +1,7 @@
 import 'outing_preparation_screen.dart';
 import 'return_point_screen.dart';
 import 'dart:async';
+import 'package:geolocator/geolocator.dart';
 import 'radar_panel_widget.dart';
 import 'diary_metric_screen.dart';
 
@@ -33,6 +34,9 @@ class PremiumHomeScreen extends StatefulWidget {
 }
 
 class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindingObserver {
+  StreamSubscription<Position>? _positionStream;
+  bool _watchStarting=false;
+  Position? _queuedPosition;
   Timer? _radarTimer;
   Timer? _clockTimer;
   bool _radarBusy = false;
@@ -48,6 +52,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
     WidgetsBinding.instance.addObserver(this);
     _radarTimer = Timer.periodic(RadarService.refreshInterval, (_) { if (mounted && WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) unawaited(_refresh()); });
     radar = RadarService.instance.load();
+    unawaited(_watchPosition());
     DatabaseService.instance.changes.addListener(_onDatabaseChanged);
     _reloadLocal();
     _scheduleClockTick();
@@ -68,6 +73,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
   @override
   void dispose() {
     DatabaseService.instance.changes.removeListener(_onDatabaseChanged);
+    _positionStream?.cancel();
     _radarTimer?.cancel();
     _clockTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -92,20 +98,34 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen> with WidgetsBindi
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _scheduleClockTick();
+      unawaited(_watchPosition());
       unawaited(_refresh(forceRefresh: false));
     } else {
       _clockTimer?.cancel();
+      _positionStream?.cancel();_positionStream=null;
     }
   }
 
-  Future<void> _refresh({bool forceRefresh = true}) async {
-    if (_radarBusy || !mounted) return;
+  Future<void> _watchPosition() async {
+    if(_watchStarting||_positionStream!=null||!mounted)return;
+    _watchStarting=true;
+    try{
+      final permission=await Geolocator.checkPermission();
+      if(!mounted||WidgetsBinding.instance.lifecycleState!=AppLifecycleState.resumed || (permission!=LocationPermission.always&&permission!=LocationPermission.whileInUse))return;
+      _positionStream=Geolocator.getPositionStream(locationSettings:const LocationSettings(accuracy:LocationAccuracy.high,distanceFilter:100)).listen((p){unawaited(_refresh(forceRefresh:false,position:p));},onError:(_){unawaited(_refresh(forceRefresh:false));});
+    }catch(_){}finally{_watchStarting=false;}
+  }
+
+  Future<void> _refresh({bool forceRefresh = true, Position? position}) async {
+    if(!mounted)return;
+    if(_radarBusy){if(position!=null)_queuedPosition=position;return;}
     _radarBusy = true;
     try {
-    final next = RadarService.instance.load(forceRefresh: forceRefresh);
+    final next = RadarService.instance.load(forceRefresh: forceRefresh,position:position);
+    unawaited(_watchPosition());
     setState(() => radar = next);
     await Future.wait([next, _reloadLocal()]);
-    } catch (_) { } finally { _radarBusy = false; }
+    } catch (_) { } finally { _radarBusy = false; final p=_queuedPosition;_queuedPosition=null;if(p!=null&&mounted)unawaited(_refresh(forceRefresh:false,position:p)); }
   }
 
   void _openLastOuting() {

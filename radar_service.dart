@@ -1,6 +1,8 @@
 import 'package:geolocator/geolocator.dart';
 import 'wildtrack_intelligence_service.dart';
 import 'solar_context_service.dart';
+import 'radar_habitat_service.dart';
+import 'package:latlong2/latlong.dart';
 
 class RadarSpecies {
   const RadarSpecies(this.name,this.score,{this.confidence=0,this.reason='',this.bestWindow='',this.presenceSupported=false,this.quality='Limitata'});
@@ -19,32 +21,37 @@ class RadarSnapshot {
   final SolarContext? solar;
 }
 class RadarService {
-  RadarService({Future<RadarSnapshot> Function(Position?)? loader, DateTime Function()? clock})
-      : _loader = loader ?? ((position) async => fromIntelligence(await WildTrackIntelligenceService.instance.load(position: position))),
+  RadarService({Future<RadarSnapshot> Function(Position?)? loader, DateTime Function()? clock, Future<Position?> Function()? positionProvider})
+      : _loader = loader ?? ((position) async => fromIntelligence(await WildTrackIntelligenceService.instance.load(position: position, requestPosition:false))),
+        _positionProvider = positionProvider ?? (loader == null ? WildTrackIntelligenceService.instance.authorizedPosition : (() async => null)),
         _clock = clock ?? DateTime.now;
   static final instance = RadarService();
   static const refreshInterval = Duration(hours: 1);
   final Future<RadarSnapshot> Function(Position?) _loader;
+  final Future<Position?> Function() _positionProvider;
   final DateTime Function() _clock;
+  final Map<String,Future<RadarSnapshot>> _pending = {};
   RadarSnapshot? _cached;
   DateTime? _loadedAt;
-  Future<RadarSnapshot>? _pending;
+  int _generation=0;
 
-  Future<RadarSnapshot> load({Position? position, bool forceRefresh = false}) {
-    // Explicit position belongs to the caller; do not reuse another area's data.
-    if (position != null) return _loader(position);
-    if (_pending != null) return _pending!;
-    final age = _loadedAt == null ? null : _clock().difference(_loadedAt!);
-    if (!forceRefresh && _cached != null && age != null && age >= Duration.zero && age < refreshInterval) {
-      return Future.value(_cached!);
-    }
-    final future = _loader(null).then((value) {
-      _cached = value;
-      _loadedAt = _clock();
+  Future<RadarSnapshot> load({Position? position, bool forceRefresh = false}) async {
+    final candidate=position ?? await _positionProvider();
+    final pos=candidate!=null && WildTrackIntelligenceService.validPosition(candidate,_clock())?candidate:null;
+    final key=pos==null?'none':'${pos.latitude.toStringAsFixed(5)},${pos.longitude.toStringAsFixed(5)}';
+    if(_pending.containsKey(key))return _pending[key]!;
+    final c=_cached, age=_loadedAt==null?null:_clock().difference(_loadedAt!);
+    final sameArea=pos==null ? c?.hasPosition==false : c?.hasPosition==true && c?.latitude!=null && c?.longitude!=null && RadarHabitatService.distance.as(LengthUnit.Meter,LatLng(pos.latitude,pos.longitude),LatLng(c!.latitude!,c.longitude!))<=RadarHabitatService.reuseDistance;
+    final altitude=pos!=null&&pos.altitude.isFinite&&pos.altitudeAccuracy>0&&pos.altitudeAccuracy<=100?pos.altitude:null;
+    final sameAltitude=altitude==null?c?.elevation==null:c?.elevation!=null&&(altitude-c!.elevation!).abs()<=100;
+    if(!forceRefresh && sameAltitude && sameArea && c!=null && age!=null && age>=Duration.zero && age<refreshInterval)return c;
+    final generation=++_generation;
+    final future=_loader(pos).then((value){
+      if(generation==_generation){_cached=value;_loadedAt=_clock();}
       return value;
     });
-    _pending = future.whenComplete(() => _pending = null);
-    return _pending!;
+    _pending[key]=future;
+    try{return await future;}finally{_pending.remove(key);}
   }
   static RadarSnapshot fromIntelligence(IntelligenceSnapshot s){
     RadarSpecies convert(SpeciesForecast f)=>RadarSpecies(f.name,f.score,confidence:f.confidence,reason:f.reason,bestWindow:f.bestWindow,presenceSupported:f.presenceSupported,quality:f.quality);

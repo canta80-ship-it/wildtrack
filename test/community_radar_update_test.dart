@@ -40,6 +40,7 @@ void main() {
     final pending = Completer<RadarSnapshot>(); var calls = 0;
     final radar = RadarService(loader: (_) { calls++; return pending.future; });
     final a = radar.load(), b = radar.load();
+    await Future<void>.delayed(Duration.zero);
     expect(calls, 1);
     pending.complete(const RadarSnapshot(activity: 'BUONE', species: []));
     expect(await a, same(await b));
@@ -76,7 +77,7 @@ void main() {
     testWidgets('Radar restores real percentage bar at $width dp', (tester) async {
       tester.view.physicalSize = Size(width, 844); tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize); addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: RadarPanel(snapshot: const RadarSnapshot(activity:'BUONE',hasPosition:true,species:[RadarSpecies('Cervo',73)]),onRefresh: () async {})))));
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: RadarPanel(snapshot: const RadarSnapshot(activity:'BUONE',hasPosition:true,habitat:'forest',species:[RadarSpecies('Cervo',73)]),onRefresh: () async {})))));
       await tester.pumpAndSettle();
       expect(find.text('73%'), findsOneWidget);
       expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, .73);

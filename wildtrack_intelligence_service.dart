@@ -1,3 +1,5 @@
+import 'radar_habitat_service.dart';
+import 'species_ecology_service.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -15,8 +17,9 @@ import 'radar_profile_service.dart';
 import 'radar_survey_service.dart';
 
 class HabitatContext {
-  const HabitatContext({required this.primary, required this.tags, this.elevation, this.mapped = false, this.fetchedAt});
+  const HabitatContext({required this.primary, required this.tags, this.elevation, this.mapped = false, this.fetchedAt, this.latitude, this.longitude});
   final bool mapped;
+  final double? latitude, longitude;
   final DateTime? fetchedAt;
   final String primary;
   final Set<String> tags;
@@ -155,11 +158,11 @@ class WildTrackIntelligenceService {
   final Map<String, (DateTime, List<RadarEvidence>)> _evidenceCache = {};
   final Map<String, Future<IntelligenceSnapshot>> _pending = {};
   String _cell(Position p) => '${(p.latitude*200).floor()}:${(p.longitude*200).floor()}';
-  Future<IntelligenceSnapshot> load({Position? position}) async {
+  Future<IntelligenceSnapshot> load({Position? position, bool requestPosition = true}) async {
     final now = DateTime.now();
-    final raw = position ?? await authorizedPosition();
+    final raw = position ?? (requestPosition ? await authorizedPosition() : null);
     final pos = raw != null && validPosition(raw, now) ? raw : null;
-    final key = pos == null ? 'none' : _cell(pos);
+    final key = pos == null ? 'none' : '${pos.latitude.toStringAsFixed(5)},${pos.longitude.toStringAsFixed(5)}';
     if (_pending.containsKey(key)) return _pending[key]!;
     final future = _loadContext(pos, now);
     _pending[key] = future;
@@ -183,6 +186,11 @@ class WildTrackIntelligenceService {
   IntelligenceSnapshot evaluate({required DateTime now, Position? position, WeatherContext weather = const WeatherContext(), HabitatContext habitat = const HabitatContext(primary:'unknown',tags:{'unknown'}), List<Sighting> history = const [], List<RadarEvidence> evidence = const [], List<RadarSurvey> surveys = const []}) {
     final pos = position != null && validPosition(position,now) ? position : null;
     if (pos == null) return IntelligenceSnapshot(activity:'DATI INSUFFICIENTI',species:const [],habitat:const HabitatContext(primary:'unknown',tags:{'unknown'}),weather:const WeatherContext(),generatedAt:now,hasPosition:false);
+    final age = habitat.fetchedAt == null ? Duration.zero : now.difference(habitat.fetchedAt!);
+    final local = habitat.latitude == null || habitat.longitude == null || RadarHabitatService.distance.as(LengthUnit.Meter, LatLng(pos.latitude,pos.longitude), LatLng(habitat.latitude!,habitat.longitude!)) <= RadarHabitatService.reuseDistance;
+    if (!habitat.mapped || habitat.tags.isEmpty || habitat.tags.contains('unknown') || age < Duration.zero || age >= const Duration(hours:1) || !local) {
+      return IntelligenceSnapshot(activity:'HABITAT NON DISPONIBILE',species:const [],listening:const [],habitat:const HabitatContext(primary:'unknown',tags:{'unknown'}),weather:weather,generatedAt:now,hasPosition:true,solar:SolarContext.at(now,pos.latitude,pos.longitude),latitude:pos.latitude,longitude:pos.longitude,evidenceAvailable:evidence.isNotEmpty);
+    }
     final sun = SolarContext.at(now,pos.latitude,pos.longitude);
     final visual = <SpeciesForecast>[], listening = <SpeciesForecast>[];
     for (final entry in radarProfiles.entries) {
@@ -202,7 +210,7 @@ class WildTrackIntelligenceService {
   SpeciesForecast _forecast(String name, RadarProfile p, DateTime now, Position pos, WeatherContext w, HabitatContext h, List<Sighting> history, List<RadarEvidence> evidence, List<RadarSurvey> surveys, SolarContext sun) {
     var score = 25.0, qualityPoints = 1;
     final reasons = <String>[];
-    final habitatKnown = !h.tags.contains('unknown');
+    final habitatKnown = h.mapped && !h.tags.contains('unknown');
     final compatible = h.tags.any(p.habitats.contains);
     if (habitatKnown) { qualityPoints++; score += compatible?18:-20; reasons.add(compatible?'habitat cartografato compatibile nelle vicinanze':'habitat cartografato poco compatibile'); }
     else reasons.add('habitat non disponibile');
@@ -216,11 +224,17 @@ class WildTrackIntelligenceService {
     final dormant = p.dormant.contains(now.month);
     if (!inSeason) {score-=30; reasons.add('fuori dalla stagione tipica italiana');}
     if (dormant) {score-=35; reasons.add('periodo di quiescenza o letargo: possibili eccezioni locali');}
+    final ecology=speciesEcology[name]!;
+    reasons.add('Ambiente della specie: ${ecology.habitat}');
     final altitude = h.elevation;
+    final outsideQuota=altitude!=null && altitude.isFinite && ecology.outside(altitude);
+    final mountainSpecies=p.alpine || name=='Gracchio alpino';
+    final mountainUncertain=mountainSpecies && (altitude==null || altitude<700); 
     if (altitude != null && altitude.isFinite) {
       qualityPoints++;
-      if (altitude < p.minAltitude || altitude > p.maxAltitude) {score-=28; reasons.add('quota poco compatibile');}
-      else score+=5;
+      reasons.add('Quota GPS ${altitude.round()} m: ${ecology.altitudeNote}');
+      if(outsideQuota){score-=12;reasons.add('quota fuori dalla fascia tipica documentata');}
+      else if(ecology.minimum!=null || ecology.maximum!=null)score+=5;
     } else reasons.add('quota non affidabile');
     final sources = <String>{};
     var weightedHistory = 0.0, recentCount = 0;
@@ -257,7 +271,8 @@ class WildTrackIntelligenceService {
     if (w.precipitation != null && w.precipitation!>2) {score-=8; reasons.add('pioggia intensa');}
     if (!habitatKnown) score=math.min(score,38.0);
     if (habitatKnown && !compatible) score=math.min(score,15.0);
-    if (altitude != null && (altitude < p.minAltitude || altitude > p.maxAltitude)) score=math.min(score,15.0);
+    if ((outsideQuota || mountainUncertain) && !supported)score=math.min(score,15.0);
+    if(name=='Marmotta' && altitude!=null && altitude<800)score=math.min(score,15.0);
     if (!inSeason || dormant) score=math.min(score,15.0);
     if (sun.dark) score=math.min(score,32.0);
     final visits = surveys.where((s)=>s.species==name && s.phase==sun.phase && s.minutes>=15 && now.difference(s.at)>=Duration.zero && now.difference(s.at).inDays<=90 && _distance.as(LengthUnit.Kilometer,LatLng(pos.latitude,pos.longitude),LatLng(s.latitude,s.longitude))<=2).toList();
@@ -289,29 +304,19 @@ class WildTrackIntelligenceService {
     _weatherCache[key]=(now,result); if(_weatherCache.length>30)_weatherCache.remove(_weatherCache.keys.first); return result;
   }
   Future<HabitatContext> _habitat(Position p) async {
-    final key=_cell(p), now=DateTime.now(), cached=_habitatCache[_cell(p)];
+    final key='${(p.latitude*1000).floor()}:${(p.longitude*1000).floor()}', now=DateTime.now();
+    final cached=_habitatCache[key];
     final elevation=p.altitude.isFinite && p.altitudeAccuracy>0 && p.altitudeAccuracy<=100?p.altitude:null;
-    if(cached!=null && now.difference(cached.$1)<const Duration(hours:1))return HabitatContext(primary:cached.$2.primary,tags:cached.$2.tags,elevation:elevation,mapped:cached.$2.mapped,fetchedAt:cached.$2.fetchedAt);
-    // Include multipolygons as well as ways; no altitude-based fabricated habitat.
-    final query='[out:json][timeout:5];(way(around:1400,${p.latitude},${p.longitude})[natural];relation(around:1400,${p.latitude},${p.longitude})[natural];way(around:1400,${p.latitude},${p.longitude})[landuse];relation(around:1400,${p.latitude},${p.longitude})[landuse];way(around:1400,${p.latitude},${p.longitude})[leisure=park];);out tags 100;';
+    if(cached!=null && now.difference(cached.$1)<const Duration(hours:1) && cached.$2.latitude!=null && RadarHabitatService.distance.as(LengthUnit.Meter,LatLng(p.latitude,p.longitude),LatLng(cached.$2.latitude!,cached.$2.longitude!))<=RadarHabitatService.reuseDistance) {
+      return HabitatContext(primary:cached.$2.primary,tags:cached.$2.tags,elevation:elevation,mapped:true,fetchedAt:cached.$2.fetchedAt,latitude:cached.$2.latitude,longitude:cached.$2.longitude);
+    }
+    final query=RadarHabitatService.query(p);
     Map<String,dynamic>? data;
     for(final endpoint in ['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter']) {
       try {data=await _json(Uri.parse(endpoint),body:'data=${Uri.encodeQueryComponent(query)}');if(data['remark']==null)break;data=null;}catch(_){}
     }
-    final tags=<String>{};
-    for(final raw in data?['elements'] as List? ?? const []) {
-      final t=(raw as Map)['tags'] as Map? ?? const {}, natural=t['natural'], landuse=t['landuse'];
-      if(natural=='wood'||landuse=='forest')tags.add('forest');
-      if(['grassland','heath'].contains(natural)||['meadow','grass','pasture'].contains(landuse))tags.add('meadow');
-      if(natural=='scrub')tags.add('scrub');
-      if(natural=='wetland')tags.add('wetland');
-      if(natural=='water'||landuse=='reservoir')tags.add('water');
-      if(['bare_rock','scree','cliff'].contains(natural))tags.add('rock');
-      if(['farmland','orchard','vineyard'].contains(landuse))tags.add('farmland');
-      if(['residential','commercial','industrial'].contains(landuse))tags.add('urban');
-      if(t['leisure']=='park')tags.add('park');
-    }
-    final result=HabitatContext(primary:tags.isEmpty?'unknown':tags.length>1?'mosaic':tags.first,tags:tags.isEmpty?const {'unknown'}:tags,elevation:elevation,mapped:tags.isNotEmpty,fetchedAt:now);
+    final tags=data==null ? <String>{} : RadarHabitatService.tags(data,p);
+    final result=HabitatContext(primary:tags.isEmpty?'unknown':tags.length>1?'mosaic':tags.first,tags:tags.isEmpty?const {'unknown'}:tags,elevation:elevation,mapped:tags.isNotEmpty,fetchedAt:DateTime.now(),latitude:p.latitude,longitude:p.longitude);
     if(tags.isNotEmpty){_habitatCache[key]=(now,result);if(_habitatCache.length>30)_habitatCache.remove(_habitatCache.keys.first);}return result;
   }
   Future<List<RadarEvidence>> _regionalEvidence(Position p) async {

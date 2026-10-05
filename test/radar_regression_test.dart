@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wildtrack_mvp/services/radar_habitat_service.dart';
+import 'package:wildtrack_mvp/services/species_ecology_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -18,14 +20,14 @@ const habitat=HabitatContext(primary:'mosaic',tags:{'forest','meadow','farmland'
 void main(){
  TestWidgetsFlutterBinding.ensureInitialized();
  final engine=WildTrackIntelligenceService.instance;
- test('All 31 catalogue species have forecast profiles, complete new cards and distinct assets',()async{
+ test('All 35 catalogue species have forecast profiles, complete new cards and distinct assets',()async{
   expect(radarProfiles.keys.toSet(),animals.map((a)=>a.name).toSet());
   expect(speciesDetails.keys.toSet(),radarProfiles.keys.toSet());
   for(final d in speciesDetails.values.where((d)=>d.newArtwork)){
    expect(d.bestPeriod,isNotEmpty);expect(d.diet,isNotEmpty);expect(d.breeding,isNotEmpty);expect(d.voiceDescription,isNotEmpty);
    expect(d.signs.length,4);expect(d.seasonLevels.length,4);expect(d.seasons.length,4);
    expect((await rootBundle.load('assets/radar_species/${d.asset}_hero.jpg')).lengthInBytes,greaterThan(10000));
-   if (!d.nativeSigns) expect((await rootBundle.load('assets/radar_species/${d.asset}_signs.webp')).lengthInBytes,greaterThan(10000));
+   expect((await rootBundle.load('assets/radar_species/${d.asset}_signs.webp')).lengthInBytes,greaterThan(10000));
   }
  });
  test('Solar phase follows date and location, not fixed clock windows',(){
@@ -57,7 +59,7 @@ void main(){
  });
  test('Migrants and hibernating mammals are not promoted in winter',(){
   final now=DateTime.utc(2026,1,15,11);
-  final s=engine.evaluate(now:now,position:position(now,altitude:1500),habitat:const HabitatContext(primary:'mosaic',tags:{'meadow','rock','forest','park','water','farmland'},elevation:1500));
+  final s=engine.evaluate(now:now,position:position(now,altitude:1500),habitat:const HabitatContext(primary:'mosaic',tags:{'meadow','rock','forest','park','water','farmland'},elevation:1500,mapped:true));
   expect(s.species.where((s)=>{'Upupa','Assiolo','Nibbio bruno','Marmotta'}.contains(s.name)),isEmpty);
   final night=DateTime.utc(2026,1,15,21);
   final listening=engine.evaluate(now:night,position:position(night),habitat:habitat,evidence:[RadarEvidence('gbif:summer-owl','Assiolo',46,13,DateTime.utc(2025,7,15),'GBIF')]);
@@ -79,7 +81,7 @@ void main(){
  test('Unknown habitat is not fabricated from altitude',(){
   final now=DateTime.utc(2026,10,3,11);
   final s=engine.evaluate(now:now,position:position(now,altitude:2000));
-  expect(s.habitat.primary,'unknown');expect(s.species.every((s)=>s.score<=38),true);
+  expect(s.habitat.primary,'unknown');expect(s.species,isEmpty);expect(s.listening,isEmpty);
  });
  test('Incompatible mapped habitat or reliable altitude cannot promote a species',(){
   final now=DateTime.utc(2026,10,3,11);
@@ -91,10 +93,68 @@ void main(){
   final s=engine.evaluate(now:now,position:position(now),habitat:habitat,surveys:[RadarSurvey(species:'Cervo',latitude:46,longitude:13,at:now.subtract(const Duration(days:1)),minutes:30,seen:false,phase:'day')]);
   expect(s.species.firstWhere((s)=>s.name=='Cervo').reason,contains('0/1 con incontro'));
  });
+ test('All species have sourced ecology and no arbitrary default altitude limit',(){
+  expect(speciesEcology.keys.toSet(),radarProfiles.keys.toSet());
+  for(final e in speciesEcology.values){expect(e.source,startsWith('https://'));expect(e.habitat,isNotEmpty);expect(e.altitudeNote,isNotEmpty);}
+  expect(speciesEcology['Marmotta']!.minimum,800);
+  expect(speciesEcology['Volpe']!.maximum,isNull);
+ });
+ test('Unmapped, expired and distant habitat suppress both lists even with local records',(){
+  final now=DateTime.utc(2026,10,3,20);
+  for(final h in [const HabitatContext(primary:'forest',tags:{'forest'}),HabitatContext(primary:'forest',tags:{'forest'},mapped:true,fetchedAt:now.subtract(const Duration(hours:1))),HabitatContext(primary:'forest',tags:{'forest'},mapped:true,latitude:47,longitude:13)]){
+   final s=engine.evaluate(now:now,position:position(now),habitat:h,history:[sighting('Allocco',now.subtract(const Duration(days:1)))]);
+   expect(s.species,isEmpty);expect(s.listening,isEmpty);expect(s.hasPosition,true);
+  }
+ });
+ test('Waterways are local habitats; remote ponds and missing geometry are rejected',(){
+  final p=position(DateTime.now());
+  final tags=RadarHabitatService.tags({'elements':[
+   {'type':'way','tags':{'waterway':'stream'},'geometry':[{'lat':45.999,'lon':13.001},{'lat':46.001,'lon':13.001}]},
+   {'type':'node','lat':46.02,'lon':13,'tags':{'natural':'wetland'}},
+   {'type':'way','tags':{'natural':'wood'}}
+  ]},p);
+  expect(tags,{'water','stream'});
+  expect(RadarHabitatService.query(p),contains('waterway'));
+  expect(RadarHabitatService.tags({'remark':'timeout','elements':[{'type':'area','tags':{'natural':'wood'}}]},p),isEmpty);
+ });
+ test('A large enclosing forest is loaded even when its edges exceed search radius',(){
+  final p=position(DateTime.now());
+  final ring=[{'lat':45.99,'lon':12.99},{'lat':45.99,'lon':13.01},{'lat':46.01,'lon':13.01},{'lat':46.01,'lon':12.99},{'lat':45.99,'lon':12.99}];
+  expect(RadarHabitatService.tags({'elements':[{'type':'way','tags':{'landuse':'forest'},'geometry':ring}]},p),{'forest'});
+ });
+ test('Plain meadows cannot suggest alpine specialists without compatible quota',(){
+  final now=DateTime.utc(2026,7,3,11);
+  for(final altitude in <double?>[100,null]){
+   final s=engine.evaluate(now:now,position:position(now),habitat:HabitatContext(primary:'meadow',tags:{'meadow','rock'},mapped:true,elevation:altitude));
+   expect(s.species.where((s)=>{'Marmotta','Stambecco','Camoscio alpino','Gracchio alpino'}.contains(s.name)),isEmpty);
+  }
+  final mountain=engine.evaluate(now:now,position:position(now,altitude:2200),habitat:const HabitatContext(primary:'meadow',tags:{'meadow','rock'},mapped:true,elevation:2200));
+  expect(mountain.species.any((s)=>s.name=='Marmotta'),true);
+ });
+ test('Source quota is typical: supported exceptions are penalized, not declared impossible',(){
+  final now=DateTime.utc(2026,7,3,20);
+  final s=engine.evaluate(now:now,position:position(now,altitude:1200),habitat:const HabitatContext(primary:'farmland',tags:{'farmland'},mapped:true,elevation:1200),history:[sighting('Assiolo',now.subtract(const Duration(days:1)))]);
+  expect(s.species.any((s)=>s.name=='Assiolo'),true);
+  expect(s.species.firstWhere((s)=>s.name=='Assiolo').reason,contains('fascia tipica documentata'));
+ });
+ test('GPS movement, elevation changes and lost GPS invalidate cached suggestions',()async{
+  final now=DateTime.utc(2026,7,3,11);var p=position(now);var calls=0;
+  final radar=RadarService(clock:()=>now,positionProvider:()async=>p,loader:(p)async{calls++;return RadarSnapshot(activity:'LIMITATE',species:const [],hasPosition:p!=null,latitude:p?.latitude,longitude:p?.longitude,elevation:p?.altitude);});
+  await radar.load();await radar.load();expect(calls,1);
+  p=position(now,latitude:46.0004);await radar.load();expect(calls,1);
+  p=position(now,latitude:46.004);await radar.load();expect(calls,2);
+  p=position(now,latitude:46.004,altitude:1000);await radar.load();expect(calls,3);
+  p=position(now.subtract(const Duration(hours:1)));expect((await radar.load()).hasPosition,false);expect(calls,4);
+ });
+ testWidgets('Radar hides old area while new habitat is loading',(tester)async{
+  await tester.pumpWidget(MaterialApp(home:Scaffold(body:RadarPanel(snapshot:const RadarSnapshot(activity:'BUONE',hasPosition:true,habitat:'forest',species:[RadarSpecies('Cervo',70)]),loading:true,onRefresh:()async{}))));
+  expect(find.text('Cervo'),findsNothing);expect(find.byType(LinearProgressIndicator),findsOneWidget);
+  await tester.pumpWidget(const SizedBox());
+ });
  testWidgets('Radar home uses supplied ranking and no percentage or fixed deer fallback',(tester)async{
   tester.view.physicalSize=const Size(360,844);tester.view.devicePixelRatio=1;
   addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(MaterialApp(home:Scaffold(body:SingleChildScrollView(child:RadarPanel(snapshot:RadarSnapshot(activity:'DISCRETE',hasPosition:true,generatedAt:DateTime(2026,10,3,11),solar:const SolarContext('day',30,null,null),species:const [RadarSpecies('Upupa',48),RadarSpecies('Gheppio',45)]),onRefresh:()async{})))));
+  await tester.pumpWidget(MaterialApp(home:Scaffold(body:SingleChildScrollView(child:RadarPanel(snapshot:RadarSnapshot(activity:'DISCRETE',hasPosition:true,habitat:'forest',generatedAt:DateTime(2026,10,3,11),solar:const SolarContext('day',30,null,null),species:const [RadarSpecies('Upupa',48),RadarSpecies('Gheppio',45)]),onRefresh:()async{})))));
   await tester.pumpAndSettle();expect(find.text('Upupa'),findsOneWidget);expect(find.text('Gheppio'),findsOneWidget);expect(find.text('Cervo'),findsNothing);expect(find.text('82%'),findsNothing);expect(tester.takeException(),isNull);
   await tester.tap(find.text('Upupa'));await tester.pumpAndSettle();expect(find.text('Apri scheda completa'),findsOneWidget);
  });

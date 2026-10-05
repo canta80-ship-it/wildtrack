@@ -1,0 +1,251 @@
+{
+  "reviewedAt": "2026-10-05",
+  "policy": "Habitat required. Source bands are typical, not hard ranges. Unreliable altitude never inferred from habitat. Alpine qualitative gates are conservative editorial rules.",
+  "species": {
+    "Lince": {
+      "habitat": "Boschi con copertura vegetale e versanti rocciosi",
+      "source": "https://www.kora.ch/en/species/lynx/profile",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Nessun intervallo altitudinale universale nella fonte"
+    },
+    "Tritone": {
+      "habitat": "Stagni e pozze, anche in boschi e giardini; rifugi terrestri umidi",
+      "source": "https://www.infofauna.ch/it/servizio-di-consulenza/anfibi-karch/gli-anfibi/specie/tritone-alpino",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Presente sia in pianura sia in montagna; la quota non sostituisce uno stagno"
+    },
+    "Rospo": {
+      "habitat": "Boschi, giardini e ambienti aperti; laghi e stagni per riprodursi",
+      "source": "https://www.infofauna.ch/it/servizio-di-consulenza/anfibi-karch/gli-anfibi/specie/rospo-comune",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Quota variabile; contano rifugi terrestri e acqua riproduttiva"
+    },
+    "Salamandra": {
+      "habitat": "Boschi freschi e umidi; ruscelli forestali e sorgenti per le larve",
+      "source": "https://www.infofauna.ch/it/servizio-di-consulenza/anfibi-karch/gli-anfibi/specie/salamandra-pezzata",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Le quote riportate per la Svizzera non sono un limite italiano"
+    },
+    "Cervo": {
+      "habitat": "Boschi con radure e praterie; fondovalle in inverno",
+      "source": "https://www.parcoabruzzo.it/fauna.schede.dettaglio.php?id=313",
+      "minimum": 0,
+      "maximum": 2500,
+      "altitudeNote": "Dalle basse quote a circa 2500 m, secondo il Parco Abruzzo"
+    },
+    "Capriolo": {
+      "habitat": "Boschi di latifoglie alternati a prati e campi",
+      "source": "https://ambiente.regione.emilia-romagna.it/it/parchi-natura2000/sistema-regionale/fauna/mammiferi/schede/capriolo-1",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Pianura, collina e montagna"
+    },
+    "Volpe": {
+      "habitat": "Boschi, prati, campagne e zone antropizzate",
+      "source": "https://www.parcoabruzzo.it/fauna.schede.dettaglio.php?id=314",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Ampia adattabilità; nessun limite numerico uniforme nella fonte"
+    },
+    "Camoscio alpino": {
+      "habitat": "Praterie montane, pareti rocciose e boschi di versante",
+      "source": "https://www.parchialpicozie.it/it/parcopedia/camoscio/",
+      "minimum": 1000,
+      "maximum": 3500,
+      "altitudeNote": "Quote tipiche 1000–3500 m; possibili discese al fondovalle"
+    },
+    "Stambecco": {
+      "habitat": "Praterie alpine e pareti rocciose",
+      "source": "https://www.pngp.it/natura-e-ricerca/fauna/praterie-e-ambienti-rocciosi/lo-stambecco",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Alta quota, con discesa ai prati di fondovalle in primavera"
+    },
+    "Cinghiale": {
+      "habitat": "Boschi di querce e faggete, con copertura e acqua",
+      "source": "https://www.gransassolagapark.it/pagina.php?id=261",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Può frequentare anche boschi montani"
+    },
+    "Aquila reale": {
+      "habitat": "Pareti rocciose e prati aperti per cacciare",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/aquila-reale",
+      "minimum": 800,
+      "maximum": 2200,
+      "altitudeNote": "Più diffusa a 800–2200 m; giovani anche a quote inferiori"
+    },
+    "Grifone": {
+      "habitat": "Rupi, pascoli e mosaici mediterranei",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/grifone",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Nessun intervallo uniforme: presenza italiana localizzata"
+    },
+    "Poiana": {
+      "habitat": "Boschi con alberi alti, radure, prati e coltivi",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/poiana",
+      "minimum": 0,
+      "maximum": 1500,
+      "altitudeNote": "Più diffusa dal mare a 1500 m; segnalata anche più in alto"
+    },
+    "Allocco": {
+      "habitat": "Boschi e parchi alberati",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/allocco",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Habitat arboreo; nessun intervallo uniforme adottato"
+    },
+    "Picchio nero": {
+      "habitat": "Foreste mature con alberi grandi e legno morto",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/picchio-nero",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Foreste montane e anche corridoi fluviali di pianura"
+    },
+    "Airone cenerino": {
+      "habitat": "Zone umide, rive, risaie e campagne",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/airone-cenerino",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Valutare acqua e coltivi; nessun limite numerico uniforme"
+    },
+    "Germano reale": {
+      "habitat": "Laghi, stagni, fiumi e zone umide",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/germano-reale",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "La presenza di acqua conta più di una quota generica"
+    },
+    "Falco di palude": {
+      "habitat": "Zone umide e ripariali, canneti e coltivi vicini",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/falco-palude",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Habitat umido necessario per un suggerimento conservativo"
+    },
+    "Orso bruno": {
+      "habitat": "Boschi tranquilli, prati montani e coltivi stagionali",
+      "source": "https://www.parcoabruzzo.it/scheda-orso.php",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Diversi livelli altitudinali; presenza italiana localizzata"
+    },
+    "Lupo": {
+      "habitat": "Boschi e ambienti aperti con prede e rifugi",
+      "source": "https://www.parcoabruzzo.it/fauna.schede.dettaglio.php?id=21",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Può usare diversi livelli altitudinali"
+    },
+    "Sciacallo dorato": {
+      "habitat": "Ambienti con copertura, acqua e zone umide",
+      "source": "https://www.kora.ch/en/species/golden-jackal/profile",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Evita aree alte con neve persistente; non esiste una soglia unica"
+    },
+    "Marmotta": {
+      "habitat": "Praterie alpine e subalpine con terreno adatto alle tane",
+      "source": "https://www.pngp.it/natura-e-ricerca/fauna/praterie-e-ambienti-rocciosi/la-marmotta",
+      "minimum": 800,
+      "maximum": 3000,
+      "altitudeNote": "Di solito 2000–3000 m; anche da 800 m in zone senza alberi"
+    },
+    "Ermellino": {
+      "habitat": "Prati, siepi, boschi, paludi e ghiaioni con copertura",
+      "source": "https://www.pngp.it/natura-e-ricerca/fauna/carnivori/l-ermellino",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Non è limitato all’alta montagna"
+    },
+    "Tasso": {
+      "habitat": "Boschi alternati a prati e coltivi",
+      "source": "https://ambiente.regione.emilia-romagna.it/it/parchi-natura2000/sistema-regionale/fauna/mammiferi/schede/tasso",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Quota variabile secondo disponibilità di rifugi e cibo"
+    },
+    "Gracchio alpino": {
+      "habitat": "Pareti rocciose montane vicine a pascoli e praterie",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/gracchio-alpino",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Quote elevate, con differenze tra Alpi e Appennini e discese stagionali"
+    },
+    "Gufo reale": {
+      "habitat": "Pareti rocciose vicine ad ambienti aperti e corsi d’acqua",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/gufo-reale",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Può frequentare versanti anche vicino ai centri abitati"
+    },
+    "Barbagianni": {
+      "habitat": "Campagne a mosaico, prati, siepi e caseggiati rurali",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/barbagianni",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Prevalentemente ambienti aperti; nessun limite uniforme adottato"
+    },
+    "Ghiandaia": {
+      "habitat": "Boschi misti e di latifoglie, anche parchi alberati",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/ghiandaia",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Il bosco conta più di una quota generica"
+    },
+    "Lepre": {
+      "habitat": "Campi coltivati, prati, brughiere e margini del bosco",
+      "source": "https://ambiente.regione.emilia-romagna.it/it/parchi-natura2000/sistema-regionale/fauna/mammiferi/schede/lepre",
+      "minimum": 0,
+      "maximum": 2000,
+      "altitudeNote": "Pianura, collina e montagna fino a circa 2000 m nella fonte regionale"
+    },
+    "Scoiattolo": {
+      "habitat": "Boschi di conifere e latifoglie, parchi alberati",
+      "source": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/animals/mammals/red-squirrel/",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Necessita di alberi; nessun intervallo uniforme adottato"
+    },
+    "Upupa": {
+      "habitat": "Frutteti, vigneti e prati con alberi sparsi, caldi e assolati",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/upupa",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Preferenza per paesaggi agricoli e versanti caldi"
+    },
+    "Gheppio": {
+      "habitat": "Prati, coltivi, rupi e aree urbane con spazi aperti",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/gheppio",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "Ampia varietà di quote e ambienti"
+    },
+    "Assiolo": {
+      "habitat": "Coltivi e boschi radi alternati a radure, parchi e giardini",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/assiolo",
+      "minimum": 0,
+      "maximum": 500,
+      "altitudeNote": "Nidifica generalmente sotto 500 m; eccezioni documentate fino a 1550 m"
+    },
+    "Nibbio reale": {
+      "habitat": "Boschi radi alternati a prati, pascoli e campagne",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/nibbio-reale",
+      "minimum": null,
+      "maximum": null,
+      "altitudeNote": "La quota da sola non conferma la presenza, localizzata in Italia"
+    },
+    "Nibbio bruno": {
+      "habitat": "Boschi vicini a laghi, fiumi e zone umide; prati e coltivi",
+      "source": "https://www.lipu.it/uccelli/conoscerli-proteggerli/nibbio-bruno",
+      "minimum": 0,
+      "maximum": 1000,
+      "altitudeNote": "Per nidificare raramente supera 700–1000 m; non è un limite al volo"
+    }
+  }
+}

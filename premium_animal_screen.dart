@@ -1,4 +1,3 @@
-import 'species_sign_widget.dart';
 import 'outing_preparation_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -207,7 +206,7 @@ class PremiumAnimalScreen extends StatelessWidget {
                               signs[i].$2,
                             ),
                             child: _SignCard(
-                              illustration: detail.nativeSigns ? SpeciesSignIllustration(species: animal.name, index: i, label: signs[i].$1) : !isDeer
+                              illustration: !isDeer
                                   ? SignPlateIllustration(asset: detail.newArtwork ? 'assets/radar_species/${detail.asset}_signs.webp' : 'assets/signs/${detail.asset}.webp', grid: detail.newArtwork, index: i, label: '${animal.name}: ${signs[i].$1}')
                                   : null,
                               title: signs[i].$1,
