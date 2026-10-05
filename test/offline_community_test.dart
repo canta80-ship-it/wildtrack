@@ -1,4 +1,6 @@
-import 'dart:typed_data';
+import 'dart:io';
+import 'package:wildtrack_mvp/services/nearby_groups_service.dart';
+import 'package:wildtrack_mvp/services/preferences_service.dart';
 import 'dart:ui' as ui;
 import 'dart:convert';
 import 'package:flutter/services.dart';
@@ -11,6 +13,22 @@ import 'package:wildtrack_mvp/screens/species_detail_screen.dart';
 import 'package:latlong2/latlong.dart';
 void main(){
  TestWidgetsFlutterBinding.ensureInitialized();
+ test('Offline groups persist approved members without transmitting the account token',()async{
+  final dir=await Directory.systemTemp.createTemp('wildtrack-nearby');
+  final prefs=PreferencesService.instance; final original=prefs.token;
+  File? oldFile;try{oldFile=prefs.file;}catch(_){}
+  final service=NearbyGroupsService.instance;
+  try{
+   prefs.file=File('${dir.path}/prefs.json');prefs.token='a'*64;service.groups.clear();service.loaded=false;
+   final group=await service.create('Gruppo montagna');
+   await service.addMember(group,{'id':'b'*64,'nickname':'Compagno'});
+   await service.addMember(group,{'id':'b'*64,'nickname':'Compagno'});
+   expect((group['members'] as List).length,1);expect((group['pendingMembers'] as List).length,1);
+   final saved=await service.file.readAsString();expect(saved,contains('Gruppo montagna'));expect(saved,contains('Compagno'));expect(saved, isNot(contains(prefs.token)));
+   service.groups.clear();service.loaded=false;await service.load();
+   expect(service.groups.single['id'],group['id']);expect(service.groups.single['synced'],false);
+  }finally{service.groups.clear();service.loaded=false;prefs.token=original;if(oldFile!=null)prefs.file=oldFile;await dir.delete(recursive:true);}
+ });
  test('Avatar crop preserves proportions and discards side margins',()async{
   final recorder=ui.PictureRecorder();final canvas=ui.Canvas(recorder);
   canvas.drawRect(const ui.Rect.fromLTWH(0,0,400,200),ui.Paint()..color=const ui.Color(0xFFFF0000));

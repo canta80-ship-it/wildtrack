@@ -55,7 +55,7 @@ class _SignPainter extends CustomPainter {
       final color=species=='Salamandra'?const Color(0xFF26392F):species=='Rospo'?const Color(0xFF947B55):const Color(0xFF587D83);
       canvas.drawOval(species=='Rospo'?const Rect.fromLTWH(22,30,57,44):const Rect.fromLTWH(31,22,26,50),Paint()..color=color);
       canvas.drawCircle(const Offset(44,24),12,Paint()..color=color);
-      canvas.drawPath(Path()..moveTo(44,66)..cubicTo(58,82,78,78,79,57),Paint()..color=color..style=PaintingStyle.stroke..strokeWidth=9..strokeCap=StrokeCap.round);
+      if(species!='Rospo')canvas.drawPath(Path()..moveTo(44,66)..cubicTo(58,82,78,78,79,57),Paint()..color=color..style=PaintingStyle.stroke..strokeWidth=9..strokeCap=StrokeCap.round);
       for(final p in [const Offset(32,38),const Offset(56,38),const Offset(32,62),const Offset(55,62)]){canvas.drawLine(p,Offset(p.dx<45?p.dx-14:p.dx+14,p.dy+8),ink);}
       if(species=='Salamandra'){for(final p in [const Offset(40,31),const Offset(49,46),const Offset(39,61),const Offset(68,74)])canvas.drawOval(Rect.fromCenter(center:p,width:8,height:13),Paint()..color=const Color(0xFFE3C849));}
       if(species=='Rospo'){for(var i=0;i<12;i++)canvas.drawCircle(Offset(30+(i%4)*11.0,40+(i~/4)*10.0),2,ochre);}

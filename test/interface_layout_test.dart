@@ -1,3 +1,5 @@
+import 'package:wildtrack_mvp/screens/premium_community_screen.dart';
+import 'package:wildtrack_mvp/services/community_service.dart';
 import 'package:flutter/services.dart';
 import 'package:wildtrack_mvp/main.dart' show wildTrackTheme;
 
@@ -63,12 +65,14 @@ void main() {
       await loader.load();
     }
   });
+  CommunityService.instance.sightings=[{'id':'layout-fixture','mine':1,'species':'Lince','authorName':'Esploratore della community','count':2,'notes':'Un avvistamento tra gli alberi, con una descrizione leggibile anche sui telefoni piccoli.','observedAt':'2026-10-05T10:00:00Z','lat':46.1,'lng':13.2}];
   for (final width in [360.0, 411.0]) {
     final screens = <String, Widget>{
       'welcome': const IntroScreen(home: SizedBox()),
       'access': const AccessScreen(home: SizedBox()),
       for (final animal in animals)
         'species ${animal.name}': PremiumAnimalScreen(animal),
+      'community': const PremiumCommunityScreen(),
       'sighting': const PremiumSightingScreen(),
     };
     for (final screen in screens.entries) {
@@ -92,6 +96,13 @@ void main() {
           await settleImages(tester);
           expect(tester.takeException(), isNull);
           if (width == 411) await capture(tester, screen.key);
+          if(screen.key=='community'){
+            await tester.drag(find.byType(CustomScrollView).first,const Offset(0,-500));
+            await tester.pumpAndSettle();
+            expect(find.text('Aggiungi foto'),findsOneWidget);
+            expect(tester.takeException(),isNull);
+            if(width==411)await capture(tester,'community_post');
+          }
           if (screen.key.startsWith('species ')) {
             final animal = (screen.value as PremiumAnimalScreen).animal;
             expect(

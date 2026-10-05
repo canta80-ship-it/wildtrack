@@ -54,8 +54,12 @@ class NearbyGroupsService extends ChangeNotifier {
     await load(); if (syncing) return; syncing=true;
     try {
       for (final group in groups.where((g) => g['owner'] == identity && g['synced'] != true)) {
-        await CommunityService.instance.api('maps', method:'POST',body:{'action':'offlineCreate','mapId':group['id'],'name':group['name'],'members':group['pendingMembers'] ?? const []});
-        group['synced'] = true; group['pendingMembers'] = <Map<String,dynamic>>[]; await save();
+        final submitted = List<Map<String,dynamic>>.from((group['pendingMembers'] as List? ?? const []).map((m) => Map<String,dynamic>.from(m as Map)));
+        await CommunityService.instance.api('maps', method:'POST',body:{'action':'offlineCreate','mapId':group['id'],'name':group['name'],'members':submitted});
+        final sentIds = submitted.map((m) => m['id']).toSet();
+        final pending = group['pendingMembers'] as List? ?? [];
+        pending.removeWhere((m) => sentIds.contains(m['id']));
+        group['pendingMembers'] = pending; group['synced'] = pending.isEmpty; await save();
       }
     } finally { syncing=false; }
   }
