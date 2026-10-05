@@ -118,6 +118,7 @@ class _OutingDiaryScreenState extends State<OutingDiaryScreen> {
   }
 
   String _duration() {
+    if (session.imported && session.duration <= Duration.zero) return 'Durata non disponibile';
     final d = session.endedAt.difference(session.startedAt);
     return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
   }
@@ -195,7 +196,7 @@ class _OutingDiaryScreenState extends State<OutingDiaryScreen> {
                         Icons.trending_down,
                         '-${session.descentMeters.toStringAsFixed(0)} m',
                       ),
-                      _Pill(Icons.speed, '${speed.toStringAsFixed(1)} km/h'),
+                      if (!session.imported || session.duration > Duration.zero) _Pill(Icons.speed, '${speed.toStringAsFixed(1)} km/h'),
                       if (d != null)
                         _Pill(Icons.pets, '${d.species.length} specie'),
                     ],

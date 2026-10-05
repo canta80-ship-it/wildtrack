@@ -660,7 +660,7 @@ class _TripRow extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               Text(
-                '${(session.distanceMeters / 1000).toStringAsFixed(1)} km · ${session.endedAt.difference(session.startedAt).inMinutes} min',
+                '${(session.distanceMeters / 1000).toStringAsFixed(1)} km · ${session.imported && session.duration <= Duration.zero ? 'Durata non disponibile' : '${session.duration.inMinutes} min'}',
                 style: const TextStyle(fontSize: 10, color: WildColors.muted),
               ),
             ],

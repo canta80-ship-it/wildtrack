@@ -148,7 +148,7 @@ class _DiaryMetricScreenState extends State<DiaryMetricScreen> {
                             s.name.isNotEmpty ? s.name : DateFormat('d MMM yyyy · HH:mm').format(s.startedAt),
                           ),
                           subtitle: Text(
-                            '${s.imported ? 'GPX importato · ' : ''}${(s.distanceMeters / 1000).toStringAsFixed(2)} km · ${s.endedAt.difference(s.startedAt).inMinutes ~/ 60} h ${s.endedAt.difference(s.startedAt).inMinutes % 60} min',
+                            '${s.imported ? 'GPX importato · ' : ''}${(s.distanceMeters / 1000).toStringAsFixed(2)} km · ${s.imported && s.duration <= Duration.zero ? 'Durata non disponibile' : '${s.duration.inMinutes ~/ 60} h ${s.duration.inMinutes % 60} min'}',
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
