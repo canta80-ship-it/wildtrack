@@ -27,7 +27,7 @@ void main(){
   setUp(()async{dir=await Directory.systemTemp.createTemp('wildtrack-tools-test-');store=OutdoorToolsStore(directory:dir);});
   tearDown(()async{await dir.delete(recursive:true);});
   test('Every catalogue species supports every season and activity with unique checklist IDs',(){
-    expect(animals.length,31);
+    expect(animals.length,35);
     for(final animal in animals){for(final season in OutingSeason.values){for(final activity in OutingActivity.values){
       final plan=OutingPreparationService.build(species:animal.name,season:season,activity:activity);
       expect(plan.items.length,greaterThan(9));expect(plan.items.map((i)=>i.id).toSet().length,plan.items.length);
