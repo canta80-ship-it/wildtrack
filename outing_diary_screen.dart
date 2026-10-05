@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import 'outing_edit_widget.dart';
 import 'outing_delete_widget.dart';
 
@@ -276,11 +277,11 @@ class _OutingDiaryScreenState extends State<OutingDiaryScreen> {
                             : null,
                       ),
                       children: [
-                        TileLayer(
+                        PremiumMapSurface(child: TileLayer(
                           urlTemplate:
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'it.wildtrack.app',
-                        ),
+                        )),
                         if (d.route.length > 1)
                           PolylineLayer(
                             polylines: [

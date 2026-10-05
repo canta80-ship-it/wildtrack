@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -195,7 +196,7 @@ class _ExpeditionMapScreenState extends State<ExpeditionMapScreen> {
           mapController: map,
           options: MapOptions(initialCenter: initial, initialZoom: 13, initialCameraFit: pts.length > 1 ? CameraFit.bounds(bounds: LatLngBounds.fromPoints(pts), padding: const EdgeInsets.all(50)) : null),
           children: [
-            TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.app'),
+            PremiumMapSurface(child: TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.app')),
             MarkerLayer(markers: [
               for (var i = 0; i < pts.length; i++)
                 Marker(point: pts[i], width: 48, height: 48, child: CircleAvatar(backgroundColor: WildColors.forest, child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)))),

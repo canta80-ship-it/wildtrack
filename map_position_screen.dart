@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -87,13 +88,13 @@ class _MapPositionScreenState extends State<MapPositionScreen> {
               onLongPress: (_, point) => setState(() => selected = point),
             ),
             children: [
-              TileLayer(
+              PremiumMapSurface(child: TileLayer(
                 tileProvider:
                     widget.tileProvider ??
                     NetworkTileProvider(silenceExceptions: true),
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'it.wildtrack.preview',
-              ),
+              )),
               MarkerLayer(
                 markers: [
                   if (selected != null)

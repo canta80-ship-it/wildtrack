@@ -108,7 +108,9 @@ class HabitatMapService {
     if (data['elements'] is! List || data['remark'] != null) throw const FormatException('Dati habitat incompleti');
     final allowed=kindsFor(species) ?? const <String>{};
     final out=<HabitatPatch>[];
-    for(final raw in data['elements'] as List) {
+    final seen = <String>{};
+    final elements = List<dynamic>.from(data['elements'] as List)..sort((a,b) => (a is Map && a['type']=='relation' ? 0 : 1).compareTo(b is Map && b['type']=='relation' ? 0 : 1));
+    for(final raw in elements) {
       if(raw is! Map) continue;
       final tags=raw['tags'] is Map ? raw['tags'] as Map : const {};
       final kind=_kind(tags);
@@ -121,6 +123,8 @@ class HabitatMapService {
         holes=_rings(members.where((m) => m['role']=='inner').map((m) => _coordinates(m['geometry'])).toList());
       }
       for(var i=0;i<outers.length;i++) {
+        final signature = outers[i].map((p) => '${p.latitude.toStringAsFixed(7)},${p.longitude.toStringAsFixed(7)}').toSet().toList()..sort();
+        if (!seen.add('$kind:${signature.join(';')}')) continue;
         out.add(HabitatPatch('${raw['type']}-${raw['id']}-$i',kind,'${tags['name'] ?? labels[kind]}',outers[i],holes.where((h) => _inside(h.first,outers[i])).toList()));
       }
       if(out.length>=400) break;

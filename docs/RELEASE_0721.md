@@ -5,6 +5,7 @@ sound and vibration notifications, removal of Garmin linking, GPX import into
 Lista uscite and statistics, name/description/photo editing, premium Radar map.
 
 Radar uses rounded display boundaries over real OpenStreetMap habitat geometry.
+Shared ivory/sage tile styling is applied to the existing maps; single-species habitat maps use the same rounded, dashed treatment.
 The original geometry remains unchanged for habitat/route matching. Sage areas
 and circular species thumbnails mean possible presence; amber photo pins and
 clock badges mean recent public community reports. No report is manufactured
@@ -24,7 +25,7 @@ duration; duration is never guessed. XML entities and invalid coordinates are
 rejected. Attachments are limited to 5 MiB and fetched only by chat participants.
 The server changes have been deployed and attachment authorization tests passed.
 
-Validation status: Python Android-generator syntax verified; database migration
+Validation status: Python Android-generator syntax and generation on a minimal Flutter Android fixture verified; database migration
 and server attachment checks passed earlier. New Dart tests cover segment gaps,
 XML parsing, report filtering, season/local range constraints, rounded geometry,
 route intersections, and narrow-screen Radar controls. Flutter tests, analyzer,

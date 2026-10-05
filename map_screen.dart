@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import '../premium_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -416,10 +417,10 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
             children: [
-              TileLayer(
+              PremiumMapSurface(child: TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'it.wildtrack.wildtrack_mvp',
-              ),
+              )),
               if (habitats)
                 PolygonLayer(
                   polygons: [

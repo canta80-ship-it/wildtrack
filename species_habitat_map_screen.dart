@@ -1,3 +1,5 @@
+import '../services/radar_map_service.dart';
+import 'premium_map_widget.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -74,8 +76,8 @@ class _SpeciesHabitatMapScreenState extends State<SpeciesHabitatMapScreen> {
           if (mounted && !centered) unawaited(_load(map.camera.center));
         }),
         children: [
-          TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.preview', tileProvider: widget.tileProvider),
-          PolygonLayer(polygons: patches.map((patch) => Polygon(points: patch.points, holePointsList: patch.holes, color: WildColors.forest.withValues(alpha: .23), borderColor: WildColors.forest, borderStrokeWidth: 2)).toList()),
+          PremiumMapSurface(child: TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.preview', tileProvider: widget.tileProvider)),
+          PolygonLayer(polygons: patches.map((patch) => Polygon(points: RadarMapService.softRing(patch.points), holePointsList: patch.holes.map(RadarMapService.softRing).toList(), color: const Color(0xFFB9CCAA).withValues(alpha: .34), borderColor: WildColors.forest, borderStrokeWidth: 2.2, pattern: const StrokePattern.dashed(segments: [7,5]))).toList()),
           if (location.point != null) MarkerLayer(markers: [premiumPositionMarker(location.point!)]),
           const Positioned(bottom: 3, right: 6, child: ColoredBox(color: Colors.white, child: Text('© OpenStreetMap contributors', style: TextStyle(fontSize: 10)))),
         ],

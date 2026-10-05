@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -183,7 +184,7 @@ class _RecordScreenState extends State<RecordScreen> {
                       mapController: map,
                       options: MapOptions(initialCenter: routePoints.isEmpty ? const LatLng(46.06, 12.40) : routePoints.last, initialZoom: 15),
                       children: [
-                        TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.wildtrack_v6'),
+                        PremiumMapSurface(child: TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.wildtrack_v6')),
                         if (routePoints.length > 1) PolylineLayer(polylines: [Polyline(points: routePoints, strokeWidth: 5, color: WildColors.forest)]),
                         if (routePoints.isNotEmpty)
                           MarkerLayer(markers: [

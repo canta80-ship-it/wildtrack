@@ -93,6 +93,11 @@ class RadarMapService {
     }
     return inside;
   }
+  static LatLng labelAnchor(HabitatPatch patch, LatLng center) {
+    if (_inside(center, patch.points) && !patch.holes.any((hole) => _inside(center,hole))) return center;
+    return patch.points.reduce((a,b) => distance.as(LengthUnit.Meter,center,a) <= distance.as(LengthUnit.Meter,center,b) ? a : b);
+  }
+
   static bool _crosses(LatLng a, LatLng b, LatLng c, LatLng d) {
     double side(LatLng p, LatLng q, LatLng r) => (q.longitude-p.longitude)*(r.latitude-p.latitude)-(q.latitude-p.latitude)*(r.longitude-p.longitude);
     return side(a,b,c)*side(a,b,d)<0 && side(c,d,a)*side(c,d,b)<0;

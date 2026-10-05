@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import 'profile_avatar_widget.dart';
 import 'community_screen.dart' show ChatScreen, showSighting;
 import 'radar_map_widget.dart';
@@ -101,15 +102,18 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     if (value == 2 && radarCenter == null) unawaited(_refreshRadar());
   }
 
-  Future<List<Map<String,dynamic>>> _loadRadarObservations() async {
+  Future<List<Map<String,dynamic>>> _loadRadarObservations(int generation) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 30));
     final rows = <Map<String,dynamic>>[];
     int? offset = 0;
     for (var page = 0; page < 20 && offset != null; page++) {
       final data = await CommunityService.instance.api('sightings?offset=$offset');
+      if (!mounted || generation != radarGeneration) return [];
       rows.addAll((data['items'] as List).map((r) => Map<String,dynamic>.from(r as Map)).where((r) => r['groupId'] == null));
       final next = data['nextOffset'] as int?;
       if (next != null && next <= offset) break;
       offset = next;
+      if (DateTime.now().isAfter(deadline)) break;
     }
     return rows;
   }
@@ -126,7 +130,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     // Run both sources independently so observations remain available if OSM fails.
     final results = await Future.wait<Object>([
       HabitatMapService.instance.load('__radar__', area, radiusKm: radius, forceRefresh: true).then<Object>((v) => v).catchError((Object e) => e),
-      _loadRadarObservations().then<Object>((v) => v).catchError((Object e) => e),
+      _loadRadarObservations(generation).then<Object>((v) => v).catchError((Object e) => e),
     ]);
     if (!mounted || generation != radarGeneration) return;
     setState(() {
@@ -455,14 +459,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                 onLongPress: (_, point) => _recordHere(point),
               ),
               children: [
-                ColorFiltered(
-                  colorFilter: const ColorFilter.matrix([
-                    .72,.15,.05,0,19,
-                    .07,.80,.05,0,18,
-                    .07,.15,.70,0,15,
-                    0,0,0,1,0,
-                  ]),
-                  child: TileLayer(
+                PremiumMapSurface(child: TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   tileProvider: widget.tileProvider,
                   userAgentPackageName: 'it.wildtrack.app',
@@ -499,11 +496,10 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                   CircleLayer(circles: [for (final row in observed.where((r) => r['approximate'] == 1 || r['approximate'] == true)) CircleMarker(point: RadarMapService.observationPoint(row)!, radius: ((row['privacyRadiusM'] as num?)?.toDouble() ?? 1000).clamp(100,10000).toDouble(), useRadiusInMeter: true, color: radarAmber.withValues(alpha: .06), borderColor: radarAmber.withValues(alpha: .25), borderStrokeWidth: 1)]),
                 MarkerLayer(
                   markers: [
-                    if (location.point != null) premiumPositionMarker(location.point!),
                     if (showSpecies) ..._speciesMarkers(),
                     if (showRadar && radarMode != 1)
                       for (final patch in displayedPatches.take(35))
-                        Marker(point: patch.points.first, width: 112,height: 77,child: RadarPossiblePin(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id)).name, onTap: () => _showPossible(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id))))),
+                        Marker(point: RadarMapService.labelAnchor(patch, radarCenter!), width: 112,height: 77,child: RadarPossiblePin(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id)).name, onTap: () => _showPossible(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id))))),
                     if (showRadar && radarMode != 0)
                       for (final row in observed.take(100)) Marker(point: RadarMapService.observationPoint(row)!,width:56,height:60,child:RadarObservedPin(row,onTap:()=>_showObserved(row))),
                     if (showCommunity) ..._peopleMarkers(),
@@ -527,6 +523,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                             ),
                           ),
                         ),
+                    if (location.point != null) premiumPositionMarker(location.point!),
                   ],
                 ),
                 const RichAttributionWidget(

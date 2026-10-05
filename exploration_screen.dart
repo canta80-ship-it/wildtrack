@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -496,18 +497,18 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
                 initialZoom: active == null ? 5.5 : 13,
               ),
               children: [
-                TileLayer(
+                PremiumMapSurface(child: TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'it.wildtrack.wildtrack_v2',
-                ),
+                )),
                 if (fauna && taxon != null)
-                  TileLayer(
+                  PremiumMapSurface(child: TileLayer(
                     key: ValueKey(taxon),
                     urlTemplate:
                         'https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png?srs=EPSG:3857&taxonKey=$taxon&country=IT&bin=hex&hexPerTile=57&style=classic.poly',
                     userAgentPackageName: 'it.wildtrack.wildtrack_v2',
                     maxNativeZoom: 14,
-                  ),
+                  )),
                 if (trekking)
                   PolylineLayer(
                     polylines: [

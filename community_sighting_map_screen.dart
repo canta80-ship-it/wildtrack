@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -47,7 +48,7 @@ class CommunitySightingMapScreen extends StatelessWidget {
         Expanded(child: FlutterMap(
           options: MapOptions(initialCenter: position, initialZoom: approximate ? 13 : 15),
           children: [
-            TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.preview', tileProvider: tileProvider),
+            PremiumMapSurface(child: TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'it.wildtrack.preview', tileProvider: tileProvider)),
             if (approximate) CircleLayer(circles: [CircleMarker(point: position, radius: 1000, useRadiusInMeter: true, color: WildColors.forest.withValues(alpha: 0.12), borderColor: WildColors.forest, borderStrokeWidth: 2)]),
             MarkerLayer(markers: [Marker(point: position, width: 64, height: 64, child: Container(decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: WildColors.forest, width: 3)), child: WildAnimalIllustration('${sighting['species'] ?? 'Animale'}', size: 48)))]),
             const RichAttributionWidget(attributions: [TextSourceAttribution('OpenStreetMap contributors')]),

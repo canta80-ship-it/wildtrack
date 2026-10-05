@@ -1,3 +1,4 @@
+import 'premium_map_widget.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -569,10 +570,10 @@ class _SightingPointScreenState extends State<SightingPointScreen> {
               onTap: (_, p) => setState(() => selected = p),
             ),
             children: [
-              TileLayer(
+              PremiumMapSurface(child: TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'it.wildtrack.wildtrack_v2',
-              ),
+              )),
               if (selected != null)
                 MarkerLayer(
                   markers: [
