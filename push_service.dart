@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'community_service.dart';
 import 'preferences_service.dart';
@@ -72,11 +74,20 @@ class PushService extends ChangeNotifier {
         error: error,
       );
 
+  static const local = MethodChannel('wildtrack/notifications');
+  Future<void> _configureBackground() async {
+    permissionGranted = (await Permission.notification.request()).isGranted;
+    await local.invokeMethod('configure', {'token':PreferencesService.instance.token, 'enabled':PreferencesService.instance.sightingNotifications && permissionGranted});
+  }
+  Future<void> checkNewSightings() async {
+    try { await local.invokeMethod('check'); } catch (_) {}
+  }
   Future<void> initialize() async {
+    try { await _configureBackground(); } catch (_) {}
     final options = _firebaseOptions;
     configured = options != null;
     if (options == null) {
-      error = 'Push non configurate: mancano i parametri Firebase del progetto.';
+      error = permissionGranted ? 'Avvisi attivi con controlli periodici. La consegna immediata richiede il servizio push.' : 'Autorizza le notifiche nelle impostazioni Android.';
       notifyListeners();
       return;
     }
@@ -128,6 +139,7 @@ class PushService extends ChangeNotifier {
   }
 
   Future<void> syncPreferences() async {
+    try { await _configureBackground(); } catch (_) {}
     if (!configured || token == null) return;
     await _registerToken();
   }
@@ -158,6 +170,7 @@ class PushService extends ChangeNotifier {
   }
 
   Future<void> unregister() async {
+    try { await local.invokeMethod('configure', {'token':PreferencesService.instance.token, 'enabled':false}); } catch (_) {}
     final value = token;
     if (value == null) return;
     try {

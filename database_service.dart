@@ -165,6 +165,19 @@ class DatabaseService {
     changes.value++;
   }
 
+  Future<void> appendCommunityPhoto(String id, String path) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      final rows = await txn.query('sightings', where:'id = ?', whereArgs:[id]);
+      if (rows.isEmpty) return;
+      final photos = await txn.query('sighting_photos', where:'sighting_id = ?', whereArgs:[id], orderBy:'position');
+      if (photos.any((row) => row['path'] == path)) return;
+      await txn.insert('sighting_photos', {'sighting_id':id,'path':path,'position':photos.length});
+      if (rows.first['photo_path'] == null) await txn.update('sightings', {'photo_path':path},where:'id = ?',whereArgs:[id]);
+    });
+    changes.value++;
+  }
+
   Future<void> makeSightingPrivate(String id) async {
     final db = await database;
     await db.update('sightings', {'publication_state': 'private'}, where: 'id = ?', whereArgs: [id]);

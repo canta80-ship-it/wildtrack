@@ -1,3 +1,4 @@
+import 'community_edit_photo_widget.dart';
 import 'recovery_screen.dart';
 import '../premium_ui.dart';
 import 'community_photo_widget.dart';
@@ -192,10 +193,11 @@ Future<void> showSighting(
           if (s['photo'] != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: CommunityPhoto(sightingId: '${s['id']}'),
+              child: CommunityPhoto(version: '${s['photo']}', sightingId: '${s['id']}'),
             ),
           Text(s['notes'] as String? ?? ''),
           CommunitySightingMapButton(sighting: s),
+          CommunityEditPhotoButton(sighting: s),
           Text('Coordinate: ${s['lat']}, ${s['lng']}'),
           if (s['approximate'] == 1)
             const Text('Posizione approssimata a circa 1 km.'),

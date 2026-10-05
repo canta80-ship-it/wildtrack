@@ -15,11 +15,11 @@ class SpeciesDetail {
     this.badge,
     this.status = 'Consulta la valutazione nella fonte',
     this.note = '',
-    this.bestPeriod = '', this.diet = '', this.breeding = '', this.voiceDescription = '', this.newArtwork = false,
+    this.bestPeriod = '', this.diet = '', this.breeding = '', this.voiceDescription = '', this.newArtwork = false, this.nativeSigns = false,
   });
   final String asset, size, mass, activity, photo, source, status, note;
   final String bestPeriod, diet, breeding, voiceDescription;
-  final bool newArtwork;
+  final bool newArtwork, nativeSigns;
   final String habitat;
 
   /// Editorial ordinal levels: 0 dormant, 1 low, 2 medium, 3 high, 4 very high.
@@ -31,6 +31,67 @@ class SpeciesDetail {
 }
 
 const speciesDetails = <String, SpeciesDetail>{
+"Lince": SpeciesDetail(
+asset: "lince",
+size: "Corpo 80–130 cm · coda 15–25 cm",
+mass: "Circa 15–30 kg",
+activity: "Crepuscolo e notte",
+photo: "Teleobiettivo, AF-C e tempo iniziale 1/1000 s. Scatta dal punto in cui ti trovi, lascia una via di fuga e non seguire l’animale.",
+source: "https://www.kora.ch/en/species/lynx/profile",
+habitat: "Foreste estese con sottobosco, rocce e zone tranquille. La distribuzione è frammentata: habitat adatto non significa presenza certa. Nelle Alpi e nelle Prealpi l’osservazione diretta è rara.",
+bestPeriod: "Le tracce sulla neve possono essere osservabili in inverno; l’attività aumenta nel periodo degli amori fra fine inverno e inizio primavera. Gli incontri restano eccezionali: osserva dai percorsi esistenti.",
+diet: "Soprattutto caprioli e altri ungulati di taglia adatta; anche lepri e piccoli vertebrati, secondo le risorse locali.",
+breeding: "Accoppiamento a fine inverno; i piccoli nascono in primavera dopo circa due mesi di gestazione e restano con la madre fino alla stagione seguente.",
+voiceDescription: "Normalmente silenziosa. Miagolii e vocalizzazioni possono accompagnare il periodo degli amori; non usare richiami per provocare risposte.",
+tags: ["Foreste tranquille", "Rocce", "Grande territorio"], seasons: ["Primavera: tracce e attività riproduttiva, senza cercare le tane.", "Estate: ripari forestali; avvistamenti molto rari.", "Autunno: margini tranquilli, crepuscolo.", "Inverno: piste sulla neve, senza seguirle fino ai rifugi."], seasonLevels: [2, 1, 1, 2],
+newArtwork: true, nativeSigns: true, signs: [("Impronta","Quattro dita e cuscinetto ampio; unghie in genere non impresse. Confronta pista, scala e forma, senza attribuire una singola orma."),("Fatte","Segmentate, con peli e residui ossei; non diagnostiche da sole. Non toccarle."),("Ciuffi","Ciuffi scuri all’estremità delle orecchie; valuta anche la forma del capo."),("Coda","Corta con punta nera, carattere utile insieme alle proporzioni del corpo.")],
+),
+"Tritone": SpeciesDetail(
+asset: "tritone",
+size: "Circa 7–12 cm",
+mass: "Pochi grammi · variabile con sesso e stagione",
+activity: "Acquatico in primavera; terrestre soprattutto di notte",
+photo: "Ripresa dal bordo, luce naturale e polarizzatore se utile. Metti a fuoco l’occhio; non spostare l’animale né sollevarlo per mostrare il ventre.",
+source: "https://www.froglife.org/info-advice/amphibians-and-reptiles/alpine-newt/",
+habitat: "La scheda riguarda il tritone alpestre. Stagni, pozze e piccoli specchi d’acqua senza pesci, con boschi e rifugi umidi nelle vicinanze. Negli ambienti alpini i tempi riproduttivi dipendono da quota e disgelo.",
+bestPeriod: "Primavera e inizio estate nelle pozze riproduttive; a quota elevata dopo il disgelo. Osserva dall’esterno, senza entrare in acqua o usare retini.",
+diet: "Piccoli invertebrati acquatici e terrestri; la dieta varia con fase di vita e habitat.",
+breeding: "Fecondazione interna tramite spermatofora. La femmina depone le uova singolarmente, spesso ripiegandole nelle foglie sommerse; le larve hanno branchie esterne.",
+voiceDescription: "Non ha un canto di richiamo paragonabile a rane e rospi. L’assenza di un pulsante audio è intenzionale.",
+tags: ["Stagni", "Boschi umidi", "Pozze montane"], seasons: ["Primavera: ingresso in acqua e corteggiamento.", "Estate: larve e permanenza acquatica variabile con quota.", "Autunno: fase terrestre nei rifugi umidi.", "Inverno: riposo in siti protetti, secondo il clima."], seasonLevels: [4, 3, 2, 0],
+newArtwork: true, nativeSigns: true, signs: [("Ventre","Arancione in genere uniforme; osservabile soltanto senza manipolazione."),("Coda","Compressa lateralmente, adatta al nuoto; non basta da sola per identificare la specie."),("Uova","Uova singole avvolte nella vegetazione sommersa; non aprire le foglie."),("Larve","Branchie esterne ai lati del capo. Distinguile con cautela dalle larve di altre salamandre.")],
+),
+"Rospo": SpeciesDetail(
+asset: "rospo",
+size: "Circa 5–15 cm · femmine più grandi",
+mass: "Variabile, da decine a oltre 100 g negli adulti",
+activity: "Crepuscolo e notte, soprattutto con umidità",
+photo: "Abbassa il punto di ripresa e usa luce naturale. Per un soggetto fermo prova 1/250 s; non bagnarlo artificialmente e non spostarlo sul sentiero.",
+source: "https://www.parcoforestecasentinesi.it/it/natura/biodiversita/la-fauna/anfibi-e-rettili-nel-parco-nazionale-0",
+habitat: "La scheda riguarda il rospo comune. Boschi, prati, siepi e giardini con rifugi freschi; per riprodursi raggiunge stagni e raccolte d’acqua. Le migrazioni possono attraversare strade.",
+bestPeriod: "Sere umide di primavera durante la migrazione e le deposizioni; anche sere miti di estate e autunno. Mantieni distanza e attenzione sulle strade.",
+diet: "Insetti, lombrichi, lumache e altri invertebrati; non alimentarlo e non raccoglierlo.",
+breeding: "Accoppiamento con il maschio sul dorso della femmina. Uova deposte in lunghi cordoni gelatinosi; i girini sono acquatici e metamorfosano in piccoli rospi.",
+voiceDescription: "Il maschio emette richiami brevi e discreti, anche di rilascio. Evita di provocare vocalizzazioni toccando l’animale.",
+tags: ["Boschi", "Stagni", "Sere umide"], seasons: ["Primavera: migrazione e cordoni di uova.", "Estate: attività notturna nei giorni umidi.", "Autunno: alimentazione e ricerca di rifugi.", "Inverno: riposo in rifugi protetti."], seasonLevels: [4, 3, 2, 0],
+newArtwork: true, nativeSigns: true, signs: [("Pelle","Verrucosa con ghiandole parotoidi dietro agli occhi; le secrezioni difensive non vanno toccate."),("Occhio","Iride ramata e pupilla orizzontale; osserva senza illuminare direttamente."),("Uova","Cordoni gelatinosi lunghi, diversi dagli ammassi tipici di molte rane."),("Girini","Generalmente scuri, spesso in gruppi; l’aspetto da solo non certifica la specie.")],
+),
+"Salamandra": SpeciesDetail(
+asset: "salamandra",
+size: "Circa 15–25 cm",
+mass: "Decine di grammi · variabile con taglia",
+activity: "Notte e giornate molto umide",
+photo: "Inquadra dal livello del soggetto con luce naturale diffusa. Proteggi i riflessi del mantello nero; non toccare o spostare l’animale.",
+source: "https://www.parcoforestecasentinesi.it/it/natura/biodiversita/la-fauna/anfibi-e-rettili-nel-parco-nazionale-0",
+habitat: "La scheda riguarda la salamandra pezzata. Boschi freschi di latifoglie, lettiera umida, ruscelli e pozze con acqua pulita. Non va confusa con la salamandra alpina, nera e con diversa biologia riproduttiva.",
+bestPeriod: "Sere piovose e miti di primavera e autunno; talvolta di giorno dopo la pioggia. Osserva sui sentieri senza sollevare tronchi o pietre.",
+diet: "Invertebrati come lombrichi, larve di insetti e piccoli molluschi; le larve predano organismi acquatici.",
+breeding: "Nelle popolazioni locali la femmina rilascia larve già sviluppate in acqua, spesso in ruscelli e pozze. Le larve restano acquatiche fino alla metamorfosi.",
+voiceDescription: "Non ha un canto territoriale simile a quello delle rane. Non inventare né riprodurre un verso di richiamo.",
+tags: ["Boschi freschi", "Ruscelli", "Pioggia"], seasons: ["Primavera: attività con pioggia e rilascio delle larve.", "Estate: rifugi freschi; attività dopo piogge.", "Autunno: osservabile nelle sere umide e miti.", "Inverno: rifugi protetti; attività dipendente dal clima."], seasonLevels: [4, 2, 4, 1],
+newArtwork: true, nativeSigns: true, signs: [("Mantello","Macchie gialle irregolari su fondo nero; distinguile da altri anfibi senza manipolazione."),("Coda","Lunga e arrotondata, diversamente dalla coda appiattita di molti tritoni acquatici."),("Larve","Branchie esterne e piccoli arti; nei ruscelli osserva senza smuovere il fondo."),("Rifugi","Lettiera e legno morto conservano umidità: non sollevarli per cercare individui.")],
+),
+
   "Cervo": SpeciesDetail(
     habitat: "Vive in boschi di latifoglie e conifere alternati a radure, prati e pascoli montani. Il bosco offre riparo, mentre gli spazi aperti permettono di alimentarsi. Frequenta anche i margini fra foresta e prateria; lungo i sentieri osserva a distanza le radure nelle ore tranquille.",
     seasonLevels: [2, 2, 4, 1],

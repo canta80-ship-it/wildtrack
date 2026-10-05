@@ -25,7 +25,7 @@ void main(){
    expect(d.bestPeriod,isNotEmpty);expect(d.diet,isNotEmpty);expect(d.breeding,isNotEmpty);expect(d.voiceDescription,isNotEmpty);
    expect(d.signs.length,4);expect(d.seasonLevels.length,4);expect(d.seasons.length,4);
    expect((await rootBundle.load('assets/radar_species/${d.asset}_hero.jpg')).lengthInBytes,greaterThan(10000));
-   expect((await rootBundle.load('assets/radar_species/${d.asset}_signs.webp')).lengthInBytes,greaterThan(10000));
+   if (!d.nativeSigns) expect((await rootBundle.load('assets/radar_species/${d.asset}_signs.webp')).lengthInBytes,greaterThan(10000));
   }
  });
  test('Solar phase follows date and location, not fixed clock windows',(){

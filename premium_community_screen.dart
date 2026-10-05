@@ -1,3 +1,4 @@
+import 'community_edit_photo_widget.dart';
 import 'community_photo_widget.dart';
 import 'profile_avatar_widget.dart';
 import 'premium_explore_screen.dart';
@@ -327,90 +328,40 @@ class _FeedSighting extends StatelessWidget {
   const _FeedSighting({required this.s});
   final Map<String, dynamic> s;
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: () => showSighting(context, s),
-    child: Container(
-      margin: const EdgeInsets.only(top: 9),
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F0),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ProfileAvatar(url: s['avatarUrl'] as String?),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${s['species'] ?? 'Avvistamento'}',
-                        style: const TextStyle(
-                          fontFamily: 'serif',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      timeLabel(s['observedAt']),
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: WildColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text('${s['authorName'] ?? 'Esploratore'}', style: const TextStyle(fontWeight: FontWeight.w600, color: WildColors.forest)),
-                const SizedBox(height: 4),
-                Text(
-                  s['notes'] as String? ??
-                      'Avvistamento condiviso con la community.',
-                  style: const TextStyle(height: 1.25),
-                ),
-                const SizedBox(height: 8),
-                if (s['photo'] != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: CommunityPhoto(sightingId: '${s['id']}', height: 160),
-                  )
-                else
-                  SizedBox(
-                    height: 145,
-                    child: WildLandscape(
-                      height: 145,
-                      animal: '${s['species'] ?? 'Animale'}',
-                    ),
-                  ),
-                const SizedBox(height: 10),
-                CommunitySightingMapButton(sighting: s),
-                CommunityDeleteButton(sighting: s),
-                const SizedBox(height: 7),
-                const Row(
-                  children: [
-                    Icon(
-                      Icons.favorite_border,
-                      size: 18,
-                      color: WildColors.forest,
-                    ),
-                    SizedBox(width: 5),
-                    Text('Condiviso', style: TextStyle(fontSize: 10)),
-                    Spacer(),
-                    Icon(WildIcons.binoculars, size: 18),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(top: 16),
+    decoration: BoxDecoration(color: WildColors.ivory, borderRadius: BorderRadius.circular(26),
+      border: Border.all(color: WildColors.forest.withValues(alpha: .12)),
+      boxShadow: [BoxShadow(color: WildColors.forest.withValues(alpha: .07), blurRadius: 18, offset: const Offset(0, 6))]),
+    child: ClipRRect(borderRadius: BorderRadius.circular(26), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(padding: const EdgeInsets.all(15), child: Row(children: [
+        ProfileAvatar(url: s['avatarUrl'] as String?, radius: 22), const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${s['authorName'] ?? 'Esploratore'}', style: const TextStyle(fontWeight: FontWeight.w700, color: WildColors.forest)),
+          Text(timeLabel(s['observedAt']), style: const TextStyle(fontSize: 11, color: WildColors.muted)),
+        ])), const Icon(Icons.nature_outlined, color: WildColors.forest),
+      ])),
+      if (s['photo'] != null)
+        ColoredBox(color: WildColors.sageSoft, child: CommunityPhoto(version: '${s['photo']}', sightingId: '${s['id']}', height: 225))
+      else SizedBox(height: 160, child: WildLandscape(height: 160, animal: '${s['species'] ?? 'Animale'}')),
+      Padding(padding: const EdgeInsets.all(17), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('DAL CAMPO', style: TextStyle(fontSize: 9, letterSpacing: 2, fontWeight: FontWeight.w800, color: WildColors.forest)),
+        const SizedBox(height: 5),
+        Text('${s['species'] ?? 'Avvistamento'}', style: const TextStyle(fontFamily: 'serif', fontSize: 25, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 7),
+        Text('${s['notes'] ?? ''}', style: const TextStyle(height: 1.4, color: WildColors.muted)),
+        const SizedBox(height: 12),
+        Wrap(spacing: 10, runSpacing: 6, children: [
+          Text('${s['count'] ?? 1} individui', style: const TextStyle(fontSize: 11, color: WildColors.forest)),
+          Text(s['groupId'] == null ? 'Community' : 'Gruppo privato', style: const TextStyle(fontSize: 11, color: WildColors.forest)),
+        ]),
+        const Divider(height: 25),
+        CommunitySightingMapButton(sighting: s),
+        CommunityEditPhotoButton(sighting: s),
+        CommunityDeleteButton(sighting: s),
+        TextButton(onPressed: () => showSighting(context, s), child: const Text('Apri avvistamento →')),
+      ])),
+    ])),
   );
 }
 

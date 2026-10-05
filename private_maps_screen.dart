@@ -1,3 +1,4 @@
+import 'nearby_groups_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'expedition_tools_screen.dart';
 
@@ -293,6 +294,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
+        SliverToBoxAdapter(child: SafeArea(bottom: false, child: Padding(padding: const EdgeInsets.all(12), child: FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const NearbyGroupsScreen())), icon: const Icon(Icons.wifi_tethering), label: const Text('Gruppi senza campo · Wi-Fi / Bluetooth'))))),
           SliverToBoxAdapter(
             child: WildHero(
               image: 'intro_marmotta.jpg',

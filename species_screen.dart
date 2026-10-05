@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/preferences_service.dart';
@@ -43,6 +44,11 @@ class Animal {
 }
 
 const animals = <Animal>[
+  Animal("Lince", "Lynx lynx", "Mammiferi", "Felino europeo con zampe lunghe, coda corta dall’estremità nera, ciuffi sulle orecchie e mantello maculato. La coda e la sagoma la distinguono dal gatto selvatico.", "Foreste estese con sottobosco, rocce e zone tranquille. La distribuzione è frammentata: habitat adatto non significa presenza certa. Nelle Alpi e nelle Prealpi l’osservazione diretta è rara.", "Solitaria e territoriale, caccia soprattutto all’agguato. È attiva principalmente al crepuscolo e di notte; evita il disturbo e percorre territori molto ampi.", "Predatore di ungulati e piccoli vertebrati. La frammentazione delle foreste e gli investimenti stradali ostacolano le popolazioni. Le coordinate pubbliche vanno mantenute approssimate.", "https://www.kora.ch/en/species/lynx/profile"),
+  Animal("Tritone", "Ichthyosaura alpestris", "Anfibi", "Piccolo anfibio dalla coda compressa lateralmente e ventre arancione in genere privo di macchie. Nel maschio riproduttivo il dorso può essere bluastro con una bassa cresta. Tritone è un nome generico: altre specie hanno caratteri diversi.", "La scheda riguarda il tritone alpestre. Stagni, pozze e piccoli specchi d’acqua senza pesci, con boschi e rifugi umidi nelle vicinanze. Negli ambienti alpini i tempi riproduttivi dipendono da quota e disgelo.", "Durante la riproduzione vive in acqua; fuori dalla stagione acquatica usa rifugi umidi a terra. Il corteggiamento avviene con movimenti della coda e segnali chimici.", "Predatore di piccoli invertebrati e parte delle reti alimentari delle zone umide. La perdita di stagni, l’introduzione di pesci e il prosciugamento degli habitat ne riducono le possibilità di riproduzione.", "https://www.froglife.org/info-advice/amphibians-and-reptiles/alpine-newt/"),
+  Animal("Rospo", "Bufo bufo", "Anfibi", "Corpo robusto, pelle verrucosa, occhi color rame con pupilla orizzontale e ghiandole parotoidi dietro gli occhi. Bufo bufo non rappresenta tutti i rospi italiani: alcune popolazioni e specie richiedono confronto specialistico.", "La scheda riguarda il rospo comune. Boschi, prati, siepi e giardini con rifugi freschi; per riprodursi raggiunge stagni e raccolte d’acqua. Le migrazioni possono attraversare strade.", "Si muove spesso camminando e con brevi salti. Caccia piccoli invertebrati; in primavera può migrare in massa verso l’acqua riproduttiva.", "Consuma invertebrati e contribuisce alle reti alimentari terrestri e acquatiche. Mortalità stradale, pesticidi e perdita di zone umide sono minacce importanti.", "https://www.parcoforestecasentinesi.it/it/natura/biodiversita/la-fauna/anfibi-e-rettili-nel-parco-nazionale-0"),
+  Animal("Salamandra", "Salamandra salamandra", "Anfibi", "Corpo nero lucido con macchie gialle variabili, coda lunga e arrotondata e zampe corte. Il disegno delle macchie può differire molto tra individui.", "La scheda riguarda la salamandra pezzata. Boschi freschi di latifoglie, lettiera umida, ruscelli e pozze con acqua pulita. Non va confusa con la salamandra alpina, nera e con diversa biologia riproduttiva.", "Si rifugia sotto legno morto, pietre e lettiera; emerge con umidità elevata. Si muove lentamente e usa secrezioni cutanee come difesa.", "Collega le reti alimentari dei boschi e dei corsi d’acqua. Alterazione dei ruscelli, siccità, traffico e patogeni degli anfibi minacciano gli habitat.", "https://www.parcoforestecasentinesi.it/it/natura/biodiversita/la-fauna/anfibi-e-rettili-nel-parco-nazionale-0"),
+
   Animal(
     'Cervo',
     'Cervus elaphus',
@@ -407,6 +413,24 @@ class CommonsMedia {
     String title, {
     bool thumbnail = false,
   }) async {
+    if (!thumbnail) {
+      try {
+        final manifest = jsonDecode(await rootBundle.loadString('assets/audio/manifest.json')) as Map<String,dynamic>;
+        final info = manifest[title] as Map<String,dynamic>?;
+        if (info != null) {
+          final asset = info['asset'] as String;
+          final target = File('${await getDatabasesPath()}/wildtrack_audio/${asset.split('/').last}');
+          if (!await target.exists()) {
+            await target.parent.create(recursive:true);
+            final bytes = await rootBundle.load(asset);
+            final temporary = File('${target.path}.tmp');
+            await temporary.writeAsBytes(bytes.buffer.asUint8List(bytes.offsetInBytes,bytes.lengthInBytes),flush:true);
+            await temporary.rename(target.path);
+          }
+          return CommonsMedia(target.path, '${info['credit']}', '${info['page']}');
+        }
+      } catch (_) {}
+    }
     final data = await getJson(
       Uri.https('commons.wikimedia.org', '/w/api.php', {
         'action': 'query',

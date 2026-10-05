@@ -1,7 +1,7 @@
 from pathlib import Path
 p = Path('android/app/src/main/AndroidManifest.xml')
 s = p.read_text()
-for permission in ['INTERNET','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','ACCESS_BACKGROUND_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK','POST_NOTIFICATIONS']:
+for permission in ['INTERNET','ACCESS_NETWORK_STATE','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','ACCESS_BACKGROUND_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK','POST_NOTIFICATIONS','ACCESS_WIFI_STATE','CHANGE_WIFI_STATE','BLUETOOTH','BLUETOOTH_ADMIN','BLUETOOTH_ADVERTISE','BLUETOOTH_CONNECT','BLUETOOTH_SCAN','NEARBY_WIFI_DEVICES']:
     if 'android.permission.'+permission not in s:
         s=s.replace('<application', f'<uses-permission android:name="android.permission.{permission}" />\n    <application',1)
 s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack"')
@@ -44,6 +44,14 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
         channel = MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/audio")
+        MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/notifications").setMethodCallHandler { call, result ->
+            when(call.method) {
+                "sdk" -> result.success(Build.VERSION.SDK_INT)
+                "configure" -> { CommunityNotifications.configure(this, call.argument<String>("token") ?: "", call.argument<Boolean>("enabled") ?: false); result.success(true) }
+                "check" -> Thread { try { CommunityNotifications.check(this); runOnUiThread { result.success(true) } } catch (_: Exception) { runOnUiThread { result.error("NETWORK", "Notifiche non aggiornate", null) } } }.start()
+                else -> result.notImplemented()
+            }
+        }
         backupChannel = MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/backup")
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), Context.RECEIVER_NOT_EXPORTED)
         else registerReceiver(noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
@@ -53,7 +61,8 @@ class MainActivity: FlutterActivity() {
                 "stop" -> { stopAudio(); result.success(null) }
                 "play" -> {
                     val url = call.argument<String>("url") ?: ""
-                    if (!url.startsWith("https://upload.wikimedia.org/")) { result.error("SOURCE", "Fonte audio non ammessa", null) }
+                    val localAudio = java.io.File(url).canonicalPath.startsWith(applicationInfo.dataDir + "/databases/wildtrack_audio/")
+                    if (!localAudio && !url.startsWith("https://upload.wikimedia.org/")) { result.error("SOURCE", "Fonte audio non ammessa", null) }
                     else {
                         stopAudio(false)
                         remaining = (call.argument<Int>("repeats") ?: 1).coerceIn(1,5)
@@ -286,3 +295,9 @@ s=build.read_text().replace('applicationId = "it.wildtrack.wildtrack_mvp"','appl
 s=s.replace('    buildTypes {', '    signingConfigs {\n        create("wildtrackPreview") {\n            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")\n            storePassword = "android"\n            keyAlias = "androiddebugkey"\n            keyPassword = "android"\n        }\n    }\n    buildTypes {')
 s=s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("wildtrackPreview")')
 build.write_text(s)
+
+# Background checks continue after the Flutter activity is closed.
+source = Path('tool/CommunityNotifications.kt')
+(k.parent / 'CommunityNotifications.kt').write_text(source.read_text())
+with build.open('a') as f:
+    f.write('\ndependencies { implementation("androidx.work:work-runtime-ktx:2.11.2") }\n')

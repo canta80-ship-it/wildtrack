@@ -1,3 +1,5 @@
+import 'push_service.dart';
+import 'nearby_groups_service.dart';
 import 'expedition_service.dart';
 
 import 'dart:async';
@@ -337,7 +339,9 @@ class CommunityService extends ChangeNotifier {
     if (syncing || backupPaused) return;
     syncing = true;
     try {
+      unawaited(PushService.instance.checkNewSightings());
       await syncProfile();
+      await NearbyGroupsService.instance.sync();
       while (pending.isNotEmpty) {
         final readyIndex = pending.indexWhere(_readyForPublication);
         if (readyIndex < 0) break;

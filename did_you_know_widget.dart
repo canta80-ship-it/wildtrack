@@ -100,7 +100,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
       if (mounted && next.items.isNotEmpty)
         setState(() {
           current = next;
-          warning = null;
+          warning = next.warning;
         });
     } catch (_) {
       if (mounted && !silent)
@@ -167,7 +167,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
       Text(
         current.fromCache
             ? 'Disponibile anche offline · aggiornamento automatico quando torna la rete'
-            : 'Aggiornato ${DateFormat('HH:mm').format(current.updatedAt)} · fonti e curiosità selezionate',
+            : 'Aggiornato ${DateFormat('dd/MM HH:mm').format(current.updatedAt)} · fonti e curiosità selezionate',
         style: const TextStyle(fontSize: 9.5, color: WildColors.muted),
       ),
       if (warning != null)

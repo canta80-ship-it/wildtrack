@@ -1,6 +1,6 @@
+import 'garmin_screen.dart';
 import 'recovery_screen.dart';
-import 'dart:convert';
-import 'dart:ui' as ui;
+import '../services/photo_processing_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'profile_avatar_widget.dart';
 import 'package:flutter/material.dart';
@@ -99,8 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       if (!remove) {
         final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
         if (picked == null) return;
-        final codec = await ui.instantiateImageCodec(await picked.readAsBytes(), targetWidth: 256, targetHeight: 256, allowUpscaling: false);
-        try {final frame = await codec.getNextFrame();try {final bytes = await frame.image.toByteData(format: ui.ImageByteFormat.png);if (bytes == null || bytes.lengthInBytes > 300000) throw Exception('Foto non utilizzabile. Scegli un’altra immagine.');encoded = base64Encode(bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes));} finally {frame.image.dispose();}} finally {codec.dispose();}
+        encoded = await PhotoProcessingService.encode(await picked.readAsBytes(), avatar: true);
       }
       if (!mounted) return;
       setState(() => saving = true);
@@ -502,6 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 const SizedBox(height: 14),
                 ListTile(leading: const Icon(Icons.manage_accounts_outlined), title: const Text('Recupero avvistamenti'), subtitle: const Text('Recupera i vecchi post anche senza backup'), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecoveryScreen()))),
+                ListTile(leading: const Icon(Icons.watch_outlined), title: const Text('Garmin Connect'), subtitle: const Text('Collegamento in attesa di attivazione'), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const GarminScreen()))),
                 const Text('Profilo e persone vicine', style: WildText.h2),
                 const SizedBox(height: 12),
                 Center(child: ProfileAvatar(base64: p.avatarBase64, radius: 42)),

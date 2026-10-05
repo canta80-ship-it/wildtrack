@@ -14,6 +14,7 @@ class HabitatPatch {
 class HabitatMapService {
   static final instance = HabitatMapService();
   static const profiles = <String, Set<String>>{
+ 'Lince': {'forest','rock'}, 'Tritone': {'water','wetland','forest'}, 'Rospo': {'forest','water','wetland','park'}, 'Salamandra': {'forest','water'},
     'Cervo': {'forest','grass'}, 'Capriolo': {'forest','grass','farmland'}, 'Volpe': {'forest','grass','farmland','scrub'},
     'Camoscio alpino': {'rock','grass','forest'}, 'Stambecco': {'rock','grass'}, 'Cinghiale': {'forest','scrub','farmland'},
     'Aquila reale': {'rock','grass'}, 'Grifone': {'rock','grass'}, 'Poiana': {'forest','grass','farmland'},

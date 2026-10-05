@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:xml/xml.dart';
 
 import 'package:sqflite/sqflite.dart';
 
@@ -46,7 +47,7 @@ class DidYouKnowItem {
     asset: '${json['asset'] ?? 'intro_cervo.jpg'}',
     source: '${json['source'] ?? 'WildTrack'}',
     publishedAt:
-        DateTime.tryParse('${json['publishedAt'] ?? ''}') ?? DateTime.now(),
+        DateTime.tryParse('${json['publishedAt'] ?? ''}') ?? DateTime.fromMillisecondsSinceEpoch(0),
     link: json['link'] as String?,
     isLive: json['isLive'] == true,
   );
@@ -57,16 +58,18 @@ class DidYouKnowFeed {
     required this.items,
     required this.updatedAt,
     required this.fromCache,
+    this.warning,
   });
   final List<DidYouKnowItem> items;
   final DateTime updatedAt;
   final bool fromCache;
+  final String? warning;
 }
 
 class DidYouKnowService {
   static final instance = DidYouKnowService();
   File? _cacheFile;
-  static const Duration refreshInterval = Duration(hours: 4);
+  static const Duration refreshInterval = Duration(hours: 1);
 
   /// Bundled editorial cards remain available even with an older cached feed.
   static List<DidYouKnowItem> ferrataCards() {
@@ -121,16 +124,16 @@ class DidYouKnowService {
     if (!force &&
         cached != null &&
         DateTime.now().difference(cached.updatedAt) < refreshInterval) {
-      return cached;
+      return DidYouKnowFeed(items: freshItems(cached.items), updatedAt: cached.updatedAt, fromCache: true);
     }
 
     final remote = <DidYouKnowItem>[];
     final batches = await Future.wait<List<DidYouKnowItem>>([
-      _mountainBlog().catchError((_) => const <DidYouKnowItem>[]),
+      _mountainBlog().then((rows) => rows.isEmpty ? _mountainRss() : Future.value(rows)).catchError((_) => _mountainRss().catchError((_) => const <DidYouKnowItem>[])),
       _parksNews().catchError((_) => const <DidYouKnowItem>[]),
     ]);
     for (final batch in batches) {
-      remote.addAll(batch);
+      remote.addAll(freshItems(batch));
     }
 
     final merged = _dedupeAndRank([...remote, ..._evergreen()]);
@@ -145,12 +148,18 @@ class DidYouKnowService {
       return feed;
     }
 
-    if (cached != null) return cached;
+    if (cached != null) return DidYouKnowFeed(items: withFerrate(_dedupeAndRank(freshItems(cached.items))), updatedAt: cached.updatedAt, fromCache: true, warning: 'Fonti non raggiungibili. Ultimo aggiornamento disponibile: ${cached.updatedAt.toLocal()}.');
     return DidYouKnowFeed(
       items: withFerrate(_dedupeAndRank(_evergreen())),
       updatedAt: DateTime.now(),
       fromCache: true,
+      warning: 'Notizie online non disponibili. Mostro le curiosità e le guide salvate.',
     );
+  }
+
+  static List<DidYouKnowItem> freshItems(List<DidYouKnowItem> items, {DateTime? now}) {
+    final time = now ?? DateTime.now();
+    return items.where((e) => !e.isLive || (!e.publishedAt.isAfter(time.add(const Duration(minutes: 5))) && time.difference(e.publishedAt) <= const Duration(days: 30))).toList();
   }
 
   Future<DidYouKnowFeed?> _readCache() async {
@@ -195,7 +204,7 @@ class DidYouKnowService {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
     try {
       final uri = Uri.parse(
-        'https://www.mountainblog.it/wp-json/wp/v2/posts?per_page=10&_fields=id,date,link,title,excerpt,categories',
+        'https://www.mountainblog.it/wp-json/wp/v2/posts?per_page=12&orderby=date&order=desc&_fields=id,date,date_gmt,link,title,excerpt,categories&_wt=${DateTime.now().millisecondsSinceEpoch}',
       );
       final req = await client.getUrl(uri);
       req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7');
@@ -212,7 +221,7 @@ class DidYouKnowService {
               '${(row['excerpt'] as Map?)?['rendered'] ?? ''}',
             );
             final date =
-                DateTime.tryParse('${row['date'] ?? ''}') ?? DateTime.now();
+                DateTime.tryParse('${row['date_gmt'] ?? ''}Z') ?? DateTime.fromMillisecondsSinceEpoch(0);
             return DidYouKnowItem(
               id: 'mountainblog-${row['id']}',
               category: _categoryFor('$title $excerpt'),
@@ -232,17 +241,37 @@ class DidYouKnowService {
     }
   }
 
+  Future<List<DidYouKnowItem>> _mountainRss() async {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
+    try {
+      final req = await client.getUrl(Uri.parse('https://www.mountainblog.it/feed/?wt=${DateTime.now().millisecondsSinceEpoch}'));
+      req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7.19');
+      req.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+      final res = await req.close().timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return [];
+      final xml = XmlDocument.parse(await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 10)));
+      return xml.findAllElements('item').take(12).map((item) {
+        String field(String key) => item.getElement(key)?.innerText ?? '';
+        DateTime date;
+        try { date = HttpDate.parse(field('pubDate')); } catch (_) { date = DateTime.fromMillisecondsSinceEpoch(0); }
+        final title = _stripHtml(field('title'));
+        final body = _stripHtml(field('description'));
+        return DidYouKnowItem(id:'mountainblog-rss-${field('guid')}',category:_categoryFor(title),title:title,body:body,asset:_assetFor(title),source:'MountainBlog',publishedAt:date,link:field('link'),isLive:true);
+      }).where((e) => e.title.isNotEmpty).toList();
+    } finally { client.close(force:true); }
+  }
+
   Future<List<DidYouKnowItem>> _parksNews() async {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
     try {
-      final uri = Uri.parse('https://www.parks.it/news/index.php');
+      final uri = Uri.parse('https://www.parks.it/news/index.php?wt=${DateTime.now().millisecondsSinceEpoch}');
       final req = await client.getUrl(uri);
       req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7');
       final res = await req.close().timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return const [];
       final html = await res.transform(utf8.decoder).join();
       final links = RegExp(
-        r'href="([^"]*news/dettaglio\.php\?id=\d+[^"]*)"[^>]*>(.*?)</a>',
+        r'''href=["']([^"']*dettaglio\.php\?id=\d+[^"']*)["'][^>]*>(.*?)</a>''',
         caseSensitive: false,
         dotAll: true,
       ).allMatches(html);
@@ -251,18 +280,19 @@ class DidYouKnowService {
         final title = _stripHtml(match.group(2) ?? '');
         if (title.length < 8) continue;
         final rawLink = match.group(1) ?? '';
-        final link = rawLink.startsWith('http')
-            ? rawLink
-            : 'https://www.parks.it/${rawLink.startsWith('/') ? rawLink.substring(1) : rawLink}';
+        final link = Uri.parse('https://www.parks.it/news/index.php').resolve(rawLink.replaceAll('&amp;', '&')).toString();
+        final fragment = html.substring(match.end, (match.end + 1800).clamp(0, html.length).toInt());
+        final date = parksDate(_stripHtml(fragment));
+        if (date == null) continue;
         result.add(
           DidYouKnowItem(
-            id: 'parks-${link.hashCode}',
+            id: 'parks-${Uri.parse(link).queryParameters['id']}',
             category: _categoryFor(title),
             title: title,
             body: 'Novità da parchi e aree protette italiane. Apri la scheda per dettagli, date e informazioni aggiornate.',
             asset: _assetFor(title),
             source: 'Parks.it',
-            publishedAt: DateTime.now(),
+            publishedAt: date,
             link: link,
             isLive: true,
           ),
@@ -275,10 +305,18 @@ class DidYouKnowService {
     }
   }
 
+  static DateTime? parksDate(String text) {
+    final match = RegExp(r'\b(\d{1,2})\s+(Gen|Feb|Mar|Apr|Mag|Giu|Lug|Ago|Set|Ott|Nov|Dic)\s+(\d{2,4})\b', caseSensitive: false).firstMatch(text);
+    if (match == null) return null;
+    final month = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'].indexOf(match[2]!.toLowerCase()) + 1;
+    var year = int.parse(match[3]!); if (year < 100) year += 2000;
+    return DateTime(year, month, int.parse(match[1]!));
+  }
+
   List<DidYouKnowItem> _dedupeAndRank(List<DidYouKnowItem> input) {
     final seen = <String>{};
     final rows = <DidYouKnowItem>[];
-    for (final item in input) {
+    for (final item in freshItems(input)) {
       final key = item.title
           .toLowerCase()
           .replaceAll(RegExp(r'[^a-z0-9àèéìòù]+'), ' ')
@@ -296,7 +334,7 @@ class DidYouKnowService {
         .where((e) => !e.isLive && e.id.contains('-m$month-'))
         .toList();
     final normal = rows.where((e) => !seasonal.contains(e)).toList();
-    return [...seasonal, ...normal];
+    return [...normal.where((e) => e.isLive), ...seasonal, ...normal.where((e) => !e.isLive)];
   }
 
   List<DidYouKnowItem> _evergreen() {

@@ -4,9 +4,10 @@ import '../services/preferences_service.dart';
 import '../premium_ui.dart';
 
 class CommunityPhoto extends StatefulWidget {
-  const CommunityPhoto({super.key, required this.sightingId, this.height = 220, this.imageBuilder});
+  const CommunityPhoto({super.key, required this.sightingId, this.height = 220, this.version, this.imageBuilder});
   final String sightingId;
   final double height;
+  final String? version;
   final ImageProvider Function(String url)? imageBuilder;
   @override
   State<CommunityPhoto> createState() => _CommunityPhotoState();
@@ -14,7 +15,7 @@ class CommunityPhoto extends StatefulWidget {
 
 class _CommunityPhotoState extends State<CommunityPhoto> {
   int attempt = 0;
-  String get url => '$communityUrl/api/photo?id=${Uri.encodeQueryComponent(widget.sightingId)}&retry=$attempt';
+  String get url => '$communityUrl/api/photo?id=${Uri.encodeQueryComponent(widget.sightingId)}&v=${Uri.encodeQueryComponent(widget.version ?? "")}&retry=$attempt';
   ImageProvider get provider => widget.imageBuilder?.call(url) ?? NetworkImage(url, headers: {'Authorization': 'Bearer ${PreferencesService.instance.token}'});
   Future<void> retry() async {
     await provider.evict();
