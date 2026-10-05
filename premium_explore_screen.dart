@@ -1,5 +1,8 @@
 import 'profile_avatar_widget.dart';
-import 'community_screen.dart' show ChatScreen;
+import 'community_screen.dart' show ChatScreen, showSighting;
+import 'radar_map_widget.dart';
+import '../services/habitat_map_service.dart';
+import '../services/radar_map_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -12,7 +15,6 @@ import '../services/exploration_service.dart';
 import '../services/map_location_service.dart';
 import 'map_position_marker_widget.dart';
 import '../services/place_search_service.dart';
-import '../services/radar_service.dart';
 import '../premium_ui.dart';
 import 'offline_maps_screen.dart';
 import 'outing_diary_screen.dart';
@@ -35,7 +37,6 @@ class PremiumExploreScreen extends StatefulWidget {
 class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
   final MapController map = MapController();
   final TextEditingController search = TextEditingController();
-  late Future<RadarSnapshot> radar;
   List<NatureTrail> trails = [];
   List<ActivityMapEntry> activities = [];
   NatureTrail? selectedTrail;
@@ -45,6 +46,15 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
   late final MapLocationService location;
   bool mapReady = false;
   bool centeredOnPosition = false;
+  int radarMode = 2, radarGeneration = 0;
+  double radarRadius = 5;
+  bool radarBusy = false;
+  String? radarError, radarSpecies;
+  LatLng? radarCenter;
+  List<HabitatPatch> radarPatches = [];
+  List<Map<String,dynamic>> radarObservations = [];
+  ActivityMapEntry? radarRoute;
+  Timer? radarTimer;
 
   @override
   void initState() {
@@ -53,10 +63,12 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     CommunityService.instance.addListener(_communityChanged);
     unawaited(CommunityService.instance.updatePresence());
     location = MapLocationService(initialPosition: widget.initialPosition)..addListener(_positionChanged);
-    radar = RadarService.instance.load();
     DatabaseService.instance.changes.addListener(_loadActivities);
     _loadPresets();
     _loadActivities();
+    radarTimer = Timer.periodic(const Duration(hours: 1), (_) {
+      if (filter == 2 && !radarBusy) unawaited(_refreshRadar());
+    });
   }
 
   @override
@@ -64,13 +76,100 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     DatabaseService.instance.changes.removeListener(_loadActivities);
     location.removeListener(_positionChanged);
     location.dispose();
+    radarTimer?.cancel();
     search.dispose();
     map.dispose();
     CommunityService.instance.removeListener(_communityChanged);
     super.dispose();
   }
 
-  void _communityChanged() {if (mounted) setState(() {});}
+  void _communityChanged() {
+    if (!mounted) return;
+    setState(() {
+      final ids = radarObservations.map((r) => r['id']).toSet();
+      radarObservations.addAll(CommunityService.instance.sightings.where((r) => !ids.contains(r['id'])));
+    });
+  }
+
+  List<Map<String,dynamic>> get _radarObserved => radarCenter == null ? [] : RadarMapService.observations(radarObservations, radarCenter!, radarRadius, DateTime.now(), species: radarSpecies);
+  List<HabitatPatch> get _routePatches => radarRoute == null ? radarPatches : radarPatches.where((p) => RadarMapService.onRoute(p, radarRoute!.segments)).toList();
+  List<RadarPossibleSpecies> get _radarPossible => RadarMapService.possible(_routePatches, _radarObserved, DateTime.now(), species: radarSpecies);
+
+  void _changeFilter(int value) {
+    setState(() => filter = value);
+    if (value == 2 && radarCenter == null) unawaited(_refreshRadar());
+  }
+
+  Future<List<Map<String,dynamic>>> _loadRadarObservations() async {
+    final rows = <Map<String,dynamic>>[];
+    int? offset = 0;
+    for (var page = 0; page < 20 && offset != null; page++) {
+      final data = await CommunityService.instance.api('sightings?offset=$offset');
+      rows.addAll((data['items'] as List).map((r) => Map<String,dynamic>.from(r as Map)).where((r) => r['groupId'] == null));
+      final next = data['nextOffset'] as int?;
+      if (next != null && next <= offset) break;
+      offset = next;
+    }
+    return rows;
+  }
+
+  Future<void> _refreshRadar({LatLng? center, bool frame = true}) async {
+    if (!mapReady) return;
+    final area = center ?? map.camera.center;
+    final generation = ++radarGeneration;
+    final radius = radarRadius;
+    setState(() {
+      radarBusy = true; radarError = null; radarCenter = area;
+      radarPatches = []; radarObservations = [];
+    });
+    // Run both sources independently so observations remain available if OSM fails.
+    final results = await Future.wait<Object>([
+      HabitatMapService.instance.load('__radar__', area, radiusKm: radius, forceRefresh: true).then<Object>((v) => v).catchError((Object e) => e),
+      _loadRadarObservations().then<Object>((v) => v).catchError((Object e) => e),
+    ]);
+    if (!mounted || generation != radarGeneration) return;
+    setState(() {
+      radarBusy = false;
+      radarPatches = results[0] is List<HabitatPatch> ? results[0] as List<HabitatPatch> : [];
+      radarObservations = results[1] is List<Map<String,dynamic>> ? results[1] as List<Map<String,dynamic>> : List.from(CommunityService.instance.sightings);
+      radarError = [if (results[0] is! List<HabitatPatch>) 'Zone habitat non disponibili: riprova con una connessione attiva.', if (results[1] is! List<Map<String,dynamic>>) 'Avvistamenti non aggiornati: sono mostrati quelli già caricati.'].join(' ');
+      if (radarError!.isEmpty) radarError = null;
+    });
+    if (frame && filter == 2) {
+      final points = [for (final p in displayedPatchesForFrame()) ...p.points, for (final row in _radarObserved) RadarMapService.observationPoint(row)!];
+      if (points.length > 1) map.fitCamera(CameraFit.bounds(bounds: LatLngBounds.fromPoints(points), padding: _radarPadding, maxZoom: 14));
+    }
+  }
+
+  EdgeInsets get _radarPadding {
+    final height = MediaQuery.sizeOf(context).height;
+    return EdgeInsets.fromLTRB(30, height * .39, 30, height * .33);
+  }
+
+  List<HabitatPatch> displayedPatchesForFrame() => _radarPossible.expand((s) => s.patches).where((p) => p.points.every((point) => RadarMapService.distance.as(LengthUnit.Kilometer, radarCenter!, point) <= radarRadius * 1.5)).toList();
+
+  void _expandRadar() {
+    setState(() => radarRadius = radarRadius < 5 ? 5 : 10);
+    unawaited(_refreshRadar(center: radarCenter));
+  }
+
+  void _showPossible(RadarPossibleSpecies species) {
+    setState(() { radarSpecies = species.name; radarMode = 0; });
+    if (species.patches.isNotEmpty) map.fitCamera(CameraFit.bounds(bounds: LatLngBounds.fromPoints(species.patches.expand((p) => p.points).toList()), padding: _radarPadding, maxZoom: 15));
+  }
+
+  void _showObserved(Map<String,dynamic> row) {
+    final point = RadarMapService.observationPoint(row);
+    if (point != null) map.move(point, 15);
+    unawaited(showSighting(context, row));
+  }
+
+  Future<void> _openActivity(ActivityMapEntry entry) async {
+    await showModalBottomSheet<void>(context: context, showDragHandle: true, backgroundColor: WildColors.ivory, builder: (sheet) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      ListTile(leading: const Icon(Icons.book_outlined), title: const Text('Apri diario e modifica traccia'), onTap: () { Navigator.pop(sheet); Navigator.push(context, MaterialPageRoute<void>(builder: (_) => OutingDiaryScreen(session: entry.session))); }),
+      ListTile(leading: const Icon(Icons.radar), title: const Text('Radar lungo questa traccia'), subtitle: const Text('Habitat attraversati · area entro 10 km dall’inizio'), onTap: () { Navigator.pop(sheet); setState(() { filter = 2; radarRoute = entry; radarRadius = 10; radarSpecies = null; }); unawaited(_refreshRadar(center: entry.route.first)); }),
+    ])));
+  }
 
   Future<void> _loadActivities() async {
     try {
@@ -109,10 +208,8 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
         .firstOrNull;
     if (animal != null) {
       if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(builder: (_) => PremiumAnimalScreen(animal)),
-      );
+      setState(() { filter = 2; radarSpecies = animal.name; radarRoute = null; });
+      if (radarCenter == null) unawaited(_refreshRadar());
       return;
     }
 
@@ -142,6 +239,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
       }
       if (results.length == 1) {
         map.move(results.first.point, 14);
+        if (filter == 2) unawaited(_refreshRadar(center: results.first.point));
       } else {
         await showModalBottomSheet<void>(
           context: context,
@@ -167,6 +265,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                     onTap: () {
                       Navigator.pop(sheet);
                       map.move(r.point, 14);
+                      if (filter == 2) unawaited(_refreshRadar(center: r.point));
                     },
                   ),
               ],
@@ -185,13 +284,14 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     if (mapReady && !centeredOnPosition && location.point != null) {
       centeredOnPosition = true;
       map.move(location.point!, 14);
+      if (filter == 2) unawaited(_refreshRadar(center: location.point));
     }
   }
 
   Future<void> locate() async {
     await location.refresh();
     if (!mounted) return;
-    if (location.point != null && mapReady) { map.move(location.point!, 14); }
+    if (location.point != null && mapReady) { map.move(location.point!, 14); if (filter == 2) unawaited(_refreshRadar(center: location.point)); }
     else { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(location.error ?? 'Acquisizione della posizione in corso…'))); }
   }
 
@@ -331,6 +431,9 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     final showSpecies = filter == 0;
     final showCommunity = filter == 1;
     final showRadar = filter == 2;
+    final possible = showRadar ? _radarPossible : <RadarPossibleSpecies>[];
+    final observed = showRadar ? _radarObserved : <Map<String,dynamic>>[];
+    final displayedPatches = <String,HabitatPatch>{for (final species in possible) for (final patch in species.patches) patch.id: patch}.values.toList();
     final activeTrail = selectedTrail ?? (trails.isEmpty ? null : trails.first);
 
     return Scaffold(
@@ -351,11 +454,20 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                 onLongPress: (_, point) => _recordHere(point),
               ),
               children: [
-                TileLayer(
+                ColorFiltered(
+                  colorFilter: const ColorFilter.matrix([
+                    .72,.15,.05,0,19,
+                    .07,.80,.05,0,18,
+                    .07,.15,.70,0,15,
+                    0,0,0,1,0,
+                  ]),
+                  child: TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   tileProvider: widget.tileProvider,
                   userAgentPackageName: 'it.wildtrack.app',
-                ),
+                )),
+                if (showRadar && radarMode != 1)
+                  PolygonLayer(polygons: [for (final patch in displayedPatches) Polygon(points: RadarMapService.softRing(patch.points), holePointsList: patch.holes.map(RadarMapService.softRing).toList(), color: radarSage.withValues(alpha: .34), borderColor: WildColors.forest.withValues(alpha: .85), borderStrokeWidth: 2.2, pattern: const StrokePattern.dashed(segments: [7, 5]))]),
                 if (showTrails && activeTrail != null)
                   PolylineLayer(
                     polylines: [
@@ -371,8 +483,8 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                   PolylineLayer(
                     polylines: [
                       for (final entry in activities)
-                        Polyline(
-                          points: entry.route,
+                        for (final segment in entry.segments) Polyline(
+                          points: segment,
                           strokeWidth: entry.session.isPublic ? 5.5 : 4,
                           color: entry.session.isPublic
                               ? WildColors.earth
@@ -386,6 +498,11 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                   markers: [
                     if (location.point != null) premiumPositionMarker(location.point!),
                     if (showSpecies) ..._speciesMarkers(),
+                    if (showRadar && radarMode != 1)
+                      for (final patch in displayedPatches.take(35))
+                        Marker(point: patch.points.first, width: 112,height: 77,child: RadarPossiblePin(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id)).name, onTap: () => _showPossible(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id))))),
+                    if (showRadar && radarMode != 0)
+                      for (final row in observed.take(100)) Marker(point: RadarMapService.observationPoint(row)!,width:56,height:60,child:RadarObservedPin(row,onTap:()=>_showObserved(row))),
                     if (showCommunity) ..._peopleMarkers(),
                     if (showActivities)
                       for (final entry in activities)
@@ -394,13 +511,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                           width: 38,
                           height: 38,
                           child: InkWell(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    OutingDiaryScreen(session: entry.session),
-                              ),
-                            ),
+                            onTap: () => _openActivity(entry),
                             child: CircleAvatar(
                               backgroundColor: Colors.white,
                               child: Icon(
@@ -483,89 +594,19 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                   const SizedBox(height: 9),
                   _Filters(
                     selected: filter,
-                    onTap: (i) => setState(() => filter = i),
+                    onTap: _changeFilter,
                   ),
                   if (showRadar) ...[
                     const SizedBox(height: 9),
-                    FutureBuilder<RadarSnapshot>(
-                      future: radar,
-                      builder: (context, snapshot) {
-                        final data = snapshot.data;
-                        final top =
-                            data?.species
-                                .take(2)
-                                .map((e) => e.name.toLowerCase())
-                                .join(', ') ??
-                            'calcolo in corso';
-                        return InkWell(
-                          onTap: () => setState(
-                            () => radar = RadarService.instance.load(),
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(13),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: .95),
-                              borderRadius: BorderRadius.circular(22),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x18000000),
-                                  blurRadius: 15,
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                const WildIconDisc(
-                                  Icons.radar,
-                                  size: 50,
-                                  background: WildColors.forest,
-                                  foreground: Colors.white,
-                                ),
-                                const SizedBox(width: 11),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'WildTrack Radar',
-                                        style: TextStyle(
-                                          fontFamily: 'serif',
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 18,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Condizioni ${data?.activity.toLowerCase() ?? '…'}: $top',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const Text(
-                                        'Indice orientativo · consulta dati e motivazioni nella home',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          color: WildColors.muted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(Icons.refresh),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    RadarMapHeader(mode: radarMode, onMode: (v) => setState(() => radarMode = v), busy: radarBusy, radius: radarRadius, onRefresh: () => unawaited(_refreshRadar()), onExpand: _expandRadar, species: radarSpecies, onClearSpecies: () => setState(() { radarSpecies = null; search.clear(); }), routeName: radarRoute == null ? null : (radarRoute!.session.name.isNotEmpty ? radarRoute!.session.name : 'la tua traccia'), onClearRoute: () => setState(() => radarRoute = null)),
                   ],
                 ],
               ),
             ),
+            if (showRadar) RadarResultsSheet(possible: possible, observed: observed, mode: radarMode, busy: radarBusy, error: radarError, onPossible: _showPossible, onObserved: _showObserved, onExpand: _expandRadar),
             Positioned(
               right: 14,
-              bottom: 34,
+              bottom: showRadar ? MediaQuery.sizeOf(context).height * .34 : 34,
               child: FloatingActionButton.small(
                 onPressed: locate,
                 backgroundColor: Colors.white,

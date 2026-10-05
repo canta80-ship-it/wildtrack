@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 import 'preferences_service.dart';
 
@@ -44,10 +45,14 @@ class HabitatMapService {
   };
   static const labels = {'forest':'Boschi', 'grass':'Prati e pascoli', 'farmland':'Campagne', 'scrub':'Macchia', 'rock':'Rocce e ghiaioni', 'water':'Acque', 'wetland':'Zone umide', 'park':'Parchi alberati'};
 
-  String query(String species, LatLng center) {
-    final kinds = profiles[species];
+  Set<String>? kindsFor(String species) => species == '__radar__' ? _selectors.keys.toSet() : profiles[species];
+
+  String query(String species, LatLng center, {double radiusKm = 5}) {
+    final kinds = kindsFor(species);
     if (kinds == null) throw ArgumentError('Specie non presente nel catalogo');
-    final bbox = '${center.latitude-.045},${center.longitude-.065},${center.latitude+.045},${center.longitude+.065}';
+    final dy = radiusKm / 111.32;
+    final dx = dy / math.cos(center.latitude * math.pi / 180).abs().clamp(.1, 1);
+    final bbox = '${center.latitude-dy},${center.longitude-dx},${center.latitude+dy},${center.longitude+dx}';
     return '[out:json][timeout:18];(${kinds.expand((k) => _selectors[k]!).map((s) => 'way$s($bbox);relation[type=multipolygon]$s($bbox);').join()});out geom;';
   }
   String? _kind(Map tags) {
@@ -101,7 +106,7 @@ class HabitatMapService {
   }
   List<HabitatPatch> parse(Map<String,dynamic> data, String species) {
     if (data['elements'] is! List || data['remark'] != null) throw const FormatException('Dati habitat incompleti');
-    final allowed=profiles[species] ?? const <String>{};
+    final allowed=kindsFor(species) ?? const <String>{};
     final out=<HabitatPatch>[];
     for(final raw in data['elements'] as List) {
       if(raw is! Map) continue;
@@ -122,9 +127,12 @@ class HabitatMapService {
     }
     return out;
   }
-  Future<List<HabitatPatch>> load(String species, LatLng center) async {
-    final key='${species.replaceAll(RegExp('[^a-zA-Z0-9]'),'_')}_${(center.latitude*20).round()}_${(center.longitude*20).round()}';
+  Future<List<HabitatPatch>> load(String species, LatLng center, {double radiusKm = 5, bool forceRefresh = false}) async {
+    final key='${species.replaceAll(RegExp('[^a-zA-Z0-9]'),'_')}_${center.latitude.toStringAsFixed(4)}_${center.longitude.toStringAsFixed(4)}_$radiusKm';
     final file=File('${PreferencesService.instance.file.parent.path}/wildtrack_habitat_$key.json');
+    if (!forceRefresh && await file.exists() && DateTime.now().difference((await file.stat()).modified) < const Duration(hours: 1)) {
+      try { return parse(jsonDecode(await file.readAsString()) as Map<String,dynamic>, species); } catch (_) {}
+    }
     final client=HttpClient()..connectionTimeout=const Duration(seconds:5);
     try {
       for(final host in ['overpass.private.coffee','overpass-api.de']) {
@@ -132,7 +140,7 @@ class HabitatMapService {
           final request=await client.postUrl(Uri.https(host,'/api/interpreter')).timeout(const Duration(seconds:6));
           request.headers.contentType=ContentType('application','x-www-form-urlencoded');
           request.headers.set(HttpHeaders.userAgentHeader,'WildTrack/0.7.10');
-          request.write('data=${Uri.encodeQueryComponent(query(species,center))}');
+          request.write('data=${Uri.encodeQueryComponent(query(species,center,radiusKm:radiusKm))}');
           final response=await request.close().timeout(const Duration(seconds:22));
           if(response.statusCode!=200) continue;
           final bytes=<int>[];
@@ -144,7 +152,7 @@ class HabitatMapService {
           return patches;
         } catch (_) {}
       }
-      try { if(await file.exists()) return parse(jsonDecode(await file.readAsString()) as Map<String,dynamic>,species); } catch (_) {}
+      try { if(await file.exists() && DateTime.now().difference((await file.stat()).modified) < const Duration(days: 1)) return parse(jsonDecode(await file.readAsString()) as Map<String,dynamic>,species); } catch (_) {}
       throw Exception('Habitat non disponibili in questa zona. Sposta la mappa e riprova.');
     } finally { client.close(force:true); }
   }
