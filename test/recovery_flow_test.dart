@@ -5,6 +5,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wildtrack_mvp/screens/recovery_screen.dart';
 import 'package:wildtrack_mvp/services/preferences_service.dart';
 void main() {
+  test('Replacing Community identity retains previous credential and supports returning to it', () async {
+    final dir = await Directory.systemTemp.createTemp('wildtrack-recovery');
+    final prefs = PreferencesService.instance;
+    final original = prefs.token, previous = prefs.previousCommunityToken;
+    File? oldFile;try {oldFile = prefs.file;} catch (_) {}
+    try {
+      prefs.file = File('${dir.path}/wildtrack_preferences.json');
+      prefs.token = List.filled(64, 'a').join();
+      final newer = List.filled(64, 'b').join();
+      await prefs.replaceCommunityIdentity(newer);
+      final identity = File('${dir.path}/wildtrack_identity.json');
+      expect(jsonDecode(await identity.readAsString())['previousToken'], List.filled(64, 'a').join());
+      await prefs.replaceCommunityIdentity(prefs.previousCommunityToken!);
+      expect(prefs.token, List.filled(64, 'a').join());
+      expect(prefs.previousCommunityToken, newer);
+      expect(jsonDecode(await prefs.file.readAsString())['token'], prefs.token);
+    } finally {prefs.token = original;prefs.previousCommunityToken = previous;if (oldFile != null) prefs.file = oldFile;await dir.delete(recursive: true);}
+  });
+
   testWidgets('Legacy request displays validation instead of silently ignoring a tap', (tester) async {
     var posts = 0;
     await tester.pumpWidget(MaterialApp(home: RecoveryScreen(sighting: const {'id': 'old', 'species': 'Stambecco'}, api: (path, method, body) async {if (method == 'POST') posts++;return path == 'recovery' ? {'items': []} : {'active': false};})));
@@ -33,24 +52,5 @@ void main() {
     expect(find.text('Richiesta inviata'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('Replacing Community identity retains previous credential and supports returning to it', (tester) async {
-    await tester.runAsync(() async {
-    final dir = await Directory.systemTemp.createTemp('wildtrack-recovery');
-    final prefs = PreferencesService.instance;
-    final original = prefs.token, previous = prefs.previousCommunityToken;
-    File? oldFile;try {oldFile = prefs.file;} catch (_) {}
-    try {
-      prefs.file = File('${dir.path}/wildtrack_preferences.json');
-      prefs.token = List.filled(64, 'a').join();
-      final newer = List.filled(64, 'b').join();
-      await prefs.replaceCommunityIdentity(newer);
-      final identity = File('${dir.path}/wildtrack_identity.json');
-      expect(jsonDecode(await identity.readAsString())['previousToken'], List.filled(64, 'a').join());
-      await prefs.replaceCommunityIdentity(prefs.previousCommunityToken!);
-      expect(prefs.token, List.filled(64, 'a').join());
-      expect(prefs.previousCommunityToken, newer);
-      expect(jsonDecode(await prefs.file.readAsString())['token'], prefs.token);
-    } finally {prefs.token = original;prefs.previousCommunityToken = previous;if (oldFile != null) prefs.file = oldFile;await dir.delete(recursive: true);}
-    });
-  });
+
 }
