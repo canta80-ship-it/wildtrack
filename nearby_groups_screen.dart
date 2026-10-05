@@ -66,7 +66,10 @@ class _NearbyGroupsScreenState extends State<NearbyGroupsScreen> {
           await service.addMember(hosting!,Map<String,dynamic>.from(data['member'] as Map));
           await send(endpoint,{'type':'confirmed','groupId':hosting!['id']});
           report('Partecipante aggiunto a ${hosting!['name']}. Sincronizzazione quando torna la rete.');
-        }else if(data['type']=='confirmed' && hosting==null){report('Adesione confermata. Il gruppo è salvato sul telefono.');}
+        }else if(data['type']=='confirmed' && hosting==null){
+          for(final group in service.groups.where((g)=>g['id']==data['groupId'] && g['user']==service.identity))group['confirmed']=true;
+          await service.save();
+          report('Adesione confermata. Il gruppo è salvato sul telefono.');}
         if(mounted)setState((){});
       }catch(e){report('Invito non salvato: $e');}
     },onPayloadTransferUpdate:(_,update){});
@@ -83,7 +86,7 @@ class _NearbyGroupsScreenState extends State<NearbyGroupsScreen> {
     if(active)TextButton(onPressed:stop,child:const Text('Interrompi collegamento')),
     for(final peer in peers.entries)ListTile(title:Text(peer.value),trailing:const Icon(Icons.chevron_right),onTap:()async{try{await nearby.requestConnection(PreferencesService.instance.nickname,peer.key,onConnectionInitiated:pair,onConnectionResult:connected,onDisconnected:(_)=>report('Telefono scollegato.'));}catch(e){report('$e');}}),
     const Divider(height:30),const Text('Gruppi salvati sul telefono',style:WildText.h2),
-    for(final group in service.groups.where((g)=>g['owner']==service.identity || g['mine']==0))ListTile(title:Text('${group['name']}'),subtitle:Text(group['synced']==true?'Sincronizzato':'Creato o ricevuto offline'),trailing:group['owner']==service.identity?IconButton(icon:const Icon(Icons.person_add_alt),tooltip:'Invita nelle vicinanze',onPressed:()=>start(create:true,group:group)):null),
+    for(final group in service.groups.where((g)=>g['owner']==service.identity || g['user']==service.identity))ListTile(title:Text('${group['name']}'),subtitle:Text(group['synced']==true?'Sincronizzato':group['mine']==0 && group['confirmed']!=true?'In attesa di conferma locale':'Creato o ricevuto offline'),trailing:group['owner']==service.identity?IconButton(icon:const Icon(Icons.person_add_alt),tooltip:'Invita nelle vicinanze',onPressed:()=>start(create:true,group:group)):null),
     const SizedBox(height:12),const Text('Il collegamento funziona tra telefoni vicini. Per vedere i dati online, l’organizzatore deve riaprire WildTrack quando torna la connessione.',style:TextStyle(color:WildColors.muted)),
   ]));
 }

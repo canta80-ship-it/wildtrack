@@ -28,14 +28,14 @@ class NearbyGroupsService extends ChangeNotifier {
   Future<Map<String,dynamic>> create(String name) async {
     await load();
     if (name.trim().length < 2 || name.length > 60) throw const FormatException('Nome da 2 a 60 caratteri');
-    final group = <String,dynamic>{'id': const Uuid().v4(), 'name': name.trim(), 'owner':identity, 'mine':1, 'members':<Map<String,dynamic>>[], 'synced':false};
+    final group = <String,dynamic>{'id': const Uuid().v4(), 'name': name.trim(), 'owner':identity, 'mine':1, 'members':<Map<String,dynamic>>[], 'pendingMembers':<Map<String,dynamic>>[], 'synced':false};
     groups.add(group); await save(); return group;
   }
   Future<void> receive(Map<String,dynamic> group) async {
     await load();
     if (!RegExp(r'^[a-f0-9-]{36}$').hasMatch('${group['id']}') || '${group['name']}'.length > 60 || !RegExp(r'^[a-f0-9]{64}$').hasMatch('${group['owner']}')) throw const FormatException('Invito non valido');
     if (!groups.any((g) => g['id'] == group['id'])) {
-      groups.add({'id':group['id'], 'name':group['name'], 'owner':group['owner'], 'mine':0, 'synced':false});
+      groups.add({'id':group['id'], 'name':group['name'], 'owner':group['owner'], 'mine':0, 'user':identity, 'confirmed':false, 'synced':false});
       await save();
     }
   }
@@ -45,6 +45,8 @@ class NearbyGroupsService extends ChangeNotifier {
     final members = group['members'] as List;
     if (members.length >= 30) throw const FormatException('Massimo 30 partecipanti');
     if (!members.any((m) => m['id'] == member['id'])) members.add(member);
+    final queue = group.putIfAbsent('pendingMembers', () => <Map<String,dynamic>>[]) as List;
+    if (!queue.any((m) => m['id'] == member['id'])) queue.add(member);
     group['synced'] = false;
     await save();
   }
@@ -52,8 +54,8 @@ class NearbyGroupsService extends ChangeNotifier {
     await load(); if (syncing) return; syncing=true;
     try {
       for (final group in groups.where((g) => g['owner'] == identity && g['synced'] != true)) {
-        await CommunityService.instance.api('maps', method:'POST',body:{'action':'offlineCreate','mapId':group['id'],'name':group['name'],'members':group['members']});
-        group['synced'] = true; await save();
+        await CommunityService.instance.api('maps', method:'POST',body:{'action':'offlineCreate','mapId':group['id'],'name':group['name'],'members':group['pendingMembers'] ?? const []});
+        group['synced'] = true; group['pendingMembers'] = <Map<String,dynamic>>[]; await save();
       }
     } finally { syncing=false; }
   }

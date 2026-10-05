@@ -9,7 +9,8 @@ void main() {
     var posts = 0;
     await tester.pumpWidget(MaterialApp(home: RecoveryScreen(sighting: const {'id': 'old', 'species': 'Stambecco'}, api: (path, method, body) async {if (method == 'POST') posts++;return path == 'recovery' ? {'items': []} : {'active': false};})));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Invia richiesta al gestore'));
+    await tester.scrollUntilVisible(find.text('Invia richiesta al gestore'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Invia richiesta al gestore'));
     await tester.pumpAndSettle();
     expect(find.text('Descrivi la prova con almeno 10 caratteri.'), findsOneWidget);
@@ -23,7 +24,8 @@ void main() {
     final evidence = find.byType(TextFormField).last;
     await tester.ensureVisible(evidence);
     await tester.enterText(evidence, 'foto disponibile');
-    await tester.ensureVisible(find.text('Invia richiesta al gestore'));
+    await tester.scrollUntilVisible(find.text('Invia richiesta al gestore'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Invia richiesta al gestore'));
     await tester.pumpAndSettle();
     expect(submitted?['previousName'], 'Non ricordo');
@@ -31,7 +33,8 @@ void main() {
     expect(find.text('Richiesta inviata'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  test('Replacing Community identity retains previous credential and supports returning to it', () async {
+  testWidgets('Replacing Community identity retains previous credential and supports returning to it', (tester) async {
+    await tester.runAsync(() async {
     final dir = await Directory.systemTemp.createTemp('wildtrack-recovery');
     final prefs = PreferencesService.instance;
     final original = prefs.token, previous = prefs.previousCommunityToken;
@@ -48,5 +51,6 @@ void main() {
       expect(prefs.previousCommunityToken, newer);
       expect(jsonDecode(await prefs.file.readAsString())['token'], prefs.token);
     } finally {prefs.token = original;prefs.previousCommunityToken = previous;if (oldFile != null) prefs.file = oldFile;await dir.delete(recursive: true);}
+    });
   });
 }

@@ -341,7 +341,7 @@ class CommunityService extends ChangeNotifier {
     try {
       unawaited(PushService.instance.checkNewSightings());
       await syncProfile();
-      await NearbyGroupsService.instance.sync();
+      try { await NearbyGroupsService.instance.sync(); } catch (_) { /* Retry saved offline groups on the next refresh. */ }
       while (pending.isNotEmpty) {
         final readyIndex = pending.indexWhere(_readyForPublication);
         if (readyIndex < 0) break;

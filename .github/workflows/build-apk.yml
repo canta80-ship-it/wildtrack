@@ -1,7 +1,7 @@
 name: Build WildTrack APK
 on:
   push:
-    branches: [main, next-release, interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16, recovery-0-7-16, community-offline-0-7-19]
+    branches: [main, next-release, interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16, recovery-0-7-16]
     paths-ignore: [.github/workflows/community-upgrade.yml, tool/community_upgrade_check.py]
   workflow_dispatch:
 permissions:
