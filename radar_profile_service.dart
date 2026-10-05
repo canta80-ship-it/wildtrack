@@ -8,9 +8,9 @@ class RadarProfile {
 // Editorial compatibility profiles, not calibrated probabilities or range maps.
 const radarProfiles = <String, RadarProfile>{
  'Lince': RadarProfile('Lynx lynx','nocturnal',{'forest'},localised:true,peak:{2,3}),
- 'Tritone': RadarProfile('Ichthyosaura alpestris','nocturnal',{'water','wetland','forest'},peak:{3,4,5,6},dormant:{12,1,2}),
+ 'Tritone': RadarProfile('Ichthyosaura alpestris','nocturnal',{'stillwater','wetland','forest'},peak:{3,4,5,6},dormant:{12,1,2}),
  'Rospo': RadarProfile('Bufo bufo','nocturnal',{'water','wetland','forest','park'},peak:{3,4,5},dormant:{12,1,2}),
- 'Salamandra': RadarProfile('Salamandra salamandra','nocturnal',{'forest','stream'},peak:{3,4,5,9,10},dormant:{12,1,2}),
+ 'Salamandra': RadarProfile('Salamandra salamandra','nocturnal',{'forest'},peak:{3,4,5,9,10},dormant:{12,1,2}),
  'Cervo': RadarProfile('Cervus elaphus','crepuscular',{'forest','meadow'},peak:{9,10}),
  'Capriolo': RadarProfile('Capreolus capreolus','crepuscular',{'forest','meadow','farmland'},peak:{4,5,6,7}),
  'Volpe': RadarProfile('Vulpes vulpes','crepuscular',{'forest','meadow','farmland','urban'}),

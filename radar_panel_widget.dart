@@ -15,7 +15,7 @@ class RadarPanel extends StatelessWidget {
   final RadarSnapshot? snapshot;
   final Future<void> Function() onRefresh;
   final bool loading,error;
-  static String habitatLabel(String value)=>const {'forest':'Bosco','meadow':'Prati','rock':'Rocce','wetland':'Zone umide','water':'Acqua','river':'Fiume','stream':'Torrente','farmland':'Campagne','urban':'Area urbana','park':'Parco alberato','scrub':'Macchia','mosaic':'Mosaico di habitat','unknown':'Habitat non disponibile'}[value]??value;
+  static String habitatLabel(String value)=>const {'forest':'Bosco','meadow':'Prati','rock':'Rocce','wetland':'Zone umide','water':'Acqua','stillwater':'Stagno o lago','river':'Fiume','stream':'Torrente','farmland':'Campagne','urban':'Area urbana','park':'Parco alberato','scrub':'Macchia','mosaic':'Mosaico di habitat','unknown':'Habitat non disponibile'}[value]??value;
   @override
   Widget build(BuildContext context){
     final data=loading||error?null:snapshot;

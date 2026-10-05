@@ -38,7 +38,7 @@ class RadarService {
   Future<RadarSnapshot> load({Position? position, bool forceRefresh = false}) async {
     final candidate=position ?? await _positionProvider();
     final pos=candidate!=null && WildTrackIntelligenceService.validPosition(candidate,_clock())?candidate:null;
-    final key=pos==null?'none':'${pos.latitude.toStringAsFixed(5)},${pos.longitude.toStringAsFixed(5)}';
+    final key=pos==null?'none':'${pos.latitude.toStringAsFixed(5)},${pos.longitude.toStringAsFixed(5)},${pos.altitude.toStringAsFixed(0)},${pos.altitudeAccuracy.toStringAsFixed(0)}';
     if(_pending.containsKey(key))return _pending[key]!;
     final c=_cached, age=_loadedAt==null?null:_clock().difference(_loadedAt!);
     final sameArea=pos==null ? c?.hasPosition==false : c?.hasPosition==true && c?.latitude!=null && c?.longitude!=null && RadarHabitatService.distance.as(LengthUnit.Meter,LatLng(pos.latitude,pos.longitude),LatLng(c!.latitude!,c.longitude!))<=RadarHabitatService.reuseDistance;

@@ -117,6 +117,11 @@ void main(){
   expect(RadarHabitatService.query(p),contains('waterway'));
   expect(RadarHabitatService.tags({'remark':'timeout','elements':[{'type':'area','tags':{'natural':'wood'}}]},p),isEmpty);
  });
+ test('A river alone cannot suggest a pond-breeding newt or a forest salamander',(){
+  final now=DateTime.utc(2026,5,3,20);
+  final s=engine.evaluate(now:now,position:position(now),habitat:const HabitatContext(primary:'water',tags:{'water','river'},elevation:500,mapped:true),history:[sighting('Tritone',now.subtract(const Duration(days:1))),sighting('Salamandra',now.subtract(const Duration(days:1)))]);
+  expect(s.species.where((s)=>{'Tritone','Salamandra'}.contains(s.name)),isEmpty);
+ });
  test('A large enclosing forest is loaded even when its edges exceed search radius',(){
   final p=position(DateTime.now());
   final ring=[{'lat':45.99,'lon':12.99},{'lat':45.99,'lon':13.01},{'lat':46.01,'lon':13.01},{'lat':46.01,'lon':12.99},{'lat':45.99,'lon':12.99}];

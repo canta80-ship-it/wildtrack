@@ -271,6 +271,7 @@ class WildTrackIntelligenceService {
     if (w.precipitation != null && w.precipitation!>2) {score-=8; reasons.add('pioggia intensa');}
     if (!habitatKnown) score=math.min(score,38.0);
     if (habitatKnown && !compatible) score=math.min(score,15.0);
+    if(name=='Tritone' && {3,4,5,6,7,8}.contains(now.month) && !h.tags.any({'stillwater','wetland'}.contains)){score=math.min(score,15.0);reasons.add('stagno o zona umida riproduttiva non cartografati');}
     if ((outsideQuota || mountainUncertain) && !supported)score=math.min(score,15.0);
     if(name=='Marmotta' && altitude!=null && altitude<800)score=math.min(score,15.0);
     if (!inSeason || dormant) score=math.min(score,15.0);
@@ -316,7 +317,9 @@ class WildTrackIntelligenceService {
       try {data=await _json(Uri.parse(endpoint),body:'data=${Uri.encodeQueryComponent(query)}');if(data['remark']==null)break;data=null;}catch(_){}
     }
     final tags=data==null ? <String>{} : RadarHabitatService.tags(data,p);
-    final result=HabitatContext(primary:tags.isEmpty?'unknown':tags.length>1?'mosaic':tags.first,tags:tags.isEmpty?const {'unknown'}:tags,elevation:elevation,mapped:tags.isNotEmpty,fetchedAt:DateTime.now(),latitude:p.latitude,longitude:p.longitude);
+    final physical=tags.difference({'stillwater','river','stream'});
+    final primary=tags.isEmpty?'unknown':physical.length>1?'mosaic':physical.contains('water')?(tags.contains('stream')?'stream':tags.contains('river')?'river':tags.contains('stillwater')?'stillwater':'water'):physical.first;
+    final result=HabitatContext(primary:primary,tags:tags.isEmpty?const {'unknown'}:tags,elevation:elevation,mapped:tags.isNotEmpty,fetchedAt:DateTime.now(),latitude:p.latitude,longitude:p.longitude);
     if(tags.isNotEmpty){_habitatCache[key]=(now,result);if(_habitatCache.length>30)_habitatCache.remove(_habitatCache.keys.first);}return result;
   }
   Future<List<RadarEvidence>> _regionalEvidence(Position p) async {

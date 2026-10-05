@@ -7,7 +7,7 @@ class RadarHabitatService {
   static const radius = 300.0;
   static const reuseDistance = 100.0;
   static const distance = Distance();
-  static String query(Position p) => '[out:json][timeout:6];is_in(${p.latitude},${p.longitude})->.here;(area.here[natural];area.here[landuse];area.here[leisure=park];nwr(around:300,${p.latitude},${p.longitude})[natural];nwr(around:300,${p.latitude},${p.longitude})[landuse];nwr(around:300,${p.latitude},${p.longitude})[leisure=park];nwr(around:300,${p.latitude},${p.longitude})[waterway~"^(river|stream|canal)$"];);out geom;';
+  static String query(Position p) => '[out:json][timeout:6];is_in(${p.latitude},${p.longitude})->.here;(area.here[natural];area.here[landuse];area.here[leisure=park];nwr(around:300,${p.latitude},${p.longitude})[natural];nwr(around:300,${p.latitude},${p.longitude})[landuse];nwr(around:300,${p.latitude},${p.longitude})[leisure=park];nwr(around:300,${p.latitude},${p.longitude})[waterway~"^(river|stream|canal)\$"];);out geom;';
 
   static Set<String> tags(Map<String,dynamic> data, Position p) {
     if(data['remark'] != null) return {};
@@ -21,7 +21,7 @@ class RadarHabitatService {
       if(['grassland','heath'].contains(n)||['meadow','grass','pasture'].contains(l))result.add('meadow');
       if(n=='scrub')result.add('scrub');
       if(n=='wetland')result.add('wetland');
-      if(n=='water'||l=='reservoir')result.add('water');
+      if(n=='water'||l=='reservoir'){result.add('water');if(t['water']!='river'&&t['water']!='stream')result.add('stillwater');}
       if(['river','stream','canal'].contains(t['waterway'])) { result.add('water'); if(t['waterway']!='canal')result.add(t['waterway'] as String); }
       if(['bare_rock','scree','cliff'].contains(n))result.add('rock');
       if(['farmland','orchard','vineyard'].contains(l))result.add('farmland');

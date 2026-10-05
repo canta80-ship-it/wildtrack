@@ -164,11 +164,11 @@
       "altitudeNote": "Non è limitato all’alta montagna"
     },
     "Tasso": {
-      "habitat": "Boschi alternati a prati e coltivi",
+      "habitat": "Boschi con sottobosco e incolti; suoli drenati adatti alle tane",
       "source": "https://ambiente.regione.emilia-romagna.it/it/parchi-natura2000/sistema-regionale/fauna/mammiferi/schede/tasso",
-      "minimum": null,
-      "maximum": null,
-      "altitudeNote": "Quota variabile secondo disponibilità di rifugi e cibo"
+      "minimum": 0,
+      "maximum": 2000,
+      "altitudeNote": "Pianura e montagna fino a circa 2000 m nella fonte regionale"
     },
     "Gracchio alpino": {
       "habitat": "Pareti rocciose montane vicine a pascoli e praterie",
