@@ -1,0 +1,68 @@
+name: Verify WildTrack 0.7.20 Android upgrade
+on:
+  push:
+    branches: [interface-reference]
+    paths: [.github/workflows/verify-0720.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 16ecfa4e30e7cd750ef7305f1b9621499ccf7cf4
+      - name: Wait for exact signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,os,time,urllib.request
+          for attempt in range(240):
+            req=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37358281249',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
+            run=json.load(urllib.request.urlopen(req))
+            if run['status']=='completed':
+              assert run['conclusion']=='success',run['conclusion']
+              break
+            time.sleep(5)
+          else: raise RuntimeError('Build still running')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 37358281249
+          github-token: ${{ github.token }}
+          path: new-apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: WildTrack-APK
+          run-id: 37349887002
+          github-token: ${{ github.token }}
+          path: old-apk
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install old-apk/WildTrack-release.apk
+            adb root
+            adb wait-for-device
+            adb shell 'echo wildtrack-existing-data > /data/user/0/it.wildtrack.preview/cache/upgrade-sentinel'
+            adb install -r new-apk/WildTrack-release.apk
+            adb shell cat /data/user/0/it.wildtrack.preview/cache/upgrade-sentinel | grep wildtrack-existing-data
+            adb shell dumpsys package it.wildtrack.preview | grep "versionName=0.7.20"
+            adb shell pm grant it.wildtrack.preview android.permission.POST_NOTIFICATIONS
+            adb shell am start -W -n it.wildtrack.preview/it.wildtrack.wildtrack_mvp.MainActivity
+            adb shell dumpsys activity activities | grep it.wildtrack.preview
+            python3 -c 'import subprocess,time,xml.etree.ElementTree as ET;time.sleep(8);r=subprocess.run(["adb","shell","cat","/data/user/0/it.wildtrack.preview/shared_prefs/wildtrack_notifications.xml"],check=True,capture_output=True,text=True);root=ET.fromstring(r.stdout);e=next((n for n in root if n.tag=="boolean" and n.get("name")=="enabled"),None);assert e is not None and e.get("value")=="true","Periodic notifications were not configured";print("Native background notification configuration: PASS")'
