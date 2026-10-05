@@ -4,11 +4,14 @@ on:
     branches: [chat-gpx-0-7-21, main, next-release, interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16, recovery-0-7-16]
     paths-ignore: [.github/workflows/community-upgrade.yml, tool/community_upgrade_check.py]
   workflow_dispatch:
+concurrency:
+  group: wildtrack-apk-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
