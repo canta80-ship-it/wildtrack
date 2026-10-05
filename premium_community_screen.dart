@@ -359,7 +359,7 @@ class _FeedSighting extends StatelessWidget {
         CommunitySightingMapButton(sighting: s),
         CommunityEditPhotoButton(sighting: s),
         CommunityDeleteButton(sighting: s),
-        TextButton(onPressed: () => showSighting(context, s), child: const Text('Apri avvistamento →')),
+        TextButton(onPressed: () => showSighting(context, s), child: const Text('Apri avvistamento')),
       ])),
     ])),
   );

@@ -43,6 +43,10 @@ class _SignPainter extends CustomPainter {
       canvas.drawPath(Path()..moveTo(16,75)..quadraticBezierTo(31,33,42,20)..quadraticBezierTo(50,63,16,75)..close(),Paint()..color=const Color(0xFF7D9B64));
       canvas.drawOval(const Rect.fromLTWH(34,43,14,19),Paint()..color=const Color(0xFFC9B885));
       canvas.drawCircle(const Offset(41,52),3,dark);
+    }else if(index==3 && species=='Rospo'){
+      canvas.drawOval(const Rect.fromLTWH(21,30,38,43),dark);
+      canvas.drawPath(Path()..moveTo(52,60)..cubicTo(71,77,89,71,91,39),Paint()..color=const Color(0xFF334B3E)..style=PaintingStyle.stroke..strokeWidth=6..strokeCap=StrokeCap.round);
+      canvas.drawCircle(const Offset(30,39),2,ochre);canvas.drawCircle(const Offset(48,39),2,ochre);
     }else if((index==2 && species=='Salamandra') || (index==3 && species!='Lince')){
       canvas.drawOval(const Rect.fromLTWH(32,33,24,39),Paint()..color=const Color(0xFF7C8C76));
       canvas.drawCircle(const Offset(44,27),10,dark);
