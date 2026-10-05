@@ -98,7 +98,7 @@ object CommunityNotifications {
             val notification=NotificationCompat.Builder(context,"wildtrack_chat_v2")
                 .setSmallIcon(context.resources.getIdentifier("wildtrack_logo", "drawable", context.packageName))
                 .setContentTitle(row.optString("senderName", "WildTrack"))
-                .setContentText(if(row.has("attachment")) "Ti ha inviato un allegato" else "Ti ha inviato un messaggio")
+                .setContentText(if(!row.isNull("attachment")) "Ti ha inviato un allegato" else "Ti ha inviato un messaggio")
                 .setPriority(NotificationCompat.PRIORITY_HIGH).setDefaults(NotificationCompat.DEFAULT_SOUND or NotificationCompat.DEFAULT_VIBRATE)
                 .setContentIntent(pending).setAutoCancel(true).build()
             (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(id.hashCode(), notification)
