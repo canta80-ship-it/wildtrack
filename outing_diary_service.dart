@@ -88,7 +88,7 @@ class OutingDiaryService {
       species: species,
       lifers: lifers,
       weather: weather,
-      narrative: session.imported ? 'Traccia GPX importata. Lunghezza e dislivello descrivono il percorso e non una tua uscita registrata.' : narrative,
+      narrative: session.imported ? 'Traccia GPX importata. Lunghezza, dislivello e durata disponibile contribuiscono alle tue statistiche.' : narrative,
     );
   }
 

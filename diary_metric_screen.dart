@@ -65,12 +65,12 @@ class _DiaryMetricScreenState extends State<DiaryMetricScreen> {
       }
     }
     final names = counts.keys.toList()..sort();
-    final minutes = sessions.where((s) => !s.imported).fold<int>(
+    final minutes = sessions.fold<int>(
       0,
       (sum, s) => sum + s.endedAt.difference(s.startedAt).inMinutes,
     );
     final km =
-        sessions.where((s) => !s.imported).fold<double>(0, (sum, s) => sum + s.distanceMeters) / 1000;
+        sessions.fold<double>(0, (sum, s) => sum + s.distanceMeters) / 1000;
     return Scaffold(
       backgroundColor: WildColors.ivory,
       appBar: AppBar(actions: [if(widget.metric == DiaryMetric.outings) const GpxImportButton()],title: Text(title)),

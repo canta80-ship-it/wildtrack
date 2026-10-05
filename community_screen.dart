@@ -825,7 +825,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             if((r['body'] as String? ?? '').isNotEmpty) Text(r['body'] as String, style: const TextStyle(color: Color(0xff183b29))),
                             Text(
                               timeLabel(r['created']),
-                              style: const TextStyle(fontSize: 12),
+                              style: const TextStyle(fontSize: 12, color: Color(0xff183b29)),
                             ),
                           ],
                         ),

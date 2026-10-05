@@ -56,8 +56,8 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
       .map((e) => e.species)
       .toSet();
   double get km =>
-      sessions.where((s) => !s.imported).fold<double>(0, (a, b) => a + b.distanceMeters) / 1000;
-  Duration get fieldTime => sessions.where((s) => !s.imported).fold(
+      sessions.fold<double>(0, (a, b) => a + b.distanceMeters) / 1000;
+  Duration get fieldTime => sessions.fold(
     Duration.zero,
     (a, b) => a + b.endedAt.difference(b.startedAt),
   );

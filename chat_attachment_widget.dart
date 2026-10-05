@@ -33,7 +33,7 @@ class _ChatAttachmentState extends State<ChatAttachment> {
   }
   @override Widget build(BuildContext context) => Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     if(image && bytes!=null) GestureDetector(onTap:()=>showDialog<void>(context:context,builder:(_)=>Dialog(child:InteractiveViewer(child:Image.memory(bytes!)))), child:ClipRRect(borderRadius:BorderRadius.circular(12),child:Image.memory(bytes!,width:260,height:200,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const Text('Foto non leggibile')))),
-    TextButton.icon(onPressed:busy?null:open,icon:Icon(image?Icons.photo_outlined:Icons.attach_file),label:Text(busy?'Caricamento…':(widget.metadata['name'] as String? ?? 'Apri allegato'), maxLines:2,overflow:TextOverflow.ellipsis)),
+    TextButton.icon(style:TextButton.styleFrom(foregroundColor:const Color(0xff183b29)),onPressed:busy?null:open,icon:Icon(image?Icons.photo_outlined:Icons.attach_file),label:Text(busy?'Caricamento…':(widget.metadata['name'] as String? ?? 'Apri allegato'), maxLines:2,overflow:TextOverflow.ellipsis)),
     if(error!=null) Text(error!,style:const TextStyle(fontSize:12)),
   ]);
 }
