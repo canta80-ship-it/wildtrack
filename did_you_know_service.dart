@@ -129,7 +129,7 @@ class DidYouKnowService {
 
     final remote = <DidYouKnowItem>[];
     final batches = await Future.wait<List<DidYouKnowItem>>([
-      _mountainBlog().then((rows) => rows.isEmpty ? _mountainRss() : Future.value(rows)).catchError((_) => _mountainRss().catchError((_) => const <DidYouKnowItem>[])),
+      _mountainBlog().then((rows) => freshItems(rows).isEmpty ? _mountainRss() : Future.value(rows)).catchError((_) => _mountainRss().catchError((_) => const <DidYouKnowItem>[])),
       _parksNews().catchError((_) => const <DidYouKnowItem>[]),
     ]);
     for (final batch in batches) {
@@ -210,7 +210,7 @@ class DidYouKnowService {
       req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7');
       final res = await req.close().timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return const [];
-      final rows = jsonDecode(await res.transform(utf8.decoder).join()) as List;
+      final rows = jsonDecode(await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 10))) as List;
       return rows
           .map((raw) {
             final row = Map<String, dynamic>.from(raw as Map);
@@ -269,7 +269,7 @@ class DidYouKnowService {
       req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7');
       final res = await req.close().timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return const [];
-      final html = await res.transform(utf8.decoder).join();
+      final html = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 10));
       final links = RegExp(
         r'''href=["']([^"']*dettaglio\.php\?id=\d+[^"']*)["'][^>]*>(.*?)</a>''',
         caseSensitive: false,
