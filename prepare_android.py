@@ -1,7 +1,7 @@
 from pathlib import Path
 p = Path('android/app/src/main/AndroidManifest.xml')
 s = p.read_text()
-for permission in ['INTERNET','ACCESS_NETWORK_STATE','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','ACCESS_BACKGROUND_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK','POST_NOTIFICATIONS','ACCESS_WIFI_STATE','CHANGE_WIFI_STATE','BLUETOOTH','BLUETOOTH_ADMIN','BLUETOOTH_ADVERTISE','BLUETOOTH_CONNECT','BLUETOOTH_SCAN','NEARBY_WIFI_DEVICES']:
+for permission in ['VIBRATE','INTERNET','ACCESS_NETWORK_STATE','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','ACCESS_BACKGROUND_LOCATION','CAMERA','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','WAKE_LOCK','POST_NOTIFICATIONS','ACCESS_WIFI_STATE','CHANGE_WIFI_STATE','BLUETOOTH','BLUETOOTH_ADMIN','BLUETOOTH_ADVERTISE','BLUETOOTH_CONNECT','BLUETOOTH_SCAN','NEARBY_WIFI_DEVICES']:
     if 'android.permission.'+permission not in s:
         s=s.replace('<application', f'<uses-permission android:name="android.permission.{permission}" />\n    <application',1)
 s=s.replace('android:label="wildtrack_mvp"','android:label="WildTrack"')
@@ -30,6 +30,7 @@ class MainActivity: FlutterActivity() {
     private var channel: MethodChannel? = null
     private var backupChannel: MethodChannel? = null
     private var backupResult: MethodChannel.Result? = null
+    private var fileResult: MethodChannel.Result? = null
     private var remaining = 0
     private var generation = 0
     private val backupRequestCode = 4011
@@ -47,9 +48,20 @@ class MainActivity: FlutterActivity() {
         MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/notifications").setMethodCallHandler { call, result ->
             when(call.method) {
                 "sdk" -> result.success(Build.VERSION.SDK_INT)
-                "configure" -> { CommunityNotifications.configure(this, call.argument<String>("token") ?: "", call.argument<Boolean>("enabled") ?: false); result.success(true) }
+                "configure" -> { CommunityNotifications.configure(this, call.argument<String>("token") ?: "", call.argument<Boolean>("enabled") ?: false, call.argument<Boolean>("chat") ?: false); result.success(true) }
                 "check" -> Thread { try { CommunityNotifications.check(this); runOnUiThread { result.success(true) } } catch (_: Exception) { runOnUiThread { result.error("NETWORK", "Notifiche non aggiornate", null) } } }.start()
                 else -> result.notImplemented()
+            }
+        }
+        MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/files").setMethodCallHandler { call, result ->
+            if (call.method != "pick") result.notImplemented()
+            else if (fileResult != null) result.error("BUSY", "Selettore già aperto", null)
+            else {
+                fileResult = result
+                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    type = "*/*"; addCategory(Intent.CATEGORY_OPENABLE)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }, 4013)
             }
         }
         backupChannel = MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/backup")
@@ -137,6 +149,24 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == 4013) {
+            val pending = fileResult; fileResult = null
+            if (resultCode != Activity.RESULT_OK || data?.data == null) {pending?.success(null); return}
+            val uri = data.data!!
+            Thread {
+                try {
+                    var name = "allegato"
+                    contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) name = it.getString(0) ?: name }
+                    val bytes = contentResolver.openInputStream(uri)!!.use { input ->
+                        val out = java.io.ByteArrayOutputStream(); val buffer = ByteArray(8192)
+                        while (true) { val n = input.read(buffer); if (n < 0) break; if (out.size() + n > 5 * 1024 * 1024) throw IllegalArgumentException("File troppo grande: massimo 5 MB"); out.write(buffer, 0, n) }
+                        out.toByteArray()
+                    }
+                    val mime = contentResolver.getType(uri) ?: "application/octet-stream"
+                    runOnUiThread { pending?.success(mapOf("name" to name, "mime" to mime, "data" to bytes)) }
+                } catch(e: Exception) { runOnUiThread {pending?.error("FILE", e.message ?: "File non leggibile", null)} }
+            }.start(); return
+        }
         if (requestCode == backupFileRequestCode) {
             val pending = backupResult
             backupResult = null

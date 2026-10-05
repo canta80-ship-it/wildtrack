@@ -1,3 +1,4 @@
+import 'outing_edit_widget.dart';
 import 'outing_delete_widget.dart';
 
 import 'dart:io';
@@ -132,9 +133,13 @@ class _OutingDiaryScreenState extends State<OutingDiaryScreen> {
       backgroundColor: WildColors.ivory,
       appBar: AppBar(
         title: Text(
-          widget.justCompleted ? 'Riepilogo attività' : 'Diario dell’uscita',
+          session.name.isNotEmpty ? session.name : (widget.justCompleted ? 'Riepilogo attività' : 'Diario dell’uscita'),
         ),
         actions: [
+          IconButton(tooltip: 'Modifica traccia', icon: const Icon(Icons.edit_outlined), onPressed: () async {
+            final edited = await Navigator.push<TrackSession>(context, MaterialPageRoute(builder: (_) => OutingEditScreen(session: session)));
+            if(edited != null && mounted) {setState(() {session = edited; notes.text = edited.notes;}); await _loadDiary();}
+          }),
           OutingDeleteButton(
             session: session,
             onDeleted: () => Navigator.pop(context),
@@ -144,6 +149,8 @@ class _OutingDiaryScreenState extends State<OutingDiaryScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 40),
         children: [
+          if(session.imported) const Padding(padding: EdgeInsets.all(12), child: Text('GPX importato · percorso da consultare')),
+          if(session.photos.isNotEmpty) SizedBox(height: 200, child: ListView(scrollDirection: Axis.horizontal, children: [for(final photo in session.photos) Padding(padding: const EdgeInsets.all(6), child: ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.file(File(photo), width: 260, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.broken_image))))])),
           WildHero(
             image: '',
             height: 250,
@@ -277,8 +284,9 @@ class _OutingDiaryScreenState extends State<OutingDiaryScreen> {
                         if (d.route.length > 1)
                           PolylineLayer(
                             polylines: [
+                              for(final segment in d.segments.isEmpty ? [d.route] : d.segments)
                               Polyline(
-                                points: d.route,
+                                points: segment,
                                 strokeWidth: 5,
                                 color: WildColors.forest,
                               ),

@@ -1,7 +1,7 @@
 name: Build WildTrack APK
 on:
   push:
-    branches: [main, next-release, interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16, recovery-0-7-16]
+    branches: [chat-gpx-0-7-21, main, next-release, interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16, recovery-0-7-16]
     paths-ignore: [.github/workflows/community-upgrade.yml, tool/community_upgrade_check.py]
   workflow_dispatch:
 permissions:
@@ -70,6 +70,7 @@ jobs:
       - run: flutter pub get
       - name: Verify Community profiles
         run: flutter test test/profile_regression_test.dart test/community_photo_test.dart test/recovery_flow_test.dart test/offline_community_test.dart
+      - run: flutter test test/gpx_import_test.dart
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Verify Radar engine and catalogue
         run: flutter test test/radar_regression_test.dart test/home_time_test.dart test/outdoor_tools_test.dart test/community_radar_update_test.dart

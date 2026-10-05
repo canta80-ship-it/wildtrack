@@ -1,3 +1,4 @@
+import 'gpx_import_widget.dart';
 import 'outing_delete_widget.dart';
 
 import 'package:flutter/material.dart';
@@ -64,15 +65,15 @@ class _DiaryMetricScreenState extends State<DiaryMetricScreen> {
       }
     }
     final names = counts.keys.toList()..sort();
-    final minutes = sessions.fold<int>(
+    final minutes = sessions.where((s) => !s.imported).fold<int>(
       0,
       (sum, s) => sum + s.endedAt.difference(s.startedAt).inMinutes,
     );
     final km =
-        sessions.fold<double>(0, (sum, s) => sum + s.distanceMeters) / 1000;
+        sessions.where((s) => !s.imported).fold<double>(0, (sum, s) => sum + s.distanceMeters) / 1000;
     return Scaffold(
       backgroundColor: WildColors.ivory,
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(actions: [if(widget.metric == DiaryMetric.outings) const GpxImportButton()],title: Text(title)),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -144,11 +145,10 @@ class _DiaryMetricScreenState extends State<DiaryMetricScreen> {
                             color: WildColors.forest,
                           ),
                           title: Text(
-                            DateFormat('d MMM yyyy · HH:mm')
-                                .format(s.startedAt),
+                            s.name.isNotEmpty ? s.name : DateFormat('d MMM yyyy · HH:mm').format(s.startedAt),
                           ),
                           subtitle: Text(
-                            '${(s.distanceMeters / 1000).toStringAsFixed(2)} km · ${s.endedAt.difference(s.startedAt).inMinutes ~/ 60} h ${s.endedAt.difference(s.startedAt).inMinutes % 60} min',
+                            '${s.imported ? 'GPX importato · ' : ''}${(s.distanceMeters / 1000).toStringAsFixed(2)} km · ${s.endedAt.difference(s.startedAt).inMinutes ~/ 60} h ${s.endedAt.difference(s.startedAt).inMinutes % 60} min',
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,

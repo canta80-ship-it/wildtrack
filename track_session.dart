@@ -1,4 +1,8 @@
+import 'dart:convert';
 class TrackSession {
+  final String name;
+  final List<String> photos;
+  final bool imported;
   final String id;
   final DateTime startedAt;
   final DateTime endedAt;
@@ -10,6 +14,9 @@ class TrackSession {
   final DateTime? publishedAt;
 
   const TrackSession({
+    this.name = '',
+    this.photos = const [],
+    this.imported = false,
     required this.id,
     required this.startedAt,
     required this.endedAt,
@@ -25,12 +32,17 @@ class TrackSession {
   double get averageSpeedMps => duration.inSeconds <= 0 ? 0 : distanceMeters / duration.inSeconds;
 
   TrackSession copyWith({
+    String? name,
+    List<String>? photos,
     double? descentMeters,
     String? notes,
     bool? isPublic,
     DateTime? publishedAt,
     bool clearPublishedAt = false,
   }) => TrackSession(
+    name: name ?? this.name,
+    photos: photos ?? this.photos,
+    imported: imported,
     id: id,
     startedAt: startedAt,
     endedAt: endedAt,
@@ -43,6 +55,9 @@ class TrackSession {
   );
 
   Map<String, Object?> toMap() => {
+    'name': name,
+    'photos': jsonEncode(photos),
+    'imported': imported ? 1 : 0,
     'id': id,
     'started_at': startedAt.toIso8601String(),
     'ended_at': endedAt.toIso8601String(),
@@ -55,6 +70,9 @@ class TrackSession {
   };
 
   static TrackSession fromMap(Map<String, Object?> map) => TrackSession(
+    name: map['name'] as String? ?? '',
+    photos: List<String>.from(jsonDecode(map['photos'] as String? ?? '[]') as List),
+    imported: map['imported'] == 1,
     id: map['id'] as String,
     startedAt: DateTime.parse(map['started_at'] as String),
     endedAt: DateTime.parse(map['ended_at'] as String),

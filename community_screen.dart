@@ -1,3 +1,6 @@
+import 'chat_attachment_widget.dart';
+import '../services/file_import_service.dart';
+import '../services/push_service.dart';
 import 'community_edit_photo_widget.dart';
 import 'recovery_screen.dart';
 import '../premium_ui.dart';
@@ -687,6 +690,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool busy = false, blocked = false;
   Timer? timer;
   String? retryId, retryText;
+  PickedWildFile? attachment;
   @override
   void initState() {
     super.initState();
@@ -703,6 +707,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> load() async {
     try {
+      unawaited(PushService.instance.checkNewSightings());
       final data = await CommunityService.instance.api(
         'messages?peer=${widget.peer}',
       );
@@ -721,7 +726,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> send() async {
     final body = input.text.trim();
-    if (body.isEmpty || busy) return;
+    if ((body.isEmpty && attachment == null) || busy) return;
     setState(() => busy = true);
     if (retryText != body) {
       retryId = const Uuid().v4();
@@ -731,13 +736,13 @@ class _ChatScreenState extends State<ChatScreen> {
       await CommunityService.instance.api(
         'messages',
         method: 'POST',
-        body: {'peer': widget.peer, 'id': retryId, 'body': body},
+        body: {'peer': widget.peer, 'id': retryId, 'body': body, if(attachment != null) 'attachment': {'name':attachment!.name, 'mime':attachment!.mime, 'data':base64Encode(attachment!.bytes)}},
       );
       if (!mounted) return;
       input.clear();
       retryId = null;
       retryText = null;
-      setState(() => error = null);
+      setState(() {error = null; attachment = null;});
       await load();
     } catch (e) {
       if (mounted) {
@@ -810,24 +815,27 @@ class _ChatScreenState extends State<ChatScreen> {
                         ? Alignment.centerRight
                         : Alignment.centerLeft,
                     child: Card(
-                      child: Padding(
+                      color: r['mine'] == 1 ? const Color(0xffc9ddc4) : const Color(0xfff3eadb),
+                      child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 300), child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(r['body'] as String),
+                            if(r['attachment'] is Map) ChatAttachment(key: ValueKey(r['id']), id:r['id'] as String, metadata:Map<String,dynamic>.from(r['attachment'] as Map)),
+                            if((r['body'] as String? ?? '').isNotEmpty) Text(r['body'] as String, style: const TextStyle(color: Color(0xff183b29))),
                             Text(
                               timeLabel(r['created']),
                               style: const TextStyle(fontSize: 12),
                             ),
                           ],
                         ),
-                      ),
+                      )),
                     ),
                   ),
               ],
             ),
           ),
+          if(attachment != null) ListTile(leading: const Icon(Icons.attach_file), title: Text(attachment!.name), subtitle: Text("${(attachment!.bytes.length / 1024).toStringAsFixed(0)} KB"), trailing: IconButton(tooltip:"Rimuovi allegato", onPressed:busy?null:()=>setState(() {attachment=null; retryId=null; retryText=null;}), icon:const Icon(Icons.close))),
           if (error != null)
             Padding(padding: const EdgeInsets.all(8), child: Text(error!)),
           if (blocked)
@@ -841,6 +849,17 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  PopupMenuButton<String>(enabled: !busy, tooltip: 'Invia foto o file', icon: const Icon(Icons.add_circle_outline), onSelected: (value) async {
+                    try {
+                      PickedWildFile? picked;
+                      if(value == 'photo') {
+                        final image=await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth:1600, imageQuality:85);
+                        if(image != null) {final bytes=await image.readAsBytes(); final mime=bytes.length>8 && bytes[0]==137 && bytes[1]==80 ? 'image/png' : (bytes.length>12 && ascii.decode(bytes.sublist(0,4),allowInvalid:true)=='RIFF' ? 'image/webp' : 'image/jpeg'); picked=PickedWildFile(image.name, mime, bytes);}
+                      } else { picked=await PickedWildFile.pick(); }
+                      if(picked != null && picked.bytes.length>5*1024*1024) throw Exception('File troppo grande: massimo 5 MB');
+                      if(picked != null && mounted) setState(() {attachment=picked; retryId=null; retryText=null;});
+                    }catch(e){if(mounted) setState(() => error=e.toString().replaceFirst('Exception: ',''));}
+                  }, itemBuilder:(_)=>const [PopupMenuItem(value:'photo',child:Text('Foto dalla galleria')),PopupMenuItem(value:'file',child:Text('File · massimo 5 MB'))]),
                   Expanded(
                     child: TextField(
                       controller: input,

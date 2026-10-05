@@ -273,6 +273,10 @@ class WildTrackBackupService {
         final row = raw as Map;
         row['path'] = relocate(row['path']);
       }
+      for (final raw in (database['sessions'] as List? ?? const [])) {
+        final row = raw as Map;
+        row['photos'] = jsonEncode((jsonDecode(row['photos'] as String? ?? '[]') as List).map(relocate).toList());
+      }
       final settings = Map<String, dynamic>.from(
         jsonDecode(utf8.decode(previousPrefs)) as Map,
       )..addAll(profile);

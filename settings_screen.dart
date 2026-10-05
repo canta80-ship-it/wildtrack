@@ -1,4 +1,3 @@
-import 'garmin_screen.dart';
 import 'recovery_screen.dart';
 import '../services/photo_processing_service.dart';
 import 'package:image_picker/image_picker.dart';
@@ -501,7 +500,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 const SizedBox(height: 14),
                 ListTile(leading: const Icon(Icons.manage_accounts_outlined), title: const Text('Recupero avvistamenti'), subtitle: const Text('Recupera i vecchi post anche senza backup'), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const RecoveryScreen()))),
-                ListTile(leading: const Icon(Icons.watch_outlined), title: const Text('Garmin Connect'), subtitle: const Text('Collegamento in attesa di attivazione'), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const GarminScreen()))),
                 const Text('Profilo e persone vicine', style: WildText.h2),
                 const SizedBox(height: 12),
                 Center(child: ProfileAvatar(base64: p.avatarBase64, radius: 42)),

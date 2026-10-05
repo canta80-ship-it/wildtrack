@@ -77,7 +77,7 @@ class PushService extends ChangeNotifier {
   static const local = MethodChannel('wildtrack/notifications');
   Future<void> _configureBackground() async {
     permissionGranted = (await Permission.notification.request()).isGranted;
-    await local.invokeMethod('configure', {'token':PreferencesService.instance.token, 'enabled':PreferencesService.instance.sightingNotifications && permissionGranted});
+    await local.invokeMethod('configure', {'token':PreferencesService.instance.token, 'enabled':PreferencesService.instance.sightingNotifications && permissionGranted, 'chat':PreferencesService.instance.chatNotifications && permissionGranted});
   }
   Future<void> checkNewSightings() async {
     try { await local.invokeMethod('check'); } catch (_) {}
@@ -170,7 +170,7 @@ class PushService extends ChangeNotifier {
   }
 
   Future<void> unregister() async {
-    try { await local.invokeMethod('configure', {'token':PreferencesService.instance.token, 'enabled':false}); } catch (_) {}
+    try { await local.invokeMethod('configure', {'token':PreferencesService.instance.token, 'enabled':false, 'chat':false}); } catch (_) {}
     final value = token;
     if (value == null) return;
     try {

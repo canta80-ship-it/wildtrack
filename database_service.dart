@@ -19,7 +19,7 @@ class DatabaseService {
     if (_db != null) return _db!;
     _db = await openDatabase(
       await databasePath,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute(
           '''CREATE TABLE sightings(
@@ -43,6 +43,9 @@ class DatabaseService {
           descent_m REAL NOT NULL DEFAULT 0,
           notes TEXT NOT NULL DEFAULT '',
           is_public INTEGER NOT NULL DEFAULT 0,
+          name TEXT NOT NULL DEFAULT '',
+          photos TEXT NOT NULL DEFAULT '[]',
+          imported INTEGER NOT NULL DEFAULT 0,
           published_at TEXT
         )''');
         await db.execute('''CREATE TABLE track_points(
@@ -51,10 +54,17 @@ class DatabaseService {
           latitude REAL NOT NULL,
           longitude REAL NOT NULL,
           altitude REAL NOT NULL,
+          segment INTEGER NOT NULL DEFAULT 0,
           timestamp TEXT NOT NULL
         )''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 6) {
+          await db.execute("ALTER TABLE sessions ADD COLUMN name TEXT NOT NULL DEFAULT ''");
+          await db.execute("ALTER TABLE sessions ADD COLUMN photos TEXT NOT NULL DEFAULT '[]'");
+          await db.execute("ALTER TABLE sessions ADD COLUMN imported INTEGER NOT NULL DEFAULT 0");
+          await db.execute("ALTER TABLE track_points ADD COLUMN segment INTEGER NOT NULL DEFAULT 0");
+        }
         if (oldVersion < 2) {
           await db.execute('ALTER TABLE sightings RENAME TO sightings_v1');
           await db.execute('''CREATE TABLE sightings(

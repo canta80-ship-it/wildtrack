@@ -1,3 +1,4 @@
+import 'gpx_import_widget.dart';
 import 'diary_metric_screen.dart';
 import 'real_geo_stats_widget.dart';
 import 'outing_diary_screen.dart';
@@ -55,8 +56,8 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
       .map((e) => e.species)
       .toSet();
   double get km =>
-      sessions.fold<double>(0, (a, b) => a + b.distanceMeters) / 1000;
-  Duration get fieldTime => sessions.fold(
+      sessions.where((s) => !s.imported).fold<double>(0, (a, b) => a + b.distanceMeters) / 1000;
+  Duration get fieldTime => sessions.where((s) => !s.imported).fold(
     Duration.zero,
     (a, b) => a + b.endedAt.difference(b.startedAt),
   );
@@ -340,7 +341,7 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
                         ),
                       ),
                     ),
-                    child: sessions.isEmpty
+                    child: Column(children: [const Align(alignment: Alignment.centerRight, child: GpxImportButton()), sessions.isEmpty
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 18),
                             child: Text('Nessuna uscita registrata.'),
@@ -359,7 +360,7 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
                                   child: _TripRow(session: s),
                                 ),
                             ],
-                          ),
+                          )]),
                   ),
                 ]),
               ),
@@ -655,7 +656,7 @@ class _TripRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Uscita del ${session.startedAt.day}/${session.startedAt.month}',
+                session.name.isNotEmpty ? session.name : 'Uscita del ${session.startedAt.day}/${session.startedAt.month}',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               Text(

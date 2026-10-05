@@ -27,6 +27,7 @@ class OutingDiary {
   const OutingDiary({
     required this.session,
     required this.route,
+    this.segments = const [],
     required this.sightings,
     required this.species,
     required this.lifers,
@@ -35,6 +36,7 @@ class OutingDiary {
   });
   final TrackSession session;
   final List<LatLng> route;
+  final List<List<LatLng>> segments;
   final List<Sighting> sightings;
   final Set<String> species;
   final Set<String> lifers;
@@ -52,6 +54,7 @@ class OutingDiaryService {
         .map((r) => LatLng((r['latitude'] as num).toDouble(), (r['longitude'] as num).toDouble()))
         .toList();
     final sightings = allSightings.where((s) {
+      if (session.imported) return false;
       final afterStart = !s.timestamp.isBefore(session.startedAt.subtract(const Duration(minutes: 20)));
       final beforeEnd = !s.timestamp.isAfter(session.endedAt.add(const Duration(minutes: 20)));
       return afterStart && beforeEnd;
@@ -65,7 +68,7 @@ class OutingDiaryService {
         lifers.add(name);
       }
     }
-    final weather = route.isEmpty ? const OutingWeather() : await _weather(route.first, session.startedAt);
+    final weather = (session.imported || route.isEmpty) ? const OutingWeather() : await _weather(route.first, session.startedAt);
     final duration = session.endedAt.difference(session.startedAt);
     final hours = duration.inMinutes / 60;
     final narrative = _narrative(
@@ -80,11 +83,12 @@ class OutingDiaryService {
     return OutingDiary(
       session: session,
       route: route,
+      segments: [for(final segment in rows.map((r) => r['segment'] ?? 0).toSet()) rows.where((r) => (r['segment'] ?? 0) == segment).map((r) => LatLng((r['latitude'] as num).toDouble(), (r['longitude'] as num).toDouble())).toList()],
       sightings: sightings,
       species: species,
       lifers: lifers,
       weather: weather,
-      narrative: narrative,
+      narrative: session.imported ? 'Traccia GPX importata. Lunghezza e dislivello descrivono il percorso e non una tua uscita registrata.' : narrative,
     );
   }
 

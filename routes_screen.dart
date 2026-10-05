@@ -1,3 +1,4 @@
+import 'gpx_import_widget.dart';
 import 'outing_delete_widget.dart';
 
 import 'package:flutter/material.dart';
@@ -38,7 +39,7 @@ class _RoutesScreenState extends State<RoutesScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Percorsi salvati')),
+    appBar: AppBar(title: const Text('Lista uscite'), actions: const [GpxImportButton()]),
     body: sessions.isEmpty
         ? const Center(child: Text('Nessun percorso registrato.'))
         : RefreshIndicator(
@@ -73,14 +74,12 @@ class _RoutesScreenState extends State<RoutesScreen> {
                         }
                         final trail = NatureTrail({
                           'id': 'recorded_${s.id}',
-                          'name':
-                              'Percorso del ${DateFormat('dd/MM/yyyy').format(s.startedAt)}',
+                          'name': s.name.isNotEmpty ? s.name : 'Percorso del ${DateFormat('dd/MM/yyyy').format(s.startedAt)}',
                           'difficulty': 'Registrato da te',
                           'source': null,
                           'segments': [
-                            points
-                                .map((p) => [p['latitude'], p['longitude']])
-                                .toList(),
+                            for(final segment in points.map((p) => p['segment'] ?? 0).toSet())
+                              points.where((p) => (p['segment'] ?? 0) == segment).map((p) => [p['latitude'], p['longitude']]).toList(),
                           ],
                         });
                         Navigator.push(
@@ -94,7 +93,7 @@ class _RoutesScreenState extends State<RoutesScreen> {
                       }
                     },
                     title: Text(
-                      DateFormat('dd/MM/yyyy HH:mm').format(s.startedAt),
+                      s.name.isNotEmpty ? s.name : DateFormat('dd/MM/yyyy HH:mm').format(s.startedAt),
                     ),
                     subtitle: Text(
                       '${(s.distanceMeters / 1000).toStringAsFixed(2)} km · +${s.ascentMeters.toStringAsFixed(0)} m · ${duration.inMinutes} min',

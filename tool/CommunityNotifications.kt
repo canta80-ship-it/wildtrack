@@ -20,16 +20,24 @@ import org.json.JSONObject
 object CommunityNotifications {
     const val channel = "wildtrack_community"
     private const val preferences = "wildtrack_notifications"
-    @Synchronized fun configure(context: Context, token: String, enabled: Boolean) {
+    @Synchronized fun configure(context: Context, token: String, enabled: Boolean, chat: Boolean) {
         val p = context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
         val changed = p.getString("token", "") != token
-        val edit = p.edit().putString("token", token).putBoolean("enabled", enabled)
+        val edit = p.edit().putString("token", token).putBoolean("enabled", enabled).putBoolean("chat", chat)
         if (changed) edit.putLong("since", System.currentTimeMillis()).putStringSet("seen", emptySet())
+        if(changed || (!p.getBoolean("chat", false) && chat)) edit.putLong("chatSince", System.currentTimeMillis()).putStringSet("chatSeen", emptySet())
         edit.commit()
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(NotificationChannel(channel, "Avvistamenti della community", NotificationManager.IMPORTANCE_DEFAULT))
+        if (Build.VERSION.SDK_INT >= 26) {
+            val chatChannel=NotificationChannel("wildtrack_chat_v2", "Messaggi WildTrack", NotificationManager.IMPORTANCE_HIGH)
+            chatChannel.enableVibration(true)
+            chatChannel.vibrationPattern=longArrayOf(0,180,100,180)
+            chatChannel.setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION).build())
+            manager.createNotificationChannel(chatChannel)
+        }
         val work = WorkManager.getInstance(context)
-        if (!enabled) {work.cancelUniqueWork("wildtrack-community-check"); return}
+        if (!enabled && !chat) {work.cancelUniqueWork("wildtrack-community-check"); return}
         val request = PeriodicWorkRequestBuilder<CommunityNotificationWorker>(15, TimeUnit.MINUTES)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
         work.enqueueUniquePeriodicWork("wildtrack-community-check", ExistingPeriodicWorkPolicy.KEEP, request)
@@ -54,8 +62,38 @@ object CommunityNotifications {
         seen.add(id)
         p.edit().putStringSet("seen", seen).commit()
     }
+    @Synchronized fun checkChats(context: Context) {
+        val p=context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
+        if(!p.getBoolean("chat", false)) return
+        if(Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val token=p.getString("token", "") ?: return
+        val c=URL("https://wildtrack-community.canta80.chatgpt.site/api/messages").openConnection() as HttpURLConnection
+        val data: JSONObject
+        try {c.connectTimeout=10000; c.readTimeout=15000; c.setRequestProperty("Authorization", "Bearer $token"); if(c.responseCode != 200) throw IllegalStateException("Chat unavailable"); data=JSONObject(c.inputStream.bufferedReader().use {it.readText()})} finally {c.disconnect()}
+        val rows=data.getJSONArray("items")
+        val seen=p.getStringSet("chatSeen", emptySet())!!.toMutableSet()
+        var newest=p.getLong("chatSince", System.currentTimeMillis())
+        for(i in rows.length()-1 downTo 0) {
+            val row=rows.getJSONObject(i); val id=row.optString("id"); val created=row.optLong("created")
+            if(row.optInt("mine")==1 || created < p.getLong("chatSince", Long.MAX_VALUE) || seen.contains(id) || id.isEmpty()) continue
+            val intent=context.packageManager.getLaunchIntentForPackage(context.packageName) ?: continue
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP); intent.putExtra("chatPeer", row.optString("sender"))
+            val pending=PendingIntent.getActivity(context, id.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val notification=NotificationCompat.Builder(context,"wildtrack_chat_v2")
+                .setSmallIcon(context.resources.getIdentifier("wildtrack_logo", "drawable", context.packageName))
+                .setContentTitle(row.optString("senderName", "WildTrack"))
+                .setContentText(if(row.has("attachment")) "Ti ha inviato un allegato" else "Ti ha inviato un messaggio")
+                .setPriority(NotificationCompat.PRIORITY_HIGH).setDefaults(NotificationCompat.DEFAULT_SOUND or NotificationCompat.DEFAULT_VIBRATE)
+                .setContentIntent(pending).setAutoCancel(true).build()
+            (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(id.hashCode(), notification)
+            seen.add(id); if(created > newest) newest=created
+        }
+        p.edit().putLong("chatSince",newest).putStringSet("chatSeen",seen.toList().takeLast(400).toSet()).commit()
+    }
     fun check(context: Context) {
         val p = context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
+        if (!p.getBoolean("enabled", false) && !p.getBoolean("chat", false)) return
+        checkChats(context)
         if (!p.getBoolean("enabled", false)) return
         val token = p.getString("token", "") ?: return
         val since = p.getLong("since", Long.MAX_VALUE)
