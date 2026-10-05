@@ -46,7 +46,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json,os,time,urllib.request
-          for attempt in range(120):
+          for attempt in range(240):
             req=urllib.request.Request('https://api.github.com/repos/canta80-ship-it/wildtrack/actions/runs/37349887002',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
             run=json.load(urllib.request.urlopen(req))
             if run['status']=='completed':
@@ -91,3 +91,12 @@ jobs:
             adb shell pm grant it.wildtrack.preview android.permission.POST_NOTIFICATIONS
             adb shell am start -W -n it.wildtrack.preview/it.wildtrack.wildtrack_mvp.MainActivity
             adb shell dumpsys activity activities | grep it.wildtrack.preview
+            python3 - <<'PY'
+            import subprocess,time,xml.etree.ElementTree as ET
+            time.sleep(8)
+            result=subprocess.run(['adb','shell','cat','/data/user/0/it.wildtrack.preview/shared_prefs/wildtrack_notifications.xml'],check=True,capture_output=True,text=True)
+            root=ET.fromstring(result.stdout)
+            enabled=root.find("./boolean[@name='enabled']")
+            assert enabled is not None and enabled.get('value')=='true', 'Periodic notifications were not configured'
+            print('Native background notification configuration: PASS')
+            PY
