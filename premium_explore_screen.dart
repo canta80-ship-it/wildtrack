@@ -54,6 +54,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
   List<HabitatPatch> radarPatches = [];
   List<Map<String,dynamic>> radarObservations = [];
   ActivityMapEntry? radarRoute;
+  List<HabitatPatch>? matchedRoutePatches;
   Timer? radarTimer;
 
   @override
@@ -92,7 +93,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
   }
 
   List<Map<String,dynamic>> get _radarObserved => radarCenter == null ? [] : RadarMapService.observations(radarObservations, radarCenter!, radarRadius, DateTime.now(), species: radarSpecies);
-  List<HabitatPatch> get _routePatches => radarRoute == null ? radarPatches : radarPatches.where((p) => RadarMapService.onRoute(p, radarRoute!.segments)).toList();
+  List<HabitatPatch> get _routePatches => radarRoute == null ? radarPatches : (matchedRoutePatches ??= radarPatches.where((p) => RadarMapService.onRoute(p, radarRoute!.segments)).toList());
   List<RadarPossibleSpecies> get _radarPossible => RadarMapService.possible(_routePatches, _radarObserved, DateTime.now(), species: radarSpecies);
 
   void _changeFilter(int value) {
@@ -120,7 +121,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     final radius = radarRadius;
     setState(() {
       radarBusy = true; radarError = null; radarCenter = area;
-      radarPatches = []; radarObservations = [];
+      radarPatches = []; matchedRoutePatches = null; radarObservations = [];
     });
     // Run both sources independently so observations remain available if OSM fails.
     final results = await Future.wait<Object>([
@@ -129,7 +130,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     ]);
     if (!mounted || generation != radarGeneration) return;
     setState(() {
-      radarBusy = false;
+      radarBusy = false; matchedRoutePatches = null;
       radarPatches = results[0] is List<HabitatPatch> ? results[0] as List<HabitatPatch> : [];
       radarObservations = results[1] is List<Map<String,dynamic>> ? results[1] as List<Map<String,dynamic>> : List.from(CommunityService.instance.sightings);
       radarError = [if (results[0] is! List<HabitatPatch>) 'Zone habitat non disponibili: riprova con una connessione attiva.', if (results[1] is! List<Map<String,dynamic>>) 'Avvistamenti non aggiornati: sono mostrati quelli già caricati.'].join(' ');
@@ -167,7 +168,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
   Future<void> _openActivity(ActivityMapEntry entry) async {
     await showModalBottomSheet<void>(context: context, showDragHandle: true, backgroundColor: WildColors.ivory, builder: (sheet) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
       ListTile(leading: const Icon(Icons.book_outlined), title: const Text('Apri diario e modifica traccia'), onTap: () { Navigator.pop(sheet); Navigator.push(context, MaterialPageRoute<void>(builder: (_) => OutingDiaryScreen(session: entry.session))); }),
-      ListTile(leading: const Icon(Icons.radar), title: const Text('Radar lungo questa traccia'), subtitle: const Text('Habitat attraversati · area entro 10 km dall’inizio'), onTap: () { Navigator.pop(sheet); setState(() { filter = 2; radarRoute = entry; radarRadius = 10; radarSpecies = null; }); unawaited(_refreshRadar(center: entry.route.first)); }),
+      ListTile(leading: const Icon(Icons.radar), title: const Text('Radar lungo questa traccia'), subtitle: const Text('Habitat attraversati · area entro 10 km dall’inizio'), onTap: () { Navigator.pop(sheet); setState(() { filter = 2; radarRoute = entry; matchedRoutePatches = null; radarRadius = 10; radarSpecies = null; }); unawaited(_refreshRadar(center: entry.route.first)); }),
     ])));
   }
 
@@ -494,6 +495,8 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                         ),
                     ],
                   ),
+                if (showRadar && radarMode != 0)
+                  CircleLayer(circles: [for (final row in observed.where((r) => r['approximate'] == 1 || r['approximate'] == true)) CircleMarker(point: RadarMapService.observationPoint(row)!, radius: ((row['privacyRadiusM'] as num?)?.toDouble() ?? 1000).clamp(100,10000).toDouble(), useRadiusInMeter: true, color: radarAmber.withValues(alpha: .06), borderColor: radarAmber.withValues(alpha: .25), borderStrokeWidth: 1)]),
                 MarkerLayer(
                   markers: [
                     if (location.point != null) premiumPositionMarker(location.point!),

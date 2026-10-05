@@ -1,3 +1,7 @@
+import 'package:wildtrack_mvp/screens/radar_map_widget.dart';
+import 'package:wildtrack_mvp/services/radar_map_service.dart';
+import 'package:wildtrack_mvp/services/habitat_map_service.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:wildtrack_mvp/screens/premium_community_screen.dart';
 import 'package:wildtrack_mvp/services/community_service.dart';
 import 'package:flutter/services.dart';
@@ -67,6 +71,27 @@ void main() {
   });
   CommunityService.instance.sightings=[{'id':'layout-fixture','mine':1,'species':'Lince','authorName':'Esploratore della community','count':2,'notes':'Un avvistamento tra gli alberi, con una descrizione leggibile anche sui telefoni piccoli.','observedAt':'2026-10-05T10:00:00Z','lat':46.1,'lng':13.2}];
   for (final width in [360.0, 411.0]) {
+    testWidgets('Radar premium distinguishes possible habitat from reported observations at $width dp', (tester) async {
+      tester.view.devicePixelRatio = 1; tester.view.physicalSize = Size(width,844);
+      addTearDown(tester.view.resetPhysicalSize); addTearDown(tester.view.resetDevicePixelRatio);
+      final possible = RadarPossibleSpecies('Capriolo',[HabitatPatch('fixture','forest','Bosco',[const LatLng(46,13),const LatLng(46,13.01),const LatLng(46.01,13.01),const LatLng(46,13)],[])],'Alba e tramonto',1);
+      var selected = -1, refreshed = 0;
+      await tester.pumpWidget(RepaintBoundary(key: const ValueKey('interface-capture'), child:MaterialApp(theme:wildTrackTheme(Brightness.light),home:Scaffold(body:Column(children:[
+        RadarMapHeader(mode:2,onMode:(i)=>selected=i,busy:false,radius:5,onRefresh:()=>refreshed++,onExpand:(){ }),
+        Expanded(child:RadarResultsSheet(possible:[possible],observed:[{'id':'layout-fixture','species':'Capriolo','authorName':'Esploratore','observedAt':'2026-10-05T17:00:00Z','approximate':1}],mode:2,busy:false,onPossible:(_){},onObserved:(_){},onExpand:(){ })),
+      ])))));
+      await settleImages(tester);
+      expect(tester.takeException(),isNull);
+      expect(find.text('Possibile presenza'),findsOneWidget);
+      expect(find.text('Segnalato dalla community'),findsOneWidget);
+      await tester.tap(find.text('Avvistamenti')); expect(selected,1);
+      await tester.tap(find.byTooltip('Aggiorna zone e avvistamenti')); expect(refreshed,1);
+      await tester.drag(find.byType(ListView).first,const Offset(0,-180)); await tester.pumpAndSettle();
+      expect(find.text('Posizione approssimata'),findsOneWidget);
+      expect(tester.takeException(),isNull);
+      if(width==411) await capture(tester,'radar_controls_layout_fixture');
+      await tester.pumpWidget(const SizedBox());
+    });
     final screens = <String, Widget>{
       'welcome': const IntroScreen(home: SizedBox()),
       'access': const AccessScreen(home: SizedBox()),

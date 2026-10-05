@@ -13,6 +13,7 @@ import 'screens/premium_home_screen.dart';
 import 'screens/premium_sighting_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/premium_community_screen.dart';
+import 'screens/community_screen.dart' show ChatScreen;
 import 'services/preferences_service.dart';
 import 'services/community_service.dart';
 import 'services/push_service.dart';
@@ -64,6 +65,7 @@ class _WildTrackAppState extends State<WildTrackApp>
     if (state == AppLifecycleState.resumed) {
       CommunityService.instance.start();
       unawaited(PushService.instance.syncPreferences());
+      unawaited(PushService.instance.consumeNativeChat());
       unawaited(_safeAutoBackup());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
@@ -101,6 +103,26 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
+  @override
+  void initState() {
+    super.initState();
+    PushService.instance.addListener(_openNotificationChat);
+    _openNotificationChat();
+  }
+  @override
+  void dispose() {
+    PushService.instance.removeListener(_openNotificationChat);
+    super.dispose();
+  }
+  void _openNotificationChat() {
+    final chat = PushService.instance.pendingChat;
+    if (chat == null) return;
+    PushService.instance.pendingChat = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: chat['peer']!, nickname: chat['nickname']!)));
+    });
+  }
   final pages = const [
     PremiumHomeScreen(),
     PremiumSightingScreen(),

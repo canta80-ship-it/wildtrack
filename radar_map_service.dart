@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 import 'habitat_map_service.dart';
 import 'radar_profile_service.dart';
@@ -97,11 +98,16 @@ class RadarMapService {
     return side(a,b,c)*side(a,b,d)<0 && side(c,d,a)*side(c,d,b)<0;
   }
   static bool onRoute(HabitatPatch patch, List<List<LatLng>> segments) {
+    if (patch.points.isEmpty) return false;
+    final minLat = patch.points.map((p) => p.latitude).reduce(math.min), maxLat = patch.points.map((p) => p.latitude).reduce(math.max);
+    final minLng = patch.points.map((p) => p.longitude).reduce(math.min), maxLng = patch.points.map((p) => p.longitude).reduce(math.max);
     for (final segment in segments) {
       for (var i = 0; i < segment.length; i++) {
         final point = segment[i];
-        if (_inside(point, patch.points) && !patch.holes.any((h) => _inside(point,h))) return true;
+        if (point.latitude >= minLat && point.latitude <= maxLat && point.longitude >= minLng && point.longitude <= maxLng && _inside(point, patch.points) && !patch.holes.any((h) => _inside(point,h))) return true;
         if (i == 0) continue;
+        final previous = segment[i-1];
+        if (math.max(previous.latitude,point.latitude) < minLat || math.min(previous.latitude,point.latitude) > maxLat || math.max(previous.longitude,point.longitude) < minLng || math.min(previous.longitude,point.longitude) > maxLng) continue;
         for (var j = 1; j < patch.points.length; j++) {
           if (_crosses(segment[i-1], point, patch.points[j-1], patch.points[j])) return true;
         }

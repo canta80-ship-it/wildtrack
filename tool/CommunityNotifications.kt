@@ -62,7 +62,22 @@ object CommunityNotifications {
         seen.add(id)
         p.edit().putStringSet("seen", seen).commit()
     }
-    @Synchronized fun checkChats(context: Context) {
+    private fun vibrateWhenSilent(context: Context) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val audio = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+        if (audio.ringerMode != android.media.AudioManager.RINGER_MODE_SILENT) return
+        // Respect Do Not Disturb and an explicitly disabled message channel.
+        if (Build.VERSION.SDK_INT >= 23 && manager.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return
+        if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel("wildtrack_chat_v2")?.let { it.importance == NotificationManager.IMPORTANCE_NONE || !it.shouldVibrate() } == true) return
+        if (!androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        if (!vibrator.hasVibrator()) return
+        val attributes = android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION).build()
+        if (Build.VERSION.SDK_INT >= 26) vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0,180,100,180), -1), attributes)
+        else vibrator.vibrate(longArrayOf(0,180,100,180), -1, attributes)
+    }
+    private val chatLock = Any()
+    fun checkChats(context: Context) { synchronized(chatLock) {
         val p=context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
         if(!p.getBoolean("chat", false)) return
         if(Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
@@ -70,6 +85,7 @@ object CommunityNotifications {
         val c=URL("https://wildtrack-community.canta80.chatgpt.site/api/messages").openConnection() as HttpURLConnection
         val data: JSONObject
         try {c.connectTimeout=10000; c.readTimeout=15000; c.setRequestProperty("Authorization", "Bearer $token"); if(c.responseCode != 200) throw IllegalStateException("Chat unavailable"); data=JSONObject(c.inputStream.bufferedReader().use {it.readText()})} finally {c.disconnect()}
+        if (p.getString("token", "") != token || !p.getBoolean("chat", false)) return
         val rows=data.getJSONArray("items")
         val seen=p.getStringSet("chatSeen", emptySet())!!.toMutableSet()
         var newest=p.getLong("chatSince", System.currentTimeMillis())
@@ -77,7 +93,7 @@ object CommunityNotifications {
             val row=rows.getJSONObject(i); val id=row.optString("id"); val created=row.optLong("created")
             if(row.optInt("mine")==1 || created < p.getLong("chatSince", Long.MAX_VALUE) || seen.contains(id) || id.isEmpty()) continue
             val intent=context.packageManager.getLaunchIntentForPackage(context.packageName) ?: continue
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP); intent.putExtra("chatPeer", row.optString("sender"))
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP); intent.putExtra("chatPeer", row.optString("sender")); intent.putExtra("chatName", row.optString("senderName", "Chat WildTrack"))
             val pending=PendingIntent.getActivity(context, id.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val notification=NotificationCompat.Builder(context,"wildtrack_chat_v2")
                 .setSmallIcon(context.resources.getIdentifier("wildtrack_logo", "drawable", context.packageName))
@@ -86,10 +102,11 @@ object CommunityNotifications {
                 .setPriority(NotificationCompat.PRIORITY_HIGH).setDefaults(NotificationCompat.DEFAULT_SOUND or NotificationCompat.DEFAULT_VIBRATE)
                 .setContentIntent(pending).setAutoCancel(true).build()
             (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(id.hashCode(), notification)
+            vibrateWhenSilent(context)
             seen.add(id); if(created > newest) newest=created
         }
         p.edit().putLong("chatSince",newest).putStringSet("chatSeen",seen.toList().takeLast(400).toSet()).commit()
-    }
+    }}
     fun check(context: Context) {
         val p = context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
         if (!p.getBoolean("enabled", false) && !p.getBoolean("chat", false)) return

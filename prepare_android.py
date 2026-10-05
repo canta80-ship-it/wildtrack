@@ -28,6 +28,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity: FlutterActivity() {
     private var player: MediaPlayer? = null
     private var channel: MethodChannel? = null
+    private var notifications: MethodChannel? = null
     private var backupChannel: MethodChannel? = null
     private var backupResult: MethodChannel.Result? = null
     private var fileResult: MethodChannel.Result? = null
@@ -45,8 +46,15 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
         channel = MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/audio")
-        MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/notifications").setMethodCallHandler { call, result ->
+        notifications = MethodChannel(engine.dartExecutor.binaryMessenger, "wildtrack/notifications")
+        notifications!!.setMethodCallHandler { call, result ->
             when(call.method) {
+                "consumeChat" -> {
+                    val peer = intent?.getStringExtra("chatPeer")
+                    val name = intent?.getStringExtra("chatName")
+                    intent?.removeExtra("chatPeer"); intent?.removeExtra("chatName")
+                    result.success(if(peer.isNullOrBlank()) null else mapOf("peer" to peer, "nickname" to (name ?: "Chat WildTrack")))
+                }
                 "sdk" -> result.success(Build.VERSION.SDK_INT)
                 "configure" -> { CommunityNotifications.configure(this, call.argument<String>("token") ?: "", call.argument<Boolean>("enabled") ?: false, call.argument<Boolean>("chat") ?: false); result.success(true) }
                 "check" -> Thread { try { CommunityNotifications.check(this); runOnUiThread { result.success(true) } } catch (_: Exception) { runOnUiThread { result.error("NETWORK", "Notifiche non aggiornate", null) } } }.start()
@@ -304,6 +312,11 @@ class MainActivity: FlutterActivity() {
         if (notify) channel?.invokeMethod("stopped",null)
     }
     override fun onPause() { stopAudio(); super.onPause() }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.hasExtra("chatPeer")) notifications?.invokeMethod("openChat", null)
+    }
     override fun onDestroy() { stopAudio(); try { unregisterReceiver(noisy) } catch (_: Exception) {}; super.onDestroy() }
 }
 ''')

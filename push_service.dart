@@ -66,6 +66,15 @@ class PushService extends ChangeNotifier {
   StreamSubscription<RemoteMessage>? _foregroundMessages;
   StreamSubscription<RemoteMessage>? _openedMessages;
   RemoteMessage? lastMessage;
+  Map<String,String>? pendingChat;
+  Future<void> consumeNativeChat() async {
+    try {
+      final row = await local.invokeMapMethod<String,dynamic>('consumeChat');
+      if (row == null || row['peer'] is! String || (row['peer'] as String).isEmpty) return;
+      pendingChat = {'peer': row['peer'] as String, 'nickname': '${row['nickname'] ?? 'Chat WildTrack'}'};
+      notifyListeners();
+    } catch (_) {}
+  }
 
   PushStatus get status => PushStatus(
         configured: configured,
@@ -83,6 +92,10 @@ class PushService extends ChangeNotifier {
     try { await local.invokeMethod('check'); } catch (_) {}
   }
   Future<void> initialize() async {
+    local.setMethodCallHandler((call) async {
+      if (call.method == 'openChat') await consumeNativeChat();
+    });
+    await consumeNativeChat();
     try { await _configureBackground(); } catch (_) {}
     final options = _firebaseOptions;
     configured = options != null;
