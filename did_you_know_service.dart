@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'community_service.dart' show communityUrl;
 import 'package:xml/xml.dart';
 
 import 'package:sqflite/sqflite.dart';
@@ -132,9 +133,10 @@ class DidYouKnowService {
     }
 
     final remote = <DidYouKnowItem>[];
-    final batches = _newsLoader != null ? [await _newsLoader!().timeout(const Duration(seconds: 25)).catchError((_) => <DidYouKnowItem>[])] : await Future.wait<List<DidYouKnowItem>>([
-      _mountainBlog().then((rows) => freshItems(rows).isEmpty ? _mountainRss() : Future.value(rows)).catchError((_) => _mountainRss().catchError((_) => const <DidYouKnowItem>[])),
-      _parksNews().catchError((_) => const <DidYouKnowItem>[]),
+    final batches = _newsLoader != null ? [await _newsLoader!().timeout(const Duration(seconds: 25)).catchError((_) => <DidYouKnowItem>[])] : await collectSources([
+      for (final source in const ['mountainblog','montagna','cai'])
+        () => _rss(source),
+      _parksNews().timeout(const Duration(seconds: 12)).catchError((_) => <DidYouKnowItem>[]),
     ]);
     for (final batch in batches) {
       remote.addAll(freshItems(batch));
@@ -161,6 +163,9 @@ class DidYouKnowService {
       warning: 'Notizie online non disponibili. Mostro le curiosità e le guide salvate.',
     );
   }
+
+  static Future<List<List<DidYouKnowItem>>> collectSources(List<Future<List<DidYouKnowItem>> Function()> providers, {Duration timeout = const Duration(seconds:14)}) =>
+      Future.wait(providers.map((provider) => Future.sync(provider).timeout(timeout).catchError((_) => <DidYouKnowItem>[])));
 
   static List<DidYouKnowItem> rotateGuides(List<DidYouKnowItem> items, int turn) {
     final news = items.where((item) => item.isLive).toList();
@@ -226,13 +231,20 @@ class DidYouKnowService {
         general = feed;
         return feed.items;
       }),
+      for (final key in rssSources.keys)
+        _rss(key).timeout(const Duration(seconds:14)).then<List<DidYouKnowItem>?>((rows)=>rows).catchError((_)=>null),
       for (final term in ['festival montagna', 'mostra montagna', 'raduno alpinismo', 'evento trekking'])
-        _mountainBlog(search: term).then<List<DidYouKnowItem>?>((rows) => rows)
+        _mountainBlog(search: term).timeout(const Duration(seconds: 14)).then<List<DidYouKnowItem>?>((rows) => rows)
             .catchError((_) => null),
     ]);
-    final items = mountainEvents(_dedupeAndRank(freshItems([
-      for (final batch in batches) ...?batch,
-    ], now: _clock())));
+    final byLink = <String, DidYouKnowItem>{};
+    for (final batch in batches) {
+      for (final item in batch ?? const <DidYouKnowItem>[]) {
+        final age = _clock().difference(item.publishedAt);
+        if (item.isLive && age >= Duration.zero && age <= const Duration(days:90)) byLink[item.link ?? item.id] = item;
+      }
+    }
+    final items = mountainEvents(byLink.values.toList())..sort((a,b)=>b.publishedAt.compareTo(a.publishedAt));
     if (items.isEmpty && general?.warning != null &&
         batches.skip(1).every((batch) => batch == null)) {
       throw const HttpException('Fonti eventi non raggiungibili');
@@ -263,16 +275,10 @@ class DidYouKnowService {
         ...base.queryParameters,
         'search': search,
         'per_page': '30',
-        'after': _clock().toUtc().subtract(const Duration(days: 30)).toIso8601String(),
+        'after': _clock().toUtc().subtract(const Duration(days: 90)).toIso8601String(),
       });
-      final req = await client.getUrl(uri);
-      req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7');
-      final res = await req.close().timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) {
-        if (search != null) throw HttpException('Fonte eventi: ${res.statusCode}');
-        return const [];
-      }
-      final rows = jsonDecode(await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 10))) as List;
+      final raw = await _text(uri, proxy: search == null ? null : Uri.parse('$communityUrl/api/news?source=mountainblog&search=${Uri.encodeQueryComponent(search)}'));
+      final rows = jsonDecode(raw) as List;
       return rows
           .map((raw) {
             final row = Map<String, dynamic>.from(raw as Map);
@@ -303,24 +309,54 @@ class DidYouKnowService {
     }
   }
 
-  Future<List<DidYouKnowItem>> _mountainRss() async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
-    try {
-      final req = await client.getUrl(Uri.parse('https://www.mountainblog.it/feed/?wt=${DateTime.now().millisecondsSinceEpoch}'));
-      req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7.19');
-      req.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
-      final res = await req.close().timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) return [];
-      final xml = XmlDocument.parse(await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 10)));
-      return xml.findAllElements('item').take(12).map((item) {
-        String field(String key) => item.getElement(key)?.innerText ?? '';
-        DateTime date;
-        try { date = HttpDate.parse(field('pubDate')); } catch (_) { date = DateTime.fromMillisecondsSinceEpoch(0); }
-        final title = _stripHtml(field('title'));
-        final body = _stripHtml(field('description'));
-        return DidYouKnowItem(id:'mountainblog-rss-${field('guid')}',category:_categoryFor(title),title:title,body:body,asset:_assetFor(title),source:'MountainBlog',publishedAt:date,link:field('link'),isLive:true);
-      }).where((e) => e.title.isNotEmpty).toList();
-    } finally { client.close(force:true); }
+  Future<String> _text(Uri uri, {Uri? proxy}) async {
+    for (final target in [uri, if (proxy != null) proxy]) {
+      final client = HttpClient()..connectionTimeout = const Duration(seconds:3);
+      try {
+        return await (() async {
+          final request = await client.getUrl(target);
+          request.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7.23 (+https://github.com/canta80-ship-it/wildtrack)');
+          request.headers.set(HttpHeaders.acceptHeader, 'application/rss+xml,application/xml,application/json,text/html');
+          request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+          final response = await request.close();
+          if (response.statusCode != 200) throw HttpException('Fonte: ${response.statusCode}');
+          final bytes = <int>[];
+          await for (final chunk in response) {
+            bytes.addAll(chunk);
+            if (bytes.length > 1500000) throw const FormatException('Feed troppo grande');
+          }
+          return utf8.decode(bytes);
+        })().timeout(const Duration(seconds:6));
+      } catch (_) {
+        if (target == proxy || proxy == null) rethrow;
+      } finally { client.close(force:true); }
+    }
+    throw const HttpException('Fonte non raggiungibile');
+  }
+
+  static const rssSources = {
+    'mountainblog': ('https://www.mountainblog.it/feed/', 'MountainBlog'),
+    'montagna': ('https://www.montagna.tv/feed/', 'Montagna.TV'),
+    'cai': ('https://www.cai.it/feed/', 'CAI'),
+  };
+  Future<List<DidYouKnowItem>> _rss(String source) async {
+    final config = rssSources[source]!;
+    final text = await _text(Uri.parse(config.$1), proxy:Uri.parse('$communityUrl/api/news?source=$source'));
+    return parseRss(text, source, config.$2);
+  }
+
+  List<DidYouKnowItem> parseRss(String text, String source, String label) {
+    final xml = XmlDocument.parse(text);
+    return xml.findAllElements('item').take(50).map((item) {
+      String field(String key) => item.getElement(key)?.innerText ?? '';
+      DateTime at;
+      try { at = HttpDate.parse(field('pubDate')); } catch (_) { at=DateTime.fromMillisecondsSinceEpoch(0); }
+      final title = _stripHtml(field('title'));
+      final body = _stripHtml(field('description'));
+      final categories = item.findElements('category').map((e)=>e.innerText).join(' ');
+      final context = '$title $body $categories';
+      return DidYouKnowItem(id:'$source-${field('guid')}',category:_categoryFor(context),title:title,body:body.length>220?'${body.substring(0,217)}…':body,asset:_assetFor(context),source:label,publishedAt:at,link:field('link'),isLive:true);
+    }).where((item)=>item.title.isNotEmpty && Uri.tryParse(item.link ?? '')?.scheme=='https').toList();
   }
 
   Future<List<DidYouKnowItem>> _parksNews() async {
@@ -501,7 +537,7 @@ class DidYouKnowService {
 
   String _categoryFor(String text) {
     final t = text.toLowerCase();
-    if (RegExp(r'fiera|festival|evento|mostra|expo|raduno|convegno')
+    if (RegExp(r'fiera|festival|evento|mostra|expo|raduno|convegno|rassegna|proiezione|incontro')
         .hasMatch(t))
       return 'EVENTI';
     if (RegExp(r'ferrat').hasMatch(t)) return 'FERRATE';

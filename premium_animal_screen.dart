@@ -19,7 +19,7 @@ class PremiumAnimalScreen extends StatelessWidget {
   String get heroAsset => '${detail.newArtwork ? 'assets/radar_species' : 'assets/approved'}/${detail.asset}_hero.jpg';
   String get footprintType => switch (animal.name) {
     'Volpe' || 'Lupo' || 'Sciacallo dorato' => 'canide',
-    'Orso bruno' || 'Tasso' || 'Ermellino' => 'cinque_dita',
+    'Riccio' || 'Orso bruno' || 'Tasso' || 'Ermellino' => 'cinque_dita',
     'Marmotta' || 'Scoiattolo' || 'Lepre' => 'roditore',
     'Germano reale' => 'palmata',
     'Picchio nero' || 'Allocco' || 'Gufo reale' || 'Barbagianni' || 'Assiolo' => 'due_due',

@@ -1,7 +1,7 @@
 name: wildtrack_mvp
 description: MVP outdoor per trekking, tracce GPS e avvistamenti fauna.
 publish_to: 'none'
-version: 0.7.22+29
+version: 0.7.23+30
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

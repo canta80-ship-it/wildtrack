@@ -1,9 +1,30 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wildtrack_mvp/services/did_you_know_service.dart';
 
 void main() {
+  test('Failed and hanging news sources do not discard a healthy source', () async {
+    final item=DidYouKnowItem(id:'ok',category:'EVENTI',title:'Festival montagna',body:'',asset:'',source:'healthy',publishedAt:DateTime.now(),isLive:true);
+    final rows=await DidYouKnowService.collectSources([
+      () async => [item],
+      () async => throw const SocketException('offline'),
+      () => Completer<List<DidYouKnowItem>>().future,
+    ],timeout:const Duration(milliseconds:20));
+    expect(rows.expand((batch)=>batch).map((e)=>e.id),['ok']);
+  });
+
+  test('RSS sources parse titles, category context and publication dates independently', () {
+    final service = DidYouKnowService();
+    final items = service.parseRss('<rss><channel><item><guid>1</guid><title>Mostra fotografica delle Dolomiti</title><description>Incontro dedicato alla montagna</description><link>https://example.org/evento</link><pubDate>Tue, 06 Oct 2026 08:00:00 GMT</pubDate><category>Eventi</category></item></channel></rss>', 'test', 'Fonte test');
+    expect(items.single.source,'Fonte test');
+    expect(items.single.category,'EVENTI');
+    expect(DidYouKnowService.mountainEvents(items),hasLength(1));
+    expect(items.single.publishedAt,DateTime.utc(2026,10,6,8));
+    expect(() => service.parseRss('not xml','broken','Fonte'),throwsA(isA<Exception>()));
+  });
+
   test('Community events require both an event and a mountain topic', () {
     DidYouKnowItem item(String title, String body, {bool live = true}) =>
         DidYouKnowItem(id: title, category: 'FOTOGRAFIA', title: title,

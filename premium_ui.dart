@@ -280,7 +280,7 @@ class WildAnimalIllustration extends StatelessWidget {
       'barbagianni': 'barbagianni',
       'ghiandaia': 'ghiandaia',
     };
-    const newAssets = <String,String>{'lince':'lince','tritone':'tritone','rospo':'rospo','salamandra':'salamandra','lepre':'lepre','scoiattolo':'scoiattolo','upupa':'upupa','gheppio':'gheppio','assiolo':'assiolo','nibbio reale':'nibbio_reale','nibbio bruno':'nibbio_bruno'};
+    const newAssets = <String,String>{'riccio':'riccio','gallo cedrone':'gallo_cedrone','gallo forcello':'gallo_forcello','lince':'lince','tritone':'tritone','rospo':'rospo','salamandra':'salamandra','lepre':'lepre','scoiattolo':'scoiattolo','upupa':'upupa','gheppio':'gheppio','assiolo':'assiolo','nibbio reale':'nibbio_reale','nibbio bruno':'nibbio_bruno'};
     final imageAsset =
         newAssets[n] != null ? '${newAssets[n]}_hero.jpg' : asset ?? (otherAssets[n] == null ? null : '${otherAssets[n]}_hero.jpg');
     return ClipRRect(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'community_edit_photo_widget.dart';
 import 'community_photo_widget.dart';
 import 'profile_avatar_widget.dart';
@@ -442,11 +443,28 @@ class _Events extends StatefulWidget {
   State<_Events> createState() => _EventsState();
 }
 
-class _EventsState extends State<_Events> {
+class _EventsState extends State<_Events> with WidgetsBindingObserver {
+  Timer? timer;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    timer = Timer.periodic(const Duration(minutes:10), (_) => _refresh());
+  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+  @override
+  void dispose() {
+    timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
   late Future<DidYouKnowFeed> feed = _load();
   Future<DidYouKnowFeed> _load({bool force = false}) =>
-      DidYouKnowService.instance.loadEvents(force: force)
-          .timeout(const Duration(seconds: 30));
+      DidYouKnowService.instance.loadEvents(force: true)
+          .timeout(const Duration(seconds: 20));
 
   void _refresh() => setState(() => feed = _load(force: true));
 

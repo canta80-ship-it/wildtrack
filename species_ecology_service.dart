@@ -7,6 +7,9 @@ class SpeciesEcology {
  bool outside(double altitude)=>minimum!=null&&altitude<minimum! || maximum!=null&&altitude>maximum!;
 }
 const speciesEcology=<String,SpeciesEcology>{
+"Riccio": SpeciesEcology("Siepi, margini boschivi, prati, giardini e parchi con vegetazione e passaggi fra aree verdi.","https://parcoabruzzo.it/fauna.schede.dettaglio.php?id=291","Pianura e collina; conta la continuità degli spazi verdi"),
+"Gallo cedrone": SpeciesEcology("Foreste montane mature e strutturate di Alpi e Prealpi, con radure e sottobosco; la presenza è localizzata.","https://www.lipu.it/uccelli/conoscerli-proteggerli/gallo-cedrone","Fascia montana tipica, non limite assoluto",minimum:700,maximum:2200),
+"Gallo forcello": SpeciesEcology("Mosaico alpino al limite del bosco: arbusti, radure, prati e alberi sparsi, in zone poco disturbate.","https://www.lipu.it/uccelli/conoscerli-proteggerli/fagiano-monte","Fascia montana tipica, non limite assoluto",minimum:700,maximum:2900),
 "Lince": SpeciesEcology("Boschi con copertura vegetale e versanti rocciosi","https://www.kora.ch/en/species/lynx/profile","Nessun intervallo altitudinale universale nella fonte"),
 "Tritone": SpeciesEcology("Stagni e pozze, anche in boschi e giardini; rifugi terrestri umidi","https://www.infofauna.ch/it/servizio-di-consulenza/anfibi-karch/gli-anfibi/specie/tritone-alpino","Presente sia in pianura sia in montagna; la quota non sostituisce uno stagno"),
 "Rospo": SpeciesEcology("Boschi, giardini e ambienti aperti; laghi e stagni per riprodursi","https://www.infofauna.ch/it/servizio-di-consulenza/anfibi-karch/gli-anfibi/specie/rospo-comune","Quota variabile; contano rifugi terrestri e acqua riproduttiva"),

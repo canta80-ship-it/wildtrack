@@ -25,7 +25,10 @@ class RadarHabitatService {
       if(['river','stream','canal'].contains(t['waterway'])) { result.add('water'); if(t['waterway']!='canal')result.add(t['waterway'] as String); }
       if(['bare_rock','scree','cliff'].contains(n))result.add('rock');
       if(['farmland','orchard','vineyard'].contains(l))result.add('farmland');
-      if(['residential','commercial','industrial','retail','institutional','education','garages','construction','brownfield'].contains(l))result.add('urban');
+      if(['residential','commercial','industrial','retail','institutional','education','garages','construction','brownfield'].contains(l)) {
+        result.add('urban');
+        if(_contains(e,p)) result.add('urban_core');
+      }
       if(t['leisure']=='park')result.add('park');
     }
     return result;
@@ -58,6 +61,20 @@ class RadarHabitatService {
       final t=(-(a.$1*dx+a.$2*dy)/length).clamp(0.0,1.0);
       final x=a.$1+t*dx,y=a.$2+t*dy;
       if(math.sqrt(x*x+y*y)<=radius)return true;
+    }
+    return false;
+  }
+  static bool _contains(Map<String,dynamic> e, Position p) {
+    if(e['type']=='area')return true;
+    if(e['type']=='way')return _inside(_geometry(e['geometry'],p));
+    if(e['type']=='relation') {
+      var outer=false,inner=false;
+      for(final m in e['members'] as List? ?? const []) {
+        if(m is! Map)continue;
+        final inside=_inside(_geometry(m['geometry'],p));
+        if(m['role']=='inner')inner=inner||inside;else outer=outer||inside;
+      }
+      return outer&&!inner;
     }
     return false;
   }

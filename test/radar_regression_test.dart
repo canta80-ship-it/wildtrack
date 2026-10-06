@@ -18,9 +18,19 @@ Position position(DateTime now,{double latitude=46,double altitude=500,double ac
 Sighting sighting(String species,DateTime now,{double latitude=46,String kind='Animale'})=>Sighting(id:'$species:$now',species:species,count:1,notes:'',latitude:latitude,longitude:13,timestamp:now,kind:kind);
 const habitat=HabitatContext(primary:'mosaic',tags:{'forest','meadow','farmland','park','water','wetland'},elevation:500,mapped:true);
 void main(){
+ test('Public Community records are used and private or invalid records never enter evidence', () {
+   final at=DateTime.utc(2026,10,6).toIso8601String();
+   final rows=[
+     {'id':'public','species':'Volpe','lat':46,'lng':13,'observedAt':at},
+     {'id':'private','species':'Volpe','lat':46,'lng':13,'observedAt':at,'groupId':'private'},
+     {'id':'invalid','species':'Volpe','lat':double.nan,'lng':13,'observedAt':at},
+   ];
+   expect(WildTrackIntelligenceService.communityEvidence(rows).map((e)=>e.id),['community:public']);
+ });
+
  TestWidgetsFlutterBinding.ensureInitialized();
  final engine=WildTrackIntelligenceService.instance;
- test('All 35 catalogue species have forecast profiles, complete new cards and distinct assets',()async{
+ test('All catalogue species have forecast profiles, complete new cards and distinct assets',()async{
   expect(radarProfiles.keys.toSet(),animals.map((a)=>a.name).toSet());
   expect(speciesDetails.keys.toSet(),radarProfiles.keys.toSet());
   for(final d in speciesDetails.values.where((d)=>d.newArtwork)){
@@ -44,7 +54,7 @@ void main(){
    expect(s.hasPosition,false);expect(s.species,isEmpty);expect(s.weather.temperature,isNull);
   }
  });
- test('Deer requires records within five km; urban parks generate no predictions',(){
+ test('Deer requires records within five km; urban cores retain adapted species',(){
   final now=DateTime.utc(2026,10,3,11);
   final without=engine.evaluate(now:now,position:position(now),habitat:habitat);
   expect(without.species.where((s)=>s.name=='Cervo'),isEmpty);
@@ -52,14 +62,16 @@ void main(){
   expect(distant.species.where((s)=>s.name=='Cervo'),isEmpty);
   final nearby=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('nearby','Cervo',46.01,13,now.subtract(const Duration(days:1)),'GBIF')]);
   expect(nearby.species.any((s)=>s.name=='Cervo'),true);
-  final urban=engine.evaluate(now:now,position:position(now),habitat:const HabitatContext(primary:'mosaic',tags:{'forest','park','urban'},elevation:100,mapped:true),history:[sighting('Cervo',now.subtract(const Duration(days:1)))]);
-  expect(urban.species,isEmpty); expect(urban.listening,isEmpty);
+  final urban=engine.evaluate(now:now,position:position(now),habitat:const HabitatContext(primary:'mosaic',tags:{'forest','park','urban','urban_core'},elevation:100,mapped:true),history:[sighting('Cervo',now.subtract(const Duration(days:1)))]);
+  expect(urban.species.any((s)=>s.name=='Cervo'),false);
+  expect(urban.species.any((s)=>s.name=='Scoiattolo'),true);
  });
- test('Every species needs a nearby record; remote records never support local predictions',(){
+ test('Common species use ecology; nearby reports improve evidence without treating distant records as local',(){
   final now=DateTime.utc(2026,10,3,11);
   for (final name in ['Capriolo','Volpe','Poiana','Gheppio']) {
     final distant=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('far-$name',name,46.1,13,now.subtract(const Duration(days:1)),'GBIF')]);
-    expect(distant.species,isEmpty);
+    final fallback=distant.species.firstWhere((s)=>s.name==name);
+    expect(fallback.presenceSupported,false);
     final nearby=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('near-$name',name,46.01,13,now.subtract(const Duration(days:1)),'GBIF')]);
     expect(nearby.species.any((s)=>s.name==name),true);
   }
@@ -93,7 +105,8 @@ void main(){
  test('Regional evidence is positive support; missing records are not species absence',(){
   final now=DateTime.utc(2026,10,3,11);
   final plain=engine.evaluate(now:now,position:position(now),habitat:habitat);
-  expect(plain.species,isEmpty);
+  expect(plain.species.any((s)=>s.name=='Gheppio'),true);
+  expect(plain.species.every((s)=>!s.presenceSupported),true);
   final withEvidence=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('gbif:1','Gheppio',46,13,now.subtract(const Duration(days:2)),'GBIF')]);
   expect(withEvidence.species.firstWhere((s)=>s.name=='Gheppio').presenceSupported,true);
   expect(withEvidence.species.firstWhere((s)=>s.name=='Gheppio').score,greaterThanOrEqualTo(20));

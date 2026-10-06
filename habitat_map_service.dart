@@ -3,20 +3,23 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 import 'preferences_service.dart';
+import 'radar_profile_service.dart';
 
 class HabitatPatch {
-  const HabitatPatch(this.id, this.kind, this.name, this.points, this.holes);
+  const HabitatPatch(this.id, this.kind, this.name, this.points, this.holes, {this.urban = false, this.urbanCore = false});
   final String id, kind, name;
+  final bool urban, urbanCore;
   final List<LatLng> points;
   final List<List<LatLng>> holes;
-  Map<String, dynamic> toJson() => {'id': id, 'kind': kind, 'name': name, 'points': points.map((p) => [p.latitude, p.longitude]).toList(), 'holes': holes.map((ring) => ring.map((p) => [p.latitude, p.longitude]).toList()).toList()};
+  Map<String, dynamic> toJson() => {'id': id, 'urban': urban, 'urbanCore': urbanCore, 'kind': kind, 'name': name, 'points': points.map((p) => [p.latitude, p.longitude]).toList(), 'holes': holes.map((ring) => ring.map((p) => [p.latitude, p.longitude]).toList()).toList()};
 }
 
 class HabitatMapService {
   static final instance = HabitatMapService();
   static const profiles = <String, Set<String>>{
+ 'Riccio': {'forest','grass','farmland','park','scrub'}, 'Gallo cedrone': {'forest'}, 'Gallo forcello': {'forest','grass','scrub'},
  'Lince': {'forest','rock'}, 'Tritone': {'water','wetland','forest'}, 'Rospo': {'forest','water','wetland','park'}, 'Salamandra': {'forest','water'},
-    'Cervo': {'forest','grass'}, 'Capriolo': {'forest','grass','farmland'}, 'Volpe': {'forest','grass','farmland','scrub'},
+    'Cervo': {'forest','grass'}, 'Capriolo': {'forest','grass','farmland'}, 'Volpe': {'forest','grass','farmland','scrub','park'},
     'Camoscio alpino': {'rock','grass','forest'}, 'Stambecco': {'rock','grass'}, 'Cinghiale': {'forest','scrub','farmland'},
     'Aquila reale': {'rock','grass'}, 'Grifone': {'rock','grass'}, 'Poiana': {'forest','grass','farmland'},
     'Allocco': {'forest','park'}, 'Picchio nero': {'forest'}, 'Airone cenerino': {'water','wetland'}, 'Germano reale': {'water','wetland'},
@@ -151,19 +154,19 @@ class HabitatMapService {
         holes=_rings(members.where((m) => m['role']=='inner').map((m) => _coordinates(m['geometry'])).toList());
       }
       for(var i=0;i<outers.length;i++) {
-        // Conservatively omit the complete patch if it overlaps built-up land.
-        // Do not draw a green outline suggesting animals in an urban park.
-        if (urbanRings.any((urban) => _overlaps(outers[i], urban))) continue;
+        final urban = urbanRings.any((ring) => _overlaps(outers[i], ring));
+        final core = urbanRings.any((ring) => outers[i].every((point) => _inside(point, ring)));
+        if (species != '__radar__' && core && !(radarProfiles[species]?.urbanGreen ?? false)) continue;
         final signature = outers[i].map((p) => '${p.latitude.toStringAsFixed(7)},${p.longitude.toStringAsFixed(7)}').toSet().toList()..sort();
         if (!seen.add('$kind:${signature.join(';')}')) continue;
-        out.add(HabitatPatch('${raw['type']}-${raw['id']}-$i',kind,'${tags['name'] ?? labels[kind]}',outers[i],holes.where((h) => _inside(h.first,outers[i])).toList()));
+        out.add(HabitatPatch('${raw['type']}-${raw['id']}-$i',kind,'${tags['name'] ?? labels[kind]}',outers[i],holes.where((h) => _inside(h.first,outers[i])).toList(),urban:urban,urbanCore:core));
       }
       if(out.length>=400) break;
     }
     return out;
   }
   Future<List<HabitatPatch>> load(String species, LatLng center, {double radiusKm = 5, bool forceRefresh = false}) async {
-    final key='urban_v2_${species.replaceAll(RegExp('[^a-zA-Z0-9]'),'_')}_${center.latitude.toStringAsFixed(4)}_${center.longitude.toStringAsFixed(4)}_$radiusKm';
+    final key='ecology_v3_${species.replaceAll(RegExp('[^a-zA-Z0-9]'),'_')}_${center.latitude.toStringAsFixed(4)}_${center.longitude.toStringAsFixed(4)}_$radiusKm';
     final file=File('${PreferencesService.instance.file.parent.path}/wildtrack_habitat_$key.json');
     if (!forceRefresh && await file.exists() && DateTime.now().difference((await file.stat()).modified) < const Duration(hours: 1)) {
       try { return parse(jsonDecode(await file.readAsString()) as Map<String,dynamic>, species); } catch (_) {}

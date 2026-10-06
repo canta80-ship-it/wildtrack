@@ -97,7 +97,12 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
 
   List<Map<String,dynamic>> get _radarObserved => radarCenter == null ? [] : RadarMapService.observations(radarObservations, radarCenter!, radarRadius, DateTime.now(), species: radarSpecies);
   List<HabitatPatch> get _routePatches => radarRoute == null ? radarPatches : (matchedRoutePatches ??= radarPatches.where((p) => RadarMapService.onRoute(p, radarRoute!.segments)).toList());
-  List<RadarPossibleSpecies> get _radarPossible => RadarMapService.possible(_routePatches, _radarObserved, DateTime.now(), species: radarSpecies);
+  List<RadarPossibleSpecies> get _radarPossible => RadarMapService.possible(_routePatches, radarObservations.where((row) {
+    final point = RadarMapService.observationPoint(row);
+    final at = DateTime.tryParse('${row["observedAt"]}');
+    final age = at == null ? null : DateTime.now().difference(at);
+    return row["groupId"] == null && point != null && age != null && age >= Duration.zero && age <= const Duration(days: 365) && radarCenter != null && RadarMapService.distance.as(LengthUnit.Kilometer, radarCenter!, point) <= radarRadius;
+  }).toList(), DateTime.now(), species: radarSpecies);
 
   void _changeFilter(int value) {
     setState(() => filter = value);

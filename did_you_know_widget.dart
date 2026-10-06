@@ -31,7 +31,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
     current = _localFeed();
     WidgetsBinding.instance.addObserver(this);
     refreshTimer = Timer.periodic(
-      DidYouKnowService.refreshInterval,
+      const Duration(minutes: 10),
       (_) => _refresh(silent: true),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(silent: true));
@@ -101,7 +101,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
         if (!silent) warning = null;
       });
     try {
-      final next = await (widget.loader?.call(!silent) ?? DidYouKnowService.instance.load(force: !silent)).timeout(const Duration(seconds: 30));
+      final next = await (widget.loader?.call(!silent) ?? DidYouKnowService.instance.load(force: true)).timeout(const Duration(seconds: 20));
       String signature(List<DidYouKnowItem> items) { final keys = items.map((e) => '${e.id}:${e.publishedAt}:${e.title}:${e.body}').toList()..sort(); return keys.join('|'); }
       final changed = signature(next.items) != signature(current.items);
       if (!silent) manualTurn++;

@@ -40,12 +40,13 @@ class RadarMapService {
       if (profile.dormant.contains(now.month) || (profile.months.isNotEmpty && !profile.months.contains(now.month))) continue;
       final count = observations.where((s) => s['species'] == entry.key).length;
       // Habitat alone cannot establish the local range of these species.
-      if (count == 0) continue;
+      if (count == 0 && !profile.common) continue;
       final matches = patches.where((p) {
         final kind = p.kind == 'grass' ? 'meadow' : p.kind;
         // Generic water polygons do not establish breeding ponds.
         if (entry.key == 'Tritone' && kind == 'water') return false;
-        if (!observations.any((row) {
+        if (p.urbanCore && !profile.urbanGreen) return false;
+        if (!profile.common && !observations.any((row) {
           if (row['species'] != entry.key) return false;
           final point = observationPoint(row);
           if (point == null) return false;

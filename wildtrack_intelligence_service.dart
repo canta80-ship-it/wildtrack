@@ -11,7 +11,7 @@ import '../models/sighting.dart';
 import '../models/track_session.dart';
 import 'database_service.dart';
 import 'package:flutter/services.dart';
-import 'community_service.dart' show communityUrl;
+import 'community_service.dart';
 import 'solar_context_service.dart';
 import 'radar_profile_service.dart';
 import 'radar_survey_service.dart';
@@ -194,13 +194,13 @@ class WildTrackIntelligenceService {
     final sun = SolarContext.at(now,pos.latitude,pos.longitude);
     final visual = <SpeciesForecast>[], listening = <SpeciesForecast>[];
     for (final entry in radarProfiles.entries) {
-      // Urban green space must not generate wildlife encounter predictions.
-      if (habitat.tags.contains('urban')) continue;
+      final green = habitat.tags.any({'forest','park','meadow','farmland','scrub','water','wetland'}.contains);
+      if (habitat.tags.contains('urban_core') && (!green || !entry.value.urbanGreen)) continue;
       final result = _forecast(entry.key,entry.value,now,pos,weather,habitat,history,evidence,surveys,sun);
-      if (!result.presenceSupported) continue;
+      if (!result.presenceSupported && !entry.value.common) continue;
       if (result.score >= 20 && (!sun.dark || entry.value.cycle != 'diurnal')) visual.add(result);
-      if (entry.value.audible && sun.dark && entry.value.cycle == 'nocturnal' && result.presenceSupported && result.score >= 20) {
-        listening.add(SpeciesForecast(name:result.name,score:math.min(80,result.score+25),confidence:result.confidence,reason:'Ascolto passivo: attività notturna; ${result.reason}',bestWindow:'Dopo il tramonto, senza playback',presenceSupported:true,quality:result.quality));
+      if (entry.value.audible && sun.dark && entry.value.cycle == 'nocturnal' && (result.presenceSupported || entry.value.common) && result.score >= 20) {
+        listening.add(SpeciesForecast(name:result.name,score:math.min(80,result.score+25),confidence:result.confidence,reason:'Ascolto passivo: attività notturna; ${result.reason}',bestWindow:'Dopo il tramonto, senza playback',presenceSupported:result.presenceSupported,quality:result.quality));
       }
     }
     visual.sort((a,b)=>b.score.compareTo(a.score));
@@ -264,7 +264,7 @@ class WildTrackIntelligenceService {
     }
     final supported = recentCount>0 || recentRemote>0;
     if (supported) {qualityPoints++; score+=math.min(12,weightedHistory*3+math.min(6,recentRemote*1.5)); reasons.add('${sources.join(' + ')}: segnalazioni recenti nella zona');}
-    else {score=math.min(score,48.0); reasons.add('presenza locale non confermata dai dati disponibili');}
+    else {score=math.min(score,p.common?55.0:24.0); reasons.add(p.common?'specie diffusa: habitat compatibile, presenza da verificare':'presenza locale non confermata dai dati disponibili');}
     // Regional records are positive evidence, never a complete range map.
     // Strict exclusion is reserved for explicit geographical incompatibility.
     if (p.alpine && pos.latitude<44 && !supported) score=0;
@@ -327,7 +327,7 @@ class WildTrackIntelligenceService {
   }
   Future<List<RadarEvidence>> _regionalEvidence(Position p) async {
     final key='${(p.latitude*10).floor()}:${(p.longitude*10).floor()}', now=DateTime.now(), cached=_evidenceCache['${(p.latitude*10).floor()}:${(p.longitude*10).floor()}'];
-    if(cached!=null && now.difference(cached.$1)<const Duration(hours:6))return cached.$2;
+    if(cached!=null && now.difference(cached.$1)<const Duration(hours:1))return [...cached.$2.where((e)=>!e.id.startsWith('community:')), ...communityEvidence(CommunityService.instance.sightings)];
     final out=<RadarEvidence>[];
     try {
       final bundled=jsonDecode(await rootBundle.loadString('nature_assets.json')) as Map;
@@ -345,15 +345,28 @@ class WildTrackIntelligenceService {
     }catch(_){}
     // Community is read-only: no presence publication and no private map access.
     try {
-      final data=await _json(Uri.parse('$communityUrl/api/sightings'));
+      final data=await CommunityService.instance.api('sightings').timeout(const Duration(seconds: 10));
       for(final raw in (data['items'] as List? ?? const []).take(300)) {
+        if(raw is! Map || raw['groupId'] != null) continue;
         final e=raw as Map, name='${e['species']}', at=DateTime.tryParse('${e['observedAt'] ?? e['timestamp'] ?? e['observed_at'] ?? ''}');
         final lat=e['lat']??e['latitude'], lon=e['lng']??e['longitude'];
         if(!radarProfiles.containsKey(name)||at==null||lat is!num||lon is!num)continue;
         out.add(RadarEvidence('community:${e['id']}',name,lat.toDouble(),lon.toDouble(),at,'Community (non verificata)'));
       }
     }catch(_){}
+    out.addAll(communityEvidence(CommunityService.instance.sightings));
     if(out.isNotEmpty){_evidenceCache[key]=(now,out);if(_evidenceCache.length>20)_evidenceCache.remove(_evidenceCache.keys.first);}return out;
+  }
+
+  static List<RadarEvidence> communityEvidence(Iterable<Map<String,dynamic>> rows) {
+    final out = <RadarEvidence>[];
+    for (final row in rows) {
+      final at = DateTime.tryParse('${row['observedAt']}');
+      final lat = row['lat'], lng = row['lng'];
+      if (row['groupId'] != null || at == null || lat is! num || lng is! num || !lat.isFinite || !lng.isFinite || lat.abs()>90 || lng.abs()>180 || !radarProfiles.containsKey(row['species'])) continue;
+      out.add(RadarEvidence('community:${row['id']}',row['species'] as String,lat.toDouble(),lng.toDouble(),at,'Community (non verificata)'));
+    }
+    return out;
   }
 
   BiodiversityReport biodiversity(List<Sighting> sightings, List<TrackSession> sessions) {
