@@ -1,16 +1,22 @@
 name: Build WildTrack APK
 on:
   push:
-    branches: [main, next-release]
+    branches: [map-space-urban-filter, chat-gpx-0-7-21, main, next-release, interface-reference, radar-0-7-12, profiles-0-7-16, community-photo-0-7-16, recovery-0-7-16]
+    paths-ignore: [.github/workflows/community-upgrade.yml, tool/community_upgrade_check.py]
   workflow_dispatch:
+concurrency:
+  group: wildtrack-apk-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: bfa0f98a3cf7d62bf64acd964c79b4d7e5b568aa
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -20,21 +26,12 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: wildtrack-preview-signing-v1
-      - name: Ensure stable preview signing key
+      - name: Verify original update signing key
         run: |
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore ~/.android/debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=WildTrack Preview,OU=WildTrack,O=WildTrack,L=Udine,ST=Friuli-Venezia Giulia,C=IT"
-          fi
-          keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep -E 'SHA256:|Owner:' || true
+          test -f ~/.android/debug.keystore || { echo 'Original signing key missing. Refusing to create an incompatible APK.'; exit 1; }
+          EXPECTED_CERT=891acf5af65eaaff81d0a1f493d64f2b21311e9c64f2801db5ad5f015bcf42bc
+          KEY_CERT=$(keytool -exportcert -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | sha256sum | cut -d' ' -f1)
+          test "$KEY_CERT" = "$EXPECTED_CERT" || { echo 'Signing certificate differs from previously delivered APKs.'; exit 1; }
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -52,10 +49,11 @@ jobs:
           fi
           [ ! -f main.dart ] || mv main.dart lib/
           [ ! -f prepare_android.py ] || mv prepare_android.py tool/
+          python3 -m zipfile -t approved_assets.zip
           unzip -o approved_assets.zip -d assets/approved
-          find lib -name '*.dart' -type f -print0 | xargs -0 sed -i 's/Icons\.binoculars_outlined/Icons.visibility_outlined/g; s/Icons\.binoculars/Icons.visibility/g; s/Icons\.feather_outlined/Icons.article_outlined/g; s/Icons\.offline_map_outlined/Icons.map_outlined/g; s/CommunityService\.instance\.preferences\.token/""/g'
-          sed -i "1i import 'premium_animal_screen.dart';" lib/screens/species_screen.dart
-          sed -i 's/AnimalScreen(a)/PremiumAnimalScreen(a)/g' lib/screens/species_screen.dart
+          unzip -o editorial_fonts.zip -d assets/approved
+          python3 tool/verify_interface_assets.py
+          find lib -name '*.dart' -type f -print0 | xargs -0 sed -i 's/Icons\.feather_outlined/Icons.article_outlined/g; s/Icons\.offline_map_outlined/Icons.map_outlined/g'
           sed -i "/Yellowstone sound library - Grizzly Bears Roar - 001.mp3/d; /Vocalizzazione · orso bruno, registrazione nordamericana/d" lib/screens/species_screen.dart
           sed -i "1i import 'premium_explore_screen.dart';" lib/screens/home_screen.dart
           sed -i 's/const ExplorationScreen()/const PremiumExploreScreen()/g' lib/screens/home_screen.dart
@@ -70,8 +68,24 @@ jobs:
           python3 tool/prepare_android.py
       - name: Prepare verified nature data
         run: python3 prepare_nature.py
+      - name: Bundle offline verified species calls
+        run: |
+          python3 -m pip install Pillow
+          python3 tool/bundle_offline_media.py
       - run: flutter pub get
+      - name: Verify Community profiles
+        run: flutter test test/profile_regression_test.dart test/community_photo_test.dart test/recovery_flow_test.dart test/offline_community_test.dart
+      - run: flutter test test/gpx_import_test.dart test/radar_map_test.dart test/feed_refresh_test.dart test/map_feed_regression_test.dart test/photo_quality_test.dart
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Verify Radar engine and catalogue
+        run: flutter test test/radar_regression_test.dart test/home_time_test.dart test/outdoor_tools_test.dart test/community_radar_update_test.dart
+      - name: Verify responsive interface controls
+        run: flutter test test/interface_layout_test.dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WildTrack-interface-previews
+          path: build/interface-previews/*.png
+          if-no-files-found: error
       - name: Build release APK
         run: |
           flutter build apk --release \
@@ -82,7 +96,10 @@ jobs:
       - name: Verify APK signature and package
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
-          "$APKSIGNER" verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk
+          "$APKSIGNER" verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk | tee apk-signing.txt
+          EXPECTED_CERT=891acf5af65eaaff81d0a1f493d64f2b21311e9c64f2801db5ad5f015bcf42bc
+          ACTUAL_CERT=$(sed -n 's/.*certificate SHA-256 digest: //p' apk-signing.txt | head -n 1)
+          test "$EXPECTED_CERT" = "$ACTUAL_CERT"
           AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
           "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | head -n 8
       - name: Prepare APK
@@ -93,3 +110,5 @@ jobs:
           path: WildTrack-release.apk
           if-no-files-found: error
           retention-days: 30
+
+

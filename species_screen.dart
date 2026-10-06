@@ -7,6 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/preferences_service.dart';
 import 'exploration_screen.dart';
+import '../premium_ui.dart';
+import 'species_detail_screen.dart';
+import 'premium_animal_screen.dart';
 
 const prealpsSource =
     'https://www.parcoprealpigiulie.it/it/principale/territorio/fauna';
@@ -314,6 +317,62 @@ const animals = <Animal>[
     audio: 'Eichelhaeher.ogg',
     voice: 'Richiami',
   ),
+  Animal("Lepre",
+    "Lepus europaeus",
+    "Mammiferi",
+    "Lepre europea: orecchie lunghe con apice nero, arti posteriori robusti e mantello bruno. Diversa da coniglio, lepre variabile e lepre italica.",
+    "Mosaici di campi, prati e margini con siepi. La scheda tratta la lepre europea, non tutte le lepri italiane.",
+    "Può restare immobile prima di fuggire a balzi. I piccoli nascono già coperti di pelo e con occhi aperti; la madre torna ad allattarli, quindi un piccolo solo non è necessariamente abbandonato.",
+    "Erbivoro e preda di molti carnivori. Rispetta il covo, evita inseguimenti e lascia indisturbati i piccoli.",
+    "https://www.woodlandtrust.org.uk/blog/2023/03/why-do-hares-box/"),
+  Animal("Scoiattolo",
+    "Sciurus vulgaris",
+    "Mammiferi",
+    "Scoiattolo rosso o comune: coda folta, ventre chiaro e ciuffi auricolari più evidenti in inverno. Il mantello può essere anche scuro.",
+    "Boschi di conifere, latifoglie e parchi alberati. La scheda riguarda Sciurus vulgaris.",
+    "Arboricolo e agile, costruisce nidi globosi fra i rami e immagazzina semi. Resta attivo in inverno: non va in letargo. Si può fermare e agitare la coda quando è allarmato.",
+    "Il trasporto e l'interramento di semi contribuiscono alla dispersione delle piante. Evita cibo, richiami e accesso ai nidi.",
+    "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/animals/mammals/red-squirrel/"),
+  Animal("Upupa",
+    "Upupa epops",
+    "Uccelli",
+    "Cresta erettile, becco lungo e curvo, corpo color cannella e ali bianche e nere. Sessi simili.",
+    "Campagne tradizionali, prati corti, frutteti e filari con cavità.",
+    "Cerca il cibo a terra con il becco. Nidifica in cavità; i voli ripetuti con prede possono indicare un nido: non seguirli.",
+    "Consuma molti invertebrati. Conservare alberi vecchi e agricoltura con pochi pesticidi favorisce le risorse; non disturbare le cavità.",
+    "https://www.lipu.it/uccelli/conoscerli-proteggerli/upupa"),
+  Animal("Gheppio",
+    "Falco tinnunculus",
+    "Rapaci",
+    "Piccolo falco dalle ali appuntite e coda lunga. Il maschio ha capo grigio e dorso rossiccio macchiettato; femmina e giovani più barrati.",
+    "Prati, coltivi, rupi e ambienti urbani con aree aperte.",
+    "Caccia da posatoi o restando sospeso in volo, lo 'spirito santo'. È diurno; il buio non è una finestra favorevole per osservarlo cacciare.",
+    "Preda piccoli vertebrati e invertebrati. Agricoltura intensiva e pesticidi riducono le risorse; evita soste pericolose sulle strade.",
+    "https://www.lipu.it/uccelli/conoscerli-proteggerli/gheppio"),
+  Animal("Assiolo",
+    "Otus scops",
+    "Rapaci",
+    "Piccolo gufo con ciuffi auricolari, occhi giallastri e piumaggio simile alla corteccia.",
+    "Paesaggi caldi con alberi sparsi, prati, frutteti e filari.",
+    "Di giorno resta mimetizzato; di notte caccia soprattutto insetti. Il canto regolare rivela spesso la presenza prima dell'avvistamento.",
+    "Dipende da grandi insetti e cavità. Conserva alberi vecchi; niente playback, flash o torce dirette.",
+    "https://www.lipu.it/uccelli/conoscerli-proteggerli/assiolo"),
+  Animal("Nibbio reale",
+    "Milvus milvus",
+    "Rapaci",
+    "Rapace con coda rossiccia profondamente forcuta, capo chiaro e finestre bianche sotto le ali. Distinto dal nibbio bruno.",
+    "Campagne e pascoli con boschetti e grandi alberi; distribuzione italiana localizzata.",
+    "Plana e manovra con la lunga coda forcuta. Può riunirsi in dormitori; osserva dai percorsi senza avvicinarti agli alberi occupati.",
+    "Predatore opportunista e consumatore di carcasse; vulnerabile ad avvelenamento e alterazione dell'habitat.",
+    "https://www.lipu.it/uccelli/conoscerli-proteggerli/nibbio-reale"),
+  Animal("Nibbio bruno",
+    "Milvus migrans",
+    "Rapaci",
+    "Piumaggio bruno, capo un po' più chiaro e coda con forcella poco profonda. Non ha la coda rossiccia del nibbio reale.",
+    "Zone umide e corsi d'acqua con boschi vicini, anche coltivi e prati.",
+    "Veleggia con coda leggermente forcuta; può aggregarsi presso risorse alimentari. Mantieni distanza da nidi e gruppi in riposo.",
+    "Predatore opportunista e necrofago, legato anche agli ambienti acquatici. Non attirarlo con cibo o carcasse.",
+    "https://www.lipu.it/uccelli/conoscerli-proteggerli/nibbio-bruno"),
 ];
 
 Future<Map<String, dynamic>> getJson(Uri uri) async {
@@ -478,7 +537,7 @@ class _AnimalPhotoState extends State<AnimalPhoto> {
                 m.url,
                 height: 220,
                 width: double.infinity,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
                 errorBuilder: (_, e, st) => const SizedBox(
                   height: 160,
                   child: Center(child: Text('Foto non disponibile')),
@@ -546,7 +605,15 @@ class _SpeciesScreenState extends State<SpeciesScreen> {
         )
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Specie')),
+      backgroundColor: const Color(0xFFF8F5ED),
+      appBar: AppBar(
+        title: const Text(
+          'Tutte le specie',
+          style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.w800),
+        ),
+        backgroundColor: const Color(0xFFF8F5ED),
+        foregroundColor: WildColors.forest,
+      ),
       body: Column(
         children: [
           Padding(
@@ -587,13 +654,30 @@ class _SpeciesScreenState extends State<SpeciesScreen> {
                     vertical: 5,
                   ),
                   child: ListTile(
-                    leading: SpeciesIcon(a.name, size: 44),
-                    title: Text(a.name),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        '${speciesDetails[a.name]!.newArtwork ? 'assets/radar_species' : 'assets/approved'}/${speciesDetails[a.name]!.asset}_hero.jpg',
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    title: Text(
+                      a.name,
+                      style: const TextStyle(
+                        fontFamily: 'serif',
+                        fontWeight: FontWeight.w800,
+                        color: WildColors.ink,
+                      ),
+                    ),
                     subtitle: Text(a.latin),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute<void>(builder: (_) => AnimalScreen(a)),
+                      MaterialPageRoute<void>(
+                        builder: (_) => PremiumAnimalScreen(a),
+                      ),
                     ),
                   ),
                 );
@@ -1509,12 +1593,15 @@ String scatDescription(String name, String group) => switch (name) {
   'Lupo' || 'Sciacallo dorato' || 'Volpe' => 'Fatte spesso allungate, con peli, frammenti o semi secondo la dieta. Le sovrapposizioni fra canidi impediscono identificazioni certe dalla sola forma; per il lupo può servire l’analisi genetica.',
   'Tasso' => 'Può deporre le fatte in piccole buche utilizzate come latrine. Consistenza e colore dipendono dal cibo; considera l’insieme dei segni.',
   'Ermellino' => 'Piccole fatte allungate, talvolta con peli. Dimensioni e contenuto non escludono altri mustelidi.',
+  'Lepre' => 'Pellet tondeggianti e fibrosi; verifica insieme alla pista e non confondere con il coniglio.',
+  'Scoiattolo' => 'Piccoli elementi allungati; valuta pigne e noci rosicchiate e habitat.',
   'Marmotta' => 'Fatte di erbivoro con residui vegetali, spesso in punti abituali. Valuta insieme alle impronte e all’habitat.',
   'Cervo' || 'Capriolo' || 'Camoscio alpino' || 'Stambecco' => 'Pellet o gruppi di elementi vegetali; umidità e alimentazione ne modificano la forma. Non distinguere specie simili soltanto dalle dimensioni.',
   'Cinghiale' => 'Aspetto variabile, spesso aggregato o segmentato; dieta onnivora. Cerca anche grufolate, senza entrare nei rifugi.',
-  'Gufo reale' || 'Barbagianni' || 'Allocco' => 'Le borre sono rigurgiti di peli, ossa o altri resti e non escrementi. Non avvicinarti ai posatoi occupati o ai nidi.',
+  'Gufo reale' || 'Barbagianni' || 'Allocco' || 'Assiolo' => 'Le borre sono rigurgiti di peli, ossa o altri resti e non escrementi. Non avvicinarti ai posatoi occupati o ai nidi.',
   _ =>
     group == 'Mammiferi'
         ? 'Annota forma e contesto: una singola fatta non permette sempre di determinare la specie.'
         : 'Deiezioni con componente bianca di urati. Non identificare la specie soltanto da queste; anche penne e borre richiedono confronto esperto.',
 };
+

@@ -16,7 +16,11 @@ class PreferencesService extends ChangeNotifier {
   bool sightingNotifications = true;
   bool fieldSilence = false;
   String nickname = 'Esploratore';
+  String? avatarBase64;
+  String loginIdentifier = '';
   String token = '';
+  String? previousCommunityToken;
+  Set<String> favoriteSpecies = {};
 
   // Generic camera assistant profile. Brand/model are optional labels only.
   String cameraLabel = '';
@@ -41,7 +45,10 @@ class PreferencesService extends ChangeNotifier {
     await file.parent.create(recursive: true);
     try {
       final p = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      theme = ThemeMode.values.firstWhere((x) => x.name == p['theme'], orElse: () => ThemeMode.light);
+      theme = ThemeMode.values.firstWhere(
+        (x) => x.name == p['theme'],
+        orElse: () => ThemeMode.light,
+      );
       soundPanel = p['soundPanel'] == true;
       repeats = ((p['repeats'] as int?) ?? 1).clamp(1, 5);
       visible = p['visible'] == true;
@@ -50,14 +57,21 @@ class PreferencesService extends ChangeNotifier {
       sightingNotifications = p['sightingNotifications'] != false;
       fieldSilence = p['fieldSilence'] == true;
       nickname = p['nickname'] as String? ?? nickname;
+      avatarBase64 = p['avatarBase64'] as String?;
+      loginIdentifier = p['loginIdentifier'] as String? ?? '';
+      if (nickname == 'Esploratore' && loginIdentifier.trim().length >= 2) nickname = loginIdentifier.trim();
       token = p['token'] as String? ?? '';
+      favoriteSpecies = (p['favoriteSpecies'] as List? ?? const [])
+          .whereType<String>()
+          .toSet();
       cameraLabel = p['cameraLabel'] as String? ?? cameraLabel;
       cameraMode = p['cameraMode'] as String? ?? cameraMode;
       cameraShutter = p['cameraShutter'] as String? ?? cameraShutter;
       cameraAperture = p['cameraAperture'] as String? ?? cameraAperture;
       cameraAutoIso = p['cameraAutoIso'] != false;
       cameraIso = (p['cameraIso'] as num?)?.toInt() ?? cameraIso;
-      cameraAutoIsoMax = (p['cameraAutoIsoMax'] as num?)?.toInt() ?? cameraAutoIsoMax;
+      cameraAutoIsoMax =
+          (p['cameraAutoIsoMax'] as num?)?.toInt() ?? cameraAutoIsoMax;
       cameraFocus = p['cameraFocus'] as String? ?? cameraFocus;
       cameraAfArea = p['cameraAfArea'] as String? ?? cameraAfArea;
       cameraSubject = p['cameraSubject'] as String? ?? cameraSubject;
@@ -66,14 +80,72 @@ class PreferencesService extends ChangeNotifier {
       cameraRaw = p['cameraRaw'] != false;
       cameraFocalMm = (p['cameraFocalMm'] as num?)?.toInt() ?? cameraFocalMm;
     } catch (_) {}
+    // Keep Community ownership independent of mutable settings. Migrate the
+    // existing credential verbatim so previously published posts remain ours.
+    final identityFile = File('${file.parent.path}/wildtrack_identity.json');
+    if (await identityFile.exists()) {
+      final identity = jsonDecode(await identityFile.readAsString()) as Map;
+      final saved = identity['token'];
+      if (saved is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(saved)) {
+        throw StateError('Identità Community danneggiata. Ripristina il backup prima di pubblicare.');
+      }
+      token = saved;
+      final previous = identity['previousToken'];
+      if (previous is String && RegExp(r'^[a-f0-9]{64}$').hasMatch(previous)) previousCommunityToken = previous;
+    }
     if (token.isEmpty) {
       final r = Random.secure();
-      token = List.generate(32, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
-      await save();
+      token = List.generate(
+        32,
+        (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0'),
+      ).join();
+    }
+    if (!await identityFile.exists()) {
+      final temporary = File('${identityFile.path}.tmp');
+      await temporary.writeAsString(jsonEncode({'token': token}), flush: true);
+      await temporary.rename(identityFile.path);
+    }
+    await save();
+  }
+
+  Future<void> replaceCommunityIdentity(String value) async {
+    if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(value)) throw StateError('Identità di recupero non valida.');
+    if (value == token) return;
+    final old = token, oldPrevious = previousCommunityToken;
+    final identity = File('${file.parent.path}/wildtrack_identity.json');
+    final temporary = File('${identity.path}.tmp');
+    await temporary.writeAsString(jsonEncode({'token': value, 'previousToken': old}), flush: true);
+    await temporary.rename(identity.path);
+    token = value; previousCommunityToken = old;
+    try {await save();} catch (_) {
+      await temporary.writeAsString(jsonEncode({'token': old, 'previousToken': oldPrevious}), flush: true);
+      await temporary.rename(identity.path);
+      token = old; previousCommunityToken = oldPrevious; rethrow;
     }
   }
 
-  Future<void> save() async {
+  Future<void> toggleFavorite(String species) async {
+    final previous = Set<String>.from(favoriteSpecies);
+    if (!favoriteSpecies.add(species)) favoriteSpecies.remove(species);
+    notifyListeners();
+    try {
+      await save();
+    } catch (_) {
+      favoriteSpecies = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> _pendingSave = Future<void>.value();
+
+  Future<void> save() {
+    final operation = _pendingSave.then((_) => _writePreferences());
+    _pendingSave = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  Future<void> _writePreferences() async {
     final temporary = File('${file.path}.tmp');
     await temporary.writeAsString(
       jsonEncode({
@@ -86,7 +158,10 @@ class PreferencesService extends ChangeNotifier {
         'sightingNotifications': sightingNotifications,
         'fieldSilence': fieldSilence,
         'nickname': nickname,
+        'avatarBase64': avatarBase64,
+        'loginIdentifier': loginIdentifier,
         'token': token,
+        'favoriteSpecies': favoriteSpecies.toList()..sort(),
         'cameraLabel': cameraLabel,
         'cameraMode': cameraMode,
         'cameraShutter': cameraShutter,

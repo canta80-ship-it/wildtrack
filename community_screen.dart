@@ -1,3 +1,8 @@
+import 'recovery_screen.dart';
+import '../premium_ui.dart';
+import 'community_photo_widget.dart';
+import 'profile_avatar_widget.dart';
+import 'community_sighting_map_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -16,6 +21,7 @@ import 'package:uuid/uuid.dart';
 
 import '../services/community_service.dart';
 import '../services/database_service.dart';
+import '../services/media_storage_service.dart';
 import '../services/preferences_service.dart';
 import 'private_maps_screen.dart';
 import 'species_screen.dart';
@@ -176,6 +182,7 @@ Future<void> showSighting(
             '${s['species']} · ${s['count']}',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
+          Row(children: [ProfileAvatar(url: s['avatarUrl'] as String?), const SizedBox(width: 8), Expanded(child: Text('${s['authorName'] ?? 'Autore non disponibile'}', style: const TextStyle(fontWeight: FontWeight.bold, color: WildColors.forest)))]),
           Text(timeLabel(s['observedAt'])),
           Text(
             s['groupId'] == null
@@ -185,22 +192,16 @@ Future<void> showSighting(
           if (s['photo'] != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Image.network(
-                '$communityUrl/api/photo?id=${s['id']}',
-                headers: {
-                  'Authorization':
-                      'Bearer ${PreferencesService.instance.token}',
-                },
-                height: 220,
-                fit: BoxFit.contain,
-                errorBuilder: (_, e, st) => const Text('Foto non disponibile'),
-              ),
+              child: CommunityPhoto(sightingId: '${s['id']}'),
             ),
           Text(s['notes'] as String? ?? ''),
+          CommunitySightingMapButton(sighting: s),
           Text('Coordinate: ${s['lat']}, ${s['lng']}'),
           if (s['approximate'] == 1)
             const Text('Posizione approssimata a circa 1 km.'),
           const Text('Segnalazione pubblicata da un utente, non verificata.'),
+          if (s['mine'] != 1)
+            TextButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RecoveryScreen(sighting: s))), icon: const Icon(Icons.manage_accounts_outlined), label: const Text('Recupera proprietà')),
           if (s['mine'] == 1)
             TextButton.icon(
               onPressed: () async {
@@ -399,18 +400,27 @@ class _PublishScreenState extends State<PublishScreen> {
         }
       }
       final original = widget.initial;
-      if (original != null) {
-        final row = original.toMap();
-        row['species'] = species;
-        row['count'] = n;
-        row['notes'] = notes.text.trim();
-        await DatabaseService.instance.insertSighting(Sighting.fromMap(row));
+      final localId = original?.id ?? const Uuid().v4();
+      final storedPhoto = await MediaStorageService.instance.persistPhoto(photo?.path, localId);
+      final row = Sighting(
+        id: localId, species: species, count: n, notes: notes.text.trim(),
+        latitude: location!.latitude, longitude: location!.longitude,
+        timestamp: observedAt, photoPath: storedPhoto ?? original?.photoPath,
+        kind: original?.kind ?? 'Animale', accuracy: accuracy,
+        positionSource: original?.positionSource ?? 'manual',
+        publicationState: original?.publicationState ?? 'private',
+      );
+      await DatabaseService.instance.insertSighting(row);
+      if (storedPhoto != null) {
+        final previous = await DatabaseService.instance.getSightingPhotos(localId);
+        await DatabaseService.instance.replaceSightingPhotos(localId, {...previous, storedPhoto}.toList());
       }
       final p = location!;
       await CommunityService.instance.add({
         'id':
-            '${widget.initial?.id ?? const Uuid().v4()}${groupId == null ? '' : '-$groupId'}',
+            '${localId}${groupId == null ? '' : '-$groupId'}',
         'groupId': groupId,
+        'authorName': PreferencesService.instance.nickname,
         'species': species,
         'count': n,
         'notes': notes.text.trim(),
@@ -860,3 +870,4 @@ class _ChatScreenState extends State<ChatScreen> {
     ),
   );
 }
+

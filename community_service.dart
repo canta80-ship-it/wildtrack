@@ -1,3 +1,5 @@
+import 'expedition_service.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -8,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'preferences_service.dart';
 import 'database_service.dart';
 import 'location_service.dart';
+import 'media_storage_service.dart';
 import 'privacy_service.dart';
 
 const communityUrl = 'https://wildtrack-community.canta80.chatgpt.site';
@@ -26,9 +29,59 @@ class CommunityService extends ChangeNotifier {
   int presenceGeneration = 0;
   StreamSubscription<Position>? backgroundLocation;
   bool presenceBusy = false;
+  bool backupPaused = false;
+  String? _syncedProfile;
+  Future<void> syncProfile() async {
+    final p = PreferencesService.instance;
+    final signature = jsonEncode([p.token, p.nickname, p.avatarBase64]);
+    if (_syncedProfile == signature) return;
+    await api('profile', method: 'POST', body: {'nickname': p.nickname, 'avatar': p.avatarBase64});
+    _syncedProfile = signature;
+    notifyListeners();
+  }
+  Future<void> restoreCommunityIdentity({String? code, bool undo = false}) async {
+    if (backupPaused) throw StateError('Un ripristino è già in corso.');
+    if (pending.isNotEmpty) throw StateError('Invia o annulla prima gli avvistamenti in coda: appartengono all’identità attuale.');
+    final running = timer != null;
+    backupPaused = true; timer?.cancel(); timer = null;
+    try {
+      final deadline = DateTime.now().add(const Duration(seconds: 45));
+      while (syncing || presenceBusy) {
+        if (DateTime.now().isAfter(deadline)) throw StateError('Sincronizzazione in corso. Riprova tra poco.');
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      await hide();
+      final String restored;
+      Map<String, dynamic>? recoveredProfile;
+      if (undo) {
+        restored = PreferencesService.instance.previousCommunityToken ?? (throw StateError('Nessuna identità precedente disponibile.'));
+      } else {
+        final result = await api('recovery-code', method: 'POST', body: {'action': 'restore', 'code': code});
+        restored = result['token'] as String;
+        if (result['profile'] is Map) recoveredProfile = Map<String, dynamic>.from(result['profile'] as Map);
+      }
+      await PreferencesService.instance.replaceCommunityIdentity(restored);
+      final prefs = PreferencesService.instance;
+      if (recoveredProfile != null) {
+        prefs.nickname = recoveredProfile['nickname'] as String;
+        prefs.avatarBase64 = recoveredProfile['avatarBase64'] as String?;
+        await prefs.save();
+      }
+      // Preserve the restored owner's server profile; do not overwrite it with
+      // the other identity's local photo during the first refresh.
+      _syncedProfile = jsonEncode([prefs.token, prefs.nickname, prefs.avatarBase64]);
+      sightings = []; people = []; nextOffset = null;
+    } finally {
+      backupPaused = false;
+      if (running) start(refreshNow: false);
+      notifyListeners();
+    }
+    await refresh();
+  }
   Future<void> queueWrites = Future<void>.value();
 
   bool get canShare =>
+      !backupPaused &&
       PreferencesService.instance.visible &&
       (foreground ||
           (PreferencesService.instance.backgroundSharing &&
@@ -43,43 +96,49 @@ class CommunityService extends ChangeNotifier {
     }
     if (!foreground || backgroundLocation != null) return;
     if (!await LocationService.ensurePermission()) {
-      throw Exception('Autorizza la posizione per attivare la condivisione a schermo spento.');
+      throw Exception(
+        'Autorizza la posizione per attivare la condivisione a schermo spento.',
+      );
     }
-    backgroundLocation = Geolocator.getPositionStream(
-      locationSettings: AndroidSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 0,
-        intervalDuration: const Duration(seconds: 15),
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'WildTrack · posizione condivisa',
-          notificationText: 'Condivisione attiva anche a schermo spento. Apri WildTrack per disattivarla.',
-          enableWakeLock: true,
-          setOngoing: true,
-        ),
-      ),
-    ).listen(
-      (p) {
-        if (!canShare) return;
-        position = p;
-        notifyListeners();
-        unawaited(updatePresence());
-      },
-      onError: (Object e) {
-        error = 'Condivisione GPS interrotta: $e';
-        final stream = backgroundLocation;
-        backgroundLocation = null;
-        unawaited(stream?.cancel());
-        notifyListeners();
-      },
-    );
+    backgroundLocation =
+        Geolocator.getPositionStream(
+          locationSettings: AndroidSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 0,
+            intervalDuration: const Duration(seconds: 15),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: 'WildTrack · posizione condivisa',
+              notificationText: 'Condivisione attiva anche a schermo spento. Apri WildTrack per disattivarla.',
+              enableWakeLock: true,
+              setOngoing: true,
+            ),
+          ),
+        ).listen(
+          (p) {
+            if (!canShare) return;
+            position = p;
+            notifyListeners();
+            unawaited(updatePresence());
+          },
+          onError: (Object e) {
+            error = 'Condivisione GPS interrotta: $e';
+            final stream = backgroundLocation;
+            backgroundLocation = null;
+            unawaited(stream?.cancel());
+            notifyListeners();
+          },
+        );
   }
 
   Future<void> load() async {
-    queueFile = File('${PreferencesService.instance.file.parent.path}/wildtrack_outbox.json');
+    queueFile = File(
+      '${PreferencesService.instance.file.parent.path}/wildtrack_outbox.json',
+    );
     try {
       pending.addAll(
-        (jsonDecode(await queueFile.readAsString()) as List)
-            .map((x) => Map<String, dynamic>.from(x as Map)),
+        (jsonDecode(await queueFile.readAsString()) as List).map(
+          (x) => Map<String, dynamic>.from(x as Map),
+        ),
       );
     } catch (_) {}
   }
@@ -100,33 +159,46 @@ class CommunityService extends ChangeNotifier {
     String method = 'GET',
     Map<String, dynamic>? body,
   }) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10);
     try {
-      final req = await client.openUrl(method, Uri.parse('$communityUrl/api/$path'));
-      req.headers.set('Authorization', 'Bearer ${PreferencesService.instance.token}');
+      final req = await client.openUrl(
+        method,
+        Uri.parse('$communityUrl/api/$path'),
+      );
+      req.headers.set(
+        'Authorization',
+        'Bearer ${PreferencesService.instance.token}',
+      );
       req.headers.set('Accept', 'application/json');
       if (body != null) {
         req.headers.contentType = ContentType.json;
         req.write(jsonEncode(body));
       }
       final res = await req.close().timeout(const Duration(seconds: 40));
-      final text = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 40));
+      final text = await res
+          .transform(utf8.decoder)
+          .join()
+          .timeout(const Duration(seconds: 40));
       final data = jsonDecode(text) as Map<String, dynamic>;
-      if (res.statusCode >= 400) throw Exception(data['error'] ?? 'Servizio non disponibile');
+      if (res.statusCode >= 400)
+        throw Exception(data['error'] ?? 'Servizio non disponibile');
       return data;
     } finally {
       client.close(force: true);
     }
   }
 
-  void start() {
+  void start({bool refreshNow = true}) {
     timer?.cancel();
     foreground = true;
-    unawaited(configureBackgroundSharing().catchError((Object e) {
-      error = e.toString();
-      notifyListeners();
-    }));
-    unawaited(refresh());
+    unawaited(
+      configureBackgroundSharing().catchError((Object e) {
+        error = e.toString();
+        notifyListeners();
+      }),
+    );
+    if (refreshNow) unawaited(refresh());
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (foreground) {
         unawaited(refresh());
@@ -154,7 +226,8 @@ class CommunityService extends ChangeNotifier {
     try {
       await api('community', method: 'DELETE');
     } catch (_) {
-      error = 'Rimozione della posizione non confermata: scadrà entro 3 minuti.';
+      error =
+          'Rimozione della posizione non confermata: scadrà entro 3 minuti.';
       notifyListeners();
     }
   }
@@ -165,10 +238,13 @@ class CommunityService extends ChangeNotifier {
     presenceBusy = true;
     final generation = presenceGeneration;
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) throw Exception('GPS disattivato');
+      if (!await Geolocator.isLocationServiceEnabled())
+        throw Exception('GPS disattivato');
       var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
-      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
+      if (permission == LocationPermission.denied)
+        permission = await Geolocator.requestPermission();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
         throw Exception('Autorizza il GPS per condividere la posizione');
       }
       final p = backgroundLocation != null
@@ -180,19 +256,26 @@ class CommunityService extends ChangeNotifier {
               ),
             );
       if (generation != presenceGeneration || !canShare) return;
-      if (p == null || DateTime.now().difference(p.timestamp).inSeconds > 90) return;
+      if (p == null || DateTime.now().difference(p.timestamp).inSeconds > 90)
+        return;
       position = p;
-      await api('community', method: 'POST', body: {
-        'nickname': prefs.nickname,
-        'lat': p.latitude,
-        'lng': p.longitude,
-      });
+      await api(
+        'community',
+        method: 'POST',
+        body: {
+          'nickname': prefs.nickname,
+          'lat': p.latitude,
+          'lng': p.longitude,
+        },
+      );
       if (generation != presenceGeneration || !canShare) {
         await hide();
         return;
       }
       final data = await api('community');
-      people = (data['items'] as List).map((x) => Map<String, dynamic>.from(x as Map)).toList();
+      people = (data['items'] as List)
+          .map((x) => Map<String, dynamic>.from(x as Map))
+          .toList();
       notifyListeners();
     } catch (e) {
       error = 'Persone vicine: ${e.toString().replaceFirst('Exception: ', '')}';
@@ -207,9 +290,12 @@ class CommunityService extends ChangeNotifier {
     final protected = item['groupId'] == null
         ? WildlifePrivacyService.instance.protectPayload(item)
         : Map<String, dynamic>.from(item);
+    protected.putIfAbsent('authorName', () => PreferencesService.instance.nickname);
     final index = pending.indexWhere((s) => s['id'] == protected['id']);
     if (index >= 0 && syncing) {
-      throw Exception('Invio in corso. Attendi che termini prima di modificare la segnalazione.');
+      throw Exception(
+        'Invio in corso. Attendi che termini prima di modificare la segnalazione.',
+      );
     }
     final previous = index >= 0 ? pending[index] : null;
     if (index >= 0) {
@@ -227,6 +313,12 @@ class CommunityService extends ChangeNotifier {
       }
       rethrow;
     }
+    if (protected['groupId'] == null) {
+      await DatabaseService.instance.retainPublicSighting(
+        protected,
+        state: 'queued',
+      );
+    }
     error = null;
     notifyListeners();
     unawaited(refresh());
@@ -243,15 +335,19 @@ class CommunityService extends ChangeNotifier {
     DateTime? next;
     for (final item in pending) {
       final due = DateTime.tryParse('${item['publishAfter'] ?? ''}')?.toLocal();
-      if (due != null && due.isAfter(DateTime.now()) && (next == null || due.isBefore(next))) next = due;
+      if (due != null &&
+          due.isAfter(DateTime.now()) &&
+          (next == null || due.isBefore(next)))
+        next = due;
     }
     return next == null ? null : next.difference(DateTime.now());
   }
 
   Future<void> refresh({bool more = false}) async {
-    if (syncing) return;
+    if (syncing || backupPaused) return;
     syncing = true;
     try {
+      await syncProfile();
       while (pending.isNotEmpty) {
         final readyIndex = pending.indexWhere(_readyForPublication);
         if (readyIndex < 0) break;
@@ -259,13 +355,23 @@ class CommunityService extends ChangeNotifier {
         final payload = Map<String, dynamic>.from(item)..remove('publishAfter');
         await api('sightings', method: 'POST', body: payload);
         if (item['groupId'] == null) {
-          await DatabaseService.instance.deleteSighting(item['id'] as String);
+          await DatabaseService.instance.retainPublicSighting(item);
         }
         pending.removeAt(readyIndex);
-        await saveQueue();
+        try {
+          await saveQueue();
+        } catch (_) {
+          pending.insert(readyIndex, item);
+          rethrow;
+        }
       }
-      final data = await api('sightings?offset=${more ? (nextOffset ?? 0) : 0}');
-      final rows = (data['items'] as List).map((x) => Map<String, dynamic>.from(x as Map)).toList();
+      await restoreMySightings();
+      final data = await api(
+        'sightings?offset=${more ? (nextOffset ?? 0) : 0}',
+      );
+      final rows = (data['items'] as List)
+          .map((x) => Map<String, dynamic>.from(x as Map))
+          .toList();
       if (more) {
         final ids = sightings.map((x) => x['id']).toSet();
         sightings.addAll(rows.where((x) => !ids.contains(x['id'])));
@@ -274,7 +380,7 @@ class CommunityService extends ChangeNotifier {
       }
       for (final row in rows) {
         if (row['mine'] == 1 && row['groupId'] == null) {
-          await DatabaseService.instance.deleteSighting(row['id'] as String);
+          await DatabaseService.instance.retainPublicSighting(row);
         }
       }
       nextOffset = data['nextOffset'] as int?;
@@ -288,16 +394,120 @@ class CommunityService extends ChangeNotifier {
     await updatePresence();
   }
 
-  Future<void> deleteSighting(String id) async {
-    await api('sightings?id=${Uri.encodeQueryComponent(id)}', method: 'DELETE');
+  bool isMine(Map<String, dynamic> row) => row['mine'] == 1 || row['mine'] == true;
+
+  Future<void> restoreMySightings() async {
+    int? offset = 0;
+    do {
+      final data = await api('sightings?mine=1&offset=$offset');
+      for (final raw in data['items'] as List) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        if (isMine(row)) {
+          await DatabaseService.instance.retainPublicSighting(row);
+          await restorePhoto(row);
+        }
+      }
+      final next = data['nextOffset'] as int?;
+      if (next != null && next <= offset!) throw StateError('Paginazione non valida');
+      offset = next;
+    } while (offset != null);
+  }
+
+  Future<void> restorePhoto(Map<String, dynamic> row) async {
+    if (row['photo'] == null) return;
+    final id = '${row['id']}';
+    final existing = await DatabaseService.instance.getSightingPhotos(id);
+    for (final path in existing) {
+      if (await File(path).exists()) return;
+    }
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+    try {
+      final req = await client.getUrl(Uri.parse('$communityUrl/api/photo?id=${Uri.encodeQueryComponent(id)}'));
+      req.headers.set('Authorization', 'Bearer ${PreferencesService.instance.token}');
+      final response = await req.close().timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) return;
+      final bytes = <int>[];
+      await for (final chunk in response.timeout(const Duration(seconds: 20))) {
+        bytes.addAll(chunk);
+        if (bytes.length > 1000000) throw StateError('Foto troppo grande');
+      }
+      if (bytes.length < 8 || !listEquals(bytes.take(8).toList(), [137,80,78,71,13,10,26,10])) return;
+      final dir = await MediaStorageService.instance.mediaDirectory;
+      // Never use a remote identifier as a filesystem path.
+      final safe = base64Url.encode(utf8.encode(id)).replaceAll('=', '');
+      final target = File('${dir.path}/community-$safe.png');
+      final tmp = File('${target.path}.tmp');
+      await tmp.writeAsBytes(bytes, flush: true);
+      await tmp.rename(target.path);
+      await DatabaseService.instance.attachRecoveredPhoto(id, target.path);
+    } catch (_) {
+      // Keep the diary record. A later refresh retries unavailable photos.
+    } finally { client.close(force: true); }
+  }
+
+  Future<void> deleteGroup(Map<String, dynamic> group) async {
+    if (group['mine'] != 1)
+      throw Exception('Operazione riservata al proprietario');
+    if (syncing) throw Exception('Attendi la fine della sincronizzazione');
+    final id = '${group['id']}';
+    syncing = true;
+    notifyListeners();
+    try {
+      await api(
+        'maps',
+        method: 'POST',
+        body: {'action': 'delete', 'mapId': id},
+      );
+      final previous = List<Map<String, dynamic>>.from(pending);
+      pending.removeWhere((row) => row['groupId'] == id);
+      try {
+        await saveQueue();
+      } catch (_) {
+        pending
+          ..clear()
+          ..addAll(previous);
+        rethrow;
+      }
+      sightings.removeWhere((row) => row['groupId'] == id);
+      final state = await ExpeditionService.instance.get(id);
+      if (state?.positionSharing == true) await hide();
+      await ExpeditionService.instance.delete(id);
+    } finally {
+      syncing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteSighting(String id, {bool keepDiary = false}) async {
+    if (syncing) throw Exception('Attendi la fine della sincronizzazione');
+    // The server checks the authenticated owner even if no feed page is cached.
+    final cached = sightings.where((s) => s['id'] == id);
+    if (cached.isNotEmpty && !isMine(cached.first)) {
+      throw Exception('Solo il creatore può eliminare questo post.');
+    }
+    final result = await api('sightings?id=${Uri.encodeQueryComponent(id)}', method: 'DELETE');
+    if (result['deleted'] != true) throw Exception('Eliminazione non confermata');
     sightings.removeWhere((s) => s['id'] == id);
+    if (keepDiary) {
+      await DatabaseService.instance.makeSightingPrivate(id);
+    } else {
+      await DatabaseService.instance.deleteSighting(id);
+    }
     notifyListeners();
   }
 
   Future<void> cancelPending(String id) async {
     if (syncing) throw Exception('Attendi la fine della sincronizzazione');
+    final previous = List<Map<String, dynamic>>.from(pending);
     pending.removeWhere((s) => s['id'] == id);
-    await saveQueue();
+    try {
+      await saveQueue();
+    } catch (_) {
+      pending
+        ..clear()
+        ..addAll(previous);
+      rethrow;
+    }
     notifyListeners();
   }
 }

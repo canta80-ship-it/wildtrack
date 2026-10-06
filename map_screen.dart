@@ -1,3 +1,5 @@
+import '../premium_ui.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -443,7 +445,7 @@ class _MapScreenState extends State<MapScreen> {
                           child: Column(
                             children: [
                               const Icon(
-                                Icons.visibility,
+                                WildIcons.binoculars,
                                 color: Color(0xFF365626),
                               ),
                               Container(
