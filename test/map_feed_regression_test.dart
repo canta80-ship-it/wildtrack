@@ -68,7 +68,8 @@ void main() {
   });
   testWidgets('Habitat screen draws species polygons and premium green current marker', (tester) async {
     final patch=HabitatPatch('1','forest','Bosco',const [LatLng(46,12),LatLng(46.01,12),LatLng(46.01,12.01)],[]);
-    await tester.pumpWidget(MaterialApp(home: SpeciesHabitatMapScreen(animals.first, initialPosition: const LatLng(46,12), enableLocation:false, tileProvider:OfflineTiles(), loader:(_,__) async => [patch])));
+    final deer = animals.firstWhere((animal) => animal.name == 'Cervo');
+    await tester.pumpWidget(MaterialApp(home: SpeciesHabitatMapScreen(deer, initialPosition: const LatLng(46,12), enableLocation:false, tileProvider:OfflineTiles(), loader:(_,__) async => [patch])));
     await tester.pump(); await tester.pump(const Duration(milliseconds:100));
     expect(find.text('Habitat · Cervo'), findsOneWidget);
     expect(find.byKey(const ValueKey('live-position-marker')), findsOneWidget);
@@ -95,4 +96,3 @@ void main() {
     });
   }
 }
-
