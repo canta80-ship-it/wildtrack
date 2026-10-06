@@ -25,7 +25,7 @@ class RadarHabitatService {
       if(['river','stream','canal'].contains(t['waterway'])) { result.add('water'); if(t['waterway']!='canal')result.add(t['waterway'] as String); }
       if(['bare_rock','scree','cliff'].contains(n))result.add('rock');
       if(['farmland','orchard','vineyard'].contains(l))result.add('farmland');
-      if(['residential','commercial','industrial'].contains(l))result.add('urban');
+      if(['residential','commercial','industrial','retail','institutional','education','garages','construction','brownfield'].contains(l))result.add('urban');
       if(t['leisure']=='park')result.add('park');
     }
     return result;

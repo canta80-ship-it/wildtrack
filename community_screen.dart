@@ -9,8 +9,7 @@ import 'profile_avatar_widget.dart';
 import 'community_sighting_map_screen.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'dart:ui' as ui;
+import '../services/photo_processing_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -346,63 +345,7 @@ class _PublishScreenState extends State<PublishScreen> {
     try {
       String? encoded;
       if (photo != null) {
-        final bytes = await File(photo!.path).readAsBytes();
-        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-        ui.ImageDescriptor? descriptor;
-        try {
-          descriptor = await ui.ImageDescriptor.encoded(buffer);
-          final longest = descriptor.width > descriptor.height
-              ? descriptor.width
-              : descriptor.height;
-          var edge = longest.clamp(1, 1600).toInt();
-          while (encoded == null) {
-            final width = (descriptor.width * edge / longest)
-                .round()
-                .clamp(1, 1600)
-                .toInt();
-            final height = (descriptor.height * edge / longest)
-                .round()
-                .clamp(1, 1600)
-                .toInt();
-            final codec = await descriptor.instantiateCodec(
-              targetWidth: width,
-              targetHeight: height,
-            );
-            try {
-              final frame = await codec.getNextFrame();
-              try {
-                final data = await frame.image.toByteData(
-                  format: ui.ImageByteFormat.png,
-                );
-                if (data == null)
-                  throw Exception(
-                    'Impossibile elaborare questa foto. Prova un’altra immagine.',
-                  );
-                if (data.lengthInBytes <= 1000000) {
-                  encoded = base64Encode(
-                    data.buffer.asUint8List(
-                      data.offsetInBytes,
-                      data.lengthInBytes,
-                    ),
-                  );
-                }
-              } finally {
-                frame.image.dispose();
-              }
-            } finally {
-              codec.dispose();
-            }
-            if (encoded != null) break;
-            if (edge <= 256)
-              throw Exception(
-                'Impossibile preparare questa foto per la condivisione.',
-              );
-            edge = (edge * 0.8).floor().clamp(256, 1600).toInt();
-          }
-        } finally {
-          descriptor?.dispose();
-          buffer.dispose();
-        }
+        encoded = await PhotoProcessingService.encode(await photo!.readAsBytes());
       }
       final original = widget.initial;
       final localId = original?.id ?? const Uuid().v4();
@@ -522,8 +465,6 @@ class _PublishScreenState extends State<PublishScreen> {
               : () async {
                   final f = await ImagePicker().pickImage(
                     source: ImageSource.gallery,
-                    maxWidth: 1000,
-                    imageQuality: 80,
                   );
                   if (mounted) setState(() => photo = f);
                 },

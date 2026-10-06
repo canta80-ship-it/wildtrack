@@ -40,11 +40,18 @@ class RadarMapService {
       if (profile.dormant.contains(now.month) || (profile.months.isNotEmpty && !profile.months.contains(now.month))) continue;
       final count = observations.where((s) => s['species'] == entry.key).length;
       // Habitat alone cannot establish the local range of these species.
-      if ((profile.localised || profile.alpine) && count == 0) continue;
+      if (count == 0) continue;
       final matches = patches.where((p) {
         final kind = p.kind == 'grass' ? 'meadow' : p.kind;
         // Generic water polygons do not establish breeding ponds.
         if (entry.key == 'Tritone' && kind == 'water') return false;
+        if (!observations.any((row) {
+          if (row['species'] != entry.key) return false;
+          final point = observationPoint(row);
+          if (point == null) return false;
+          if (_inside(point, p.points) && !p.holes.any((hole) => _inside(point, hole))) return true;
+          return p.points.any((vertex) => distance.as(LengthUnit.Kilometer, point, vertex) <= 2);
+        })) return false;
         return profile.habitats.contains(kind);
       }).toList();
       if (matches.isEmpty) continue;
@@ -96,6 +103,20 @@ class RadarMapService {
   static LatLng labelAnchor(HabitatPatch patch, LatLng center) {
     if (_inside(center, patch.points) && !patch.holes.any((hole) => _inside(center,hole))) return center;
     return patch.points.reduce((a,b) => distance.as(LengthUnit.Meter,center,a) <= distance.as(LengthUnit.Meter,center,b) ? a : b);
+  }
+
+  /// Keep large species badges separated at the current map scale.
+  static List<HabitatPatch> labelPatches(List<HabitatPatch> patches, LatLng center, double zoom) {
+    final separation = 75 * 156543.03392 * math.cos(center.latitude * math.pi / 180) / math.pow(2, zoom);
+    final chosen = <HabitatPatch>[];
+    final anchors = <LatLng>[];
+    for (final patch in patches) {
+      final anchor = labelAnchor(patch, center);
+      if (anchors.any((p) => distance.as(LengthUnit.Meter, p, anchor) < separation)) continue;
+      chosen.add(patch); anchors.add(anchor);
+      if (chosen.length == 12) break;
+    }
+    return chosen;
   }
 
   static bool _crosses(LatLng a, LatLng b, LatLng c, LatLng d) {

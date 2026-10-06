@@ -43,6 +43,7 @@ class HabitatMapService {
     'wetland': ['[natural=wetland]'],
     'park': ['[leisure=park]'],
   };
+  static const urbanLanduses = {'residential', 'commercial', 'industrial', 'retail', 'institutional', 'education', 'garages', 'construction', 'brownfield'};
   static const labels = {'forest':'Boschi', 'grass':'Prati e pascoli', 'farmland':'Campagne', 'scrub':'Macchia', 'rock':'Rocce e ghiaioni', 'water':'Acque', 'wetland':'Zone umide', 'park':'Parchi alberati'};
 
   Set<String>? kindsFor(String species) => species == '__radar__' ? _selectors.keys.toSet() : profiles[species];
@@ -53,7 +54,8 @@ class HabitatMapService {
     final dy = radiusKm / 111.32;
     final dx = dy / math.cos(center.latitude * math.pi / 180).abs().clamp(.1, 1);
     final bbox = '${center.latitude-dy},${center.longitude-dx},${center.latitude+dy},${center.longitude+dx}';
-    return '[out:json][timeout:18];(${kinds.expand((k) => _selectors[k]!).map((s) => 'way$s($bbox);relation[type=multipolygon]$s($bbox);').join()});out geom;';
+    final urban = urbanLanduses.map((kind) => 'way[landuse=$kind]($bbox);relation[type=multipolygon][landuse=$kind]($bbox);').join();
+    return '[out:json][timeout:18];($urban${kinds.expand((k) => _selectors[k]!).map((s) => 'way$s($bbox);relation[type=multipolygon]$s($bbox);').join()});out geom;';
   }
   String? _kind(Map tags) {
     if (tags['natural'] == 'wood' || tags['landuse'] == 'forest') return 'forest';
@@ -104,11 +106,37 @@ class HabitatMapService {
     }
     return inside;
   }
+  bool _overlaps(List<LatLng> a, List<LatLng> b) {
+    double minLat(List<LatLng> r) => r.map((p) => p.latitude).reduce(math.min);
+    double maxLat(List<LatLng> r) => r.map((p) => p.latitude).reduce(math.max);
+    double minLng(List<LatLng> r) => r.map((p) => p.longitude).reduce(math.min);
+    double maxLng(List<LatLng> r) => r.map((p) => p.longitude).reduce(math.max);
+    if (maxLat(a) < minLat(b) || maxLat(b) < minLat(a) || maxLng(a) < minLng(b) || maxLng(b) < minLng(a)) return false;
+    if (a.any((p) => _inside(p, b)) || b.any((p) => _inside(p, a))) return true;
+    double side(LatLng p, LatLng q, LatLng r) => (q.longitude-p.longitude)*(r.latitude-p.latitude)-(q.latitude-p.latitude)*(r.longitude-p.longitude);
+    bool between(double x, double a, double b) => x >= math.min(a,b) && x <= math.max(a,b);
+    bool onEdge(LatLng p, LatLng q, LatLng r) => side(p,q,r).abs() < 1e-14 && between(r.latitude,p.latitude,q.latitude) && between(r.longitude,p.longitude,q.longitude);
+    for (var i = 1; i < a.length; i++) {
+      for (var j = 1; j < b.length; j++) {
+        final p = a[i-1], q = a[i], r = b[j-1], t = b[j];
+        if (side(p,q,r)*side(p,q,t) < 0 && side(r,t,p)*side(r,t,q) < 0 || onEdge(p,q,r) || onEdge(p,q,t) || onEdge(r,t,p) || onEdge(r,t,q)) return true;
+      }
+    }
+    return false;
+  }
   List<HabitatPatch> parse(Map<String,dynamic> data, String species) {
     if (data['elements'] is! List || data['remark'] != null) throw const FormatException('Dati habitat incompleti');
     final allowed=kindsFor(species) ?? const <String>{};
     final out=<HabitatPatch>[];
     final seen = <String>{};
+    final urbanRings = <List<LatLng>>[];
+    for (final raw in data['elements'] as List) {
+      if (raw is! Map || raw['tags'] is! Map || !urbanLanduses.contains(raw['tags']['landuse'])) continue;
+      if (raw['type'] == 'way') urbanRings.addAll(_rings([_coordinates(raw['geometry'])]));
+      if (raw['type'] == 'relation' && raw['members'] is List) {
+        urbanRings.addAll(_rings((raw['members'] as List).whereType<Map>().where((m) => m['type'] == 'way' && (m['role'] == 'outer' || m['role'] == '')).map((m) => _coordinates(m['geometry'])).toList()));
+      }
+    }
     final elements = List<dynamic>.from(data['elements'] as List)..sort((a,b) => (a is Map && a['type']=='relation' ? 0 : 1).compareTo(b is Map && b['type']=='relation' ? 0 : 1));
     for(final raw in elements) {
       if(raw is! Map) continue;
@@ -123,6 +151,9 @@ class HabitatMapService {
         holes=_rings(members.where((m) => m['role']=='inner').map((m) => _coordinates(m['geometry'])).toList());
       }
       for(var i=0;i<outers.length;i++) {
+        // Conservatively omit the complete patch if it overlaps built-up land.
+        // Do not draw a green outline suggesting animals in an urban park.
+        if (urbanRings.any((urban) => _overlaps(outers[i], urban))) continue;
         final signature = outers[i].map((p) => '${p.latitude.toStringAsFixed(7)},${p.longitude.toStringAsFixed(7)}').toSet().toList()..sort();
         if (!seen.add('$kind:${signature.join(';')}')) continue;
         out.add(HabitatPatch('${raw['type']}-${raw['id']}-$i',kind,'${tags['name'] ?? labels[kind]}',outers[i],holes.where((h) => _inside(h.first,outers[i])).toList()));
@@ -132,7 +163,7 @@ class HabitatMapService {
     return out;
   }
   Future<List<HabitatPatch>> load(String species, LatLng center, {double radiusKm = 5, bool forceRefresh = false}) async {
-    final key='${species.replaceAll(RegExp('[^a-zA-Z0-9]'),'_')}_${center.latitude.toStringAsFixed(4)}_${center.longitude.toStringAsFixed(4)}_$radiusKm';
+    final key='urban_v2_${species.replaceAll(RegExp('[^a-zA-Z0-9]'),'_')}_${center.latitude.toStringAsFixed(4)}_${center.longitude.toStringAsFixed(4)}_$radiusKm';
     final file=File('${PreferencesService.instance.file.parent.path}/wildtrack_habitat_$key.json');
     if (!forceRefresh && await file.exists() && DateTime.now().difference((await file.stat()).modified) < const Duration(hours: 1)) {
       try { return parse(jsonDecode(await file.readAsString()) as Map<String,dynamic>, species); } catch (_) {}

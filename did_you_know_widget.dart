@@ -8,7 +8,8 @@ import '../premium_ui.dart';
 import '../services/did_you_know_service.dart';
 
 class DidYouKnowCarousel extends StatefulWidget {
-  const DidYouKnowCarousel({super.key});
+  const DidYouKnowCarousel({super.key, this.loader});
+  final Future<DidYouKnowFeed> Function(bool force)? loader;
 
   @override
   State<DidYouKnowCarousel> createState() => _DidYouKnowCarouselState();
@@ -17,6 +18,9 @@ class DidYouKnowCarousel extends StatefulWidget {
 class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
     with WidgetsBindingObserver {
   Timer? refreshTimer;
+  final cards = ScrollController();
+  int manualTurn = 0;
+  DateTime? checkedAt;
   late DidYouKnowFeed current;
   bool refreshing = false;
   String? warning;
@@ -41,6 +45,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
   @override
   void dispose() {
     refreshTimer?.cancel();
+    cards.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -96,12 +101,18 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
         if (!silent) warning = null;
       });
     try {
-      final next = await DidYouKnowService.instance.load(force: !silent);
+      final next = await (widget.loader?.call(!silent) ?? DidYouKnowService.instance.load(force: !silent)).timeout(const Duration(seconds: 30));
+      String signature(List<DidYouKnowItem> items) { final keys = items.map((e) => '${e.id}:${e.publishedAt}:${e.title}:${e.body}').toList()..sort(); return keys.join('|'); }
+      final changed = signature(next.items) != signature(current.items);
+      if (!silent) manualTurn++;
+      final turn = DateTime.now().millisecondsSinceEpoch ~/ const Duration(hours: 1).inMilliseconds + manualTurn;
       if (mounted && next.items.isNotEmpty)
         setState(() {
-          current = next;
-          warning = next.warning;
+          current = DidYouKnowFeed(items: DidYouKnowService.rotateGuides(next.items, turn), updatedAt: next.updatedAt, fromCache: next.fromCache, warning: next.warning);
+          checkedAt = DateTime.now();
+          warning = next.warning ?? (!silent && !changed ? 'Nessuna nuova notizia dalle fonti. Curiosità e guide alternate.' : null);
         });
+      if (!silent && cards.hasClients) cards.jumpTo(0);
     } catch (_) {
       if (mounted && !silent)
         setState(
@@ -166,7 +177,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
       const SizedBox(height: 5),
       Text(
         current.fromCache
-            ? 'Disponibile anche offline · aggiornamento automatico quando torna la rete'
+            ? 'Contenuti salvati${checkedAt == null ? '' : ' · controllo ${DateFormat('HH:mm').format(checkedAt!)}'}'
             : 'Aggiornato ${DateFormat('dd/MM HH:mm').format(current.updatedAt)} · fonti e curiosità selezionate',
         style: const TextStyle(fontSize: 9.5, color: WildColors.muted),
       ),
@@ -182,6 +193,7 @@ class _DidYouKnowCarouselState extends State<DidYouKnowCarousel>
       SizedBox(
         height: _cardHeight(context),
         child: ListView.separated(
+          controller: cards,
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           itemCount: current.items.length,

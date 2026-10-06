@@ -11,7 +11,7 @@ const radarProfiles = <String, RadarProfile>{
  'Tritone': RadarProfile('Ichthyosaura alpestris','nocturnal',{'stillwater','wetland','forest'},peak:{3,4,5,6},dormant:{12,1,2}),
  'Rospo': RadarProfile('Bufo bufo','nocturnal',{'water','wetland','forest','park'},peak:{3,4,5},dormant:{12,1,2}),
  'Salamandra': RadarProfile('Salamandra salamandra','nocturnal',{'forest'},peak:{3,4,5,9,10},dormant:{12,1,2}),
- 'Cervo': RadarProfile('Cervus elaphus','crepuscular',{'forest','meadow'},peak:{9,10}),
+ 'Cervo': RadarProfile('Cervus elaphus','crepuscular',{'forest','meadow'},localised:true,peak:{9,10}),
  'Capriolo': RadarProfile('Capreolus capreolus','crepuscular',{'forest','meadow','farmland'},peak:{4,5,6,7}),
  'Volpe': RadarProfile('Vulpes vulpes','crepuscular',{'forest','meadow','farmland','urban'}),
  'Camoscio alpino': RadarProfile('Rupicapra rupicapra','crepuscular',{'rock','meadow','forest'},alpine:true,peak:{5,6,9,10,11}),

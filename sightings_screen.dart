@@ -194,8 +194,6 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
     try {
       final image = await ImagePicker().pickImage(
         source: source,
-        maxWidth: 1600,
-        imageQuality: 85,
       );
       if (!mounted || image == null) return;
       setState(() => photoPath = image.path);

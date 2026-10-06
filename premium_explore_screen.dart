@@ -42,10 +42,12 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
   List<ActivityMapEntry> activities = [];
   NatureTrail? selectedTrail;
   bool loading = false;
+  bool searchOpen = false;
   bool showActivities = true;
   int filter = 0;
   late final MapLocationService location;
   bool mapReady = false;
+  double labelZoom = 12.3;
   bool centeredOnPosition = false;
   int radarMode = 2, radarGeneration = 0;
   double radarRadius = 5;
@@ -148,7 +150,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
 
   EdgeInsets get _radarPadding {
     final height = MediaQuery.sizeOf(context).height;
-    return EdgeInsets.fromLTRB(30, height * .39, 30, height * .33);
+    return EdgeInsets.fromLTRB(30, searchOpen ? 222 : 165, 30, height * .14);
   }
 
   List<HabitatPatch> displayedPatchesForFrame() => _radarPossible.expand((s) => s.patches).where((p) => p.points.every((point) => RadarMapService.distance.as(LengthUnit.Kilometer, radarCenter!, point) <= radarRadius * 1.5)).toList();
@@ -456,6 +458,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                   _positionChanged();
                 },
                 initialZoom: 12.3,
+                onPositionChanged: (camera, _) { if ((camera.zoom - labelZoom).abs() >= .5 && mounted) setState(() => labelZoom = camera.zoom); },
                 onLongPress: (_, point) => _recordHere(point),
               ),
               children: [
@@ -498,7 +501,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                   markers: [
                     if (showSpecies) ..._speciesMarkers(),
                     if (showRadar && radarMode != 1)
-                      for (final patch in displayedPatches.take(35))
+                      for (final patch in RadarMapService.labelPatches(displayedPatches, radarCenter!, labelZoom))
                         Marker(point: RadarMapService.labelAnchor(patch, radarCenter!), width: 112,height: 77,child: RadarPossiblePin(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id)).name, onTap: () => _showPossible(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id))))),
                     if (showRadar && radarMode != 0)
                       for (final row in observed.take(100)) Marker(point: RadarMapService.observationPoint(row)!,width:56,height:60,child:RadarObservedPin(row,onTap:()=>_showObserved(row))),
@@ -541,8 +544,8 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                 children: [
                   Row(
                     children: [
-                      const WildLogo(compact: true),
-                      const Spacer(),
+                      const Expanded(child: Align(alignment: Alignment.centerLeft, child: FittedBox(fit: BoxFit.scaleDown, child: WildLogo(compact: true)))),
+                      IconButton.filledTonal(tooltip: 'Cerca specie o luoghi', onPressed: () => setState(() => searchOpen = !searchOpen), icon: Icon(searchOpen ? Icons.close : Icons.search)),
                       IconButton.filledTonal(
                         tooltip: 'Nuovo avvistamento dalla mappa',
                         onPressed: _newSightingFromMap,
@@ -552,14 +555,11 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                         onPressed: _openLayers,
                         icon: const Icon(Icons.layers_outlined),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        onPressed: locate,
-                        icon: const Icon(Icons.my_location),
-                      ),
+
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  if (searchOpen) ...[
+                  const SizedBox(height: 6),
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: .96),
@@ -591,7 +591,8 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 9),
+                  ],
+                  const SizedBox(height: 6),
                   _Filters(
                     selected: filter,
                     onTap: _changeFilter,
@@ -606,7 +607,7 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
             if (showRadar) RadarResultsSheet(possible: possible, observed: observed, mode: radarMode, busy: radarBusy, error: radarError, onPossible: _showPossible, onObserved: _showObserved, onExpand: _expandRadar),
             Positioned(
               right: 14,
-              bottom: showRadar ? MediaQuery.sizeOf(context).height * .34 : 34,
+              bottom: showRadar ? MediaQuery.sizeOf(context).height * .11 + 12 : 34,
               child: FloatingActionButton.small(
                 onPressed: locate,
                 backgroundColor: Colors.white,

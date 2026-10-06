@@ -84,8 +84,12 @@ void main() {
       expect(tester.takeException(),isNull);
       expect(find.text('Possibile presenza'),findsOneWidget);
       expect(find.text('Segnalato dalla community'),findsOneWidget);
-      await tester.tap(find.text('Avvistamenti')); expect(selected,1);
-      await tester.tap(find.byTooltip('Aggiorna zone e avvistamenti')); expect(refreshed,1);
+      expect(tester.getSize(find.byType(RadarMapHeader)).height,lessThanOrEqualTo(56));
+      await tester.tap(find.byTooltip('Filtri Radar')); await tester.pumpAndSettle();
+      await tester.tap(find.text('Avvistamenti')); await tester.pumpAndSettle(); expect(selected,1);
+      await tester.tap(find.byTooltip('Opzioni Radar')); await tester.pumpAndSettle();
+      await tester.tap(find.text('Aggiorna zone e avvistamenti')); await tester.pumpAndSettle(); expect(refreshed,1);
+      await tester.tap(find.text('1 specie · 1 avvistamenti')); await tester.pumpAndSettle();
       await tester.drag(find.byType(ListView).first,const Offset(0,-180)); await tester.pumpAndSettle();
       expect(find.text('Posizione approssimata'),findsOneWidget);
       expect(tester.takeException(),isNull);

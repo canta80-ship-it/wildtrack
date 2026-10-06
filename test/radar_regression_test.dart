@@ -44,6 +44,26 @@ void main(){
    expect(s.hasPosition,false);expect(s.species,isEmpty);expect(s.weather.temperature,isNull);
   }
  });
+ test('Deer requires records within five km; urban parks generate no predictions',(){
+  final now=DateTime.utc(2026,10,3,11);
+  final without=engine.evaluate(now:now,position:position(now),habitat:habitat);
+  expect(without.species.where((s)=>s.name=='Cervo'),isEmpty);
+  final distant=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('distant','Cervo',46.1,13,now.subtract(const Duration(days:1)),'GBIF')]);
+  expect(distant.species.where((s)=>s.name=='Cervo'),isEmpty);
+  final nearby=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('nearby','Cervo',46.01,13,now.subtract(const Duration(days:1)),'GBIF')]);
+  expect(nearby.species.any((s)=>s.name=='Cervo'),true);
+  final urban=engine.evaluate(now:now,position:position(now),habitat:const HabitatContext(primary:'mosaic',tags:{'forest','park','urban'},elevation:100,mapped:true),history:[sighting('Cervo',now.subtract(const Duration(days:1)))]);
+  expect(urban.species,isEmpty); expect(urban.listening,isEmpty);
+ });
+ test('Every species needs a nearby record; remote records never support local predictions',(){
+  final now=DateTime.utc(2026,10,3,11);
+  for (final name in ['Capriolo','Volpe','Poiana','Gheppio']) {
+    final distant=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('far-$name',name,46.1,13,now.subtract(const Duration(days:1)),'GBIF')]);
+    expect(distant.species,isEmpty);
+    final nearby=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('near-$name',name,46.01,13,now.subtract(const Duration(days:1)),'GBIF')]);
+    expect(nearby.species.any((s)=>s.name==name),true);
+  }
+ });
  test('Night excludes diurnal birds and separates passive listening from visual encounter',(){
   final now=DateTime.utc(2026,10,3,20,27);
   final s=engine.evaluate(now:now,position:position(now),habitat:habitat,history:[sighting('Poiana',now.subtract(const Duration(days:1))),sighting('Allocco',now.subtract(const Duration(days:1)))]);
@@ -68,15 +88,15 @@ void main(){
  test('Old, distant, unpositioned and trace records cannot confirm a local encounter',(){
   final now=DateTime.utc(2026,10,3,11);
   final s=engine.evaluate(now:now,position:position(now),habitat:habitat,history:[sighting('Cervo',now.subtract(const Duration(days:400))),sighting('Cervo',now.subtract(const Duration(days:1)),latitude:43),sighting('Cervo',now.subtract(const Duration(days:1)),kind:'Impronta')]);
-  expect(s.species.firstWhere((s)=>s.name=='Cervo').presenceSupported,false);
+  expect(s.species.where((s)=>s.name=='Cervo'),isEmpty);
  });
  test('Regional evidence is positive support; missing records are not species absence',(){
   final now=DateTime.utc(2026,10,3,11);
   final plain=engine.evaluate(now:now,position:position(now),habitat:habitat);
-  expect(plain.species.any((s)=>s.name=='Poiana'),true);
+  expect(plain.species,isEmpty);
   final withEvidence=engine.evaluate(now:now,position:position(now),habitat:habitat,evidence:[RadarEvidence('gbif:1','Gheppio',46,13,now.subtract(const Duration(days:2)),'GBIF')]);
   expect(withEvidence.species.firstWhere((s)=>s.name=='Gheppio').presenceSupported,true);
-  expect(withEvidence.species.firstWhere((s)=>s.name=='Gheppio').score,greaterThan(plain.species.firstWhere((s)=>s.name=='Gheppio').score));
+  expect(withEvidence.species.firstWhere((s)=>s.name=='Gheppio').score,greaterThanOrEqualTo(20));
  });
  test('Unknown habitat is not fabricated from altitude',(){
   final now=DateTime.utc(2026,10,3,11);
@@ -90,7 +110,7 @@ void main(){
  });
  test('Negative surveys are explicit descriptive counts, not predicted probabilities',(){
   final now=DateTime.utc(2026,10,3,11);
-  final s=engine.evaluate(now:now,position:position(now),habitat:habitat,surveys:[RadarSurvey(species:'Cervo',latitude:46,longitude:13,at:now.subtract(const Duration(days:1)),minutes:30,seen:false,phase:'day')]);
+  final s=engine.evaluate(now:now,position:position(now),habitat:habitat,history:[sighting('Cervo',now.subtract(const Duration(days:1)))],surveys:[RadarSurvey(species:'Cervo',latitude:46,longitude:13,at:now.subtract(const Duration(days:1)),minutes:30,seen:false,phase:'day')]);
   expect(s.species.firstWhere((s)=>s.name=='Cervo').reason,contains('0/1 con incontro'));
  });
  test('All species have sourced ecology and no arbitrary default altitude limit',(){
@@ -133,7 +153,7 @@ void main(){
    final s=engine.evaluate(now:now,position:position(now),habitat:HabitatContext(primary:'meadow',tags:{'meadow','rock'},mapped:true,elevation:altitude));
    expect(s.species.where((s)=>{'Marmotta','Stambecco','Camoscio alpino','Gracchio alpino'}.contains(s.name)),isEmpty);
   }
-  final mountain=engine.evaluate(now:now,position:position(now,altitude:2200),habitat:const HabitatContext(primary:'meadow',tags:{'meadow','rock'},mapped:true,elevation:2200));
+  final mountain=engine.evaluate(now:now,position:position(now,altitude:2200),habitat:const HabitatContext(primary:'meadow',tags:{'meadow','rock'},mapped:true,elevation:2200),history:[sighting('Marmotta',now.subtract(const Duration(days:1)))]);
   expect(mountain.species.any((s)=>s.name=='Marmotta'),true);
  });
  test('Source quota is typical: supported exceptions are penalized, not declared impossible',(){

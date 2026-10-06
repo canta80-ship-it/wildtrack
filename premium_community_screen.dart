@@ -443,26 +443,45 @@ class _Events extends StatefulWidget {
 }
 
 class _EventsState extends State<_Events> {
-  late Future<DidYouKnowFeed> feed = DidYouKnowService.instance.load();
+  late Future<DidYouKnowFeed> feed = _load();
+  Future<DidYouKnowFeed> _load({bool force = false}) =>
+      DidYouKnowService.instance.loadEvents(force: force)
+          .timeout(const Duration(seconds: 30));
+
+  void _refresh() => setState(() => feed = _load(force: true));
+
   @override
-  Widget build(BuildContext context) => FutureBuilder<DidYouKnowFeed>(
+  Widget build(BuildContext context) => Column(children: [
+    Align(
+      alignment: Alignment.centerRight,
+      child: TextButton.icon(
+        onPressed: _refresh,
+        icon: const Icon(Icons.refresh),
+        label: const Text('Aggiorna eventi'),
+      ),
+    ),
+    FutureBuilder<DidYouKnowFeed>(
     future: feed,
     builder: (context, snapshot) {
-      if (!snapshot.hasData)
+      if (snapshot.connectionState == ConnectionState.waiting)
         return const Center(
           child: Padding(
             padding: EdgeInsets.all(24),
             child: CircularProgressIndicator(),
           ),
         );
-      final rows = snapshot.data!.items
-          .where((e) => e.category == 'EVENTI')
-          .toList();
+      if (snapshot.hasError || !snapshot.hasData)
+        return const _Placeholder(
+          icon: Icons.cloud_off_outlined,
+          title: 'Eventi non disponibili',
+          body: 'Il caricamento non è riuscito. Tocca Aggiorna eventi per riprovare.',
+        );
+      final rows = snapshot.data!.items;
       if (rows.isEmpty)
         return const _Placeholder(
           icon: Icons.event_outlined,
-          title: 'Nessun evento aggiornato',
-          body: 'Non ci sono eventi verificati nel feed in questo momento. Riprova più tardi.',
+          title: 'Nessun evento di montagna trovato',
+          body: 'Le fonti consultate non hanno restituito notizie recenti su eventi di montagna. Tocca Aggiorna eventi per riprovare.',
         );
       return Column(
         children: [
@@ -517,7 +536,8 @@ class _EventsState extends State<_Events> {
         ],
       );
     },
-  );
+  ),
+  ]);
 }
 
 class _Groups extends StatelessWidget {
@@ -670,4 +690,3 @@ class _Info extends StatelessWidget {
     ),
   );
 }
-

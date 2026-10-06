@@ -425,11 +425,13 @@ class CommunityService extends ChangeNotifier {
         bytes.addAll(chunk);
         if (bytes.length > 1000000) throw StateError('Foto troppo grande');
       }
-      if (bytes.length < 8 || !listEquals(bytes.take(8).toList(), [137,80,78,71,13,10,26,10])) return;
+      final png = bytes.length >= 8 && listEquals(bytes.take(8).toList(), [137,80,78,71,13,10,26,10]);
+      final jpeg = bytes.length >= 3 && bytes[0] == 255 && bytes[1] == 216 && bytes[2] == 255;
+      if (!png && !jpeg) return;
       final dir = await MediaStorageService.instance.mediaDirectory;
       // Never use a remote identifier as a filesystem path.
       final safe = base64Url.encode(utf8.encode(id)).replaceAll('=', '');
-      final target = File('${dir.path}/community-$safe.png');
+      final target = File('${dir.path}/community-$safe.${jpeg ? 'jpg' : 'png'}');
       final tmp = File('${target.path}.tmp');
       await tmp.writeAsBytes(bytes, flush: true);
       await tmp.rename(target.path);

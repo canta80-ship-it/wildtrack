@@ -1,9 +1,15 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
 class PhotoProcessingService {
+  static const maxPhotoBytes = 1000000;
+  static const maxPhotoEdge = 2400;
+
   static Future<String> encode(Uint8List input, {bool avatar = false}) async {
+    if (!avatar) return _encodeForPost(input);
     final buffer = await ui.ImmutableBuffer.fromUint8List(input);
     final descriptor = await ui.ImageDescriptor.encoded(buffer);
     try {
@@ -41,5 +47,49 @@ class PhotoProcessingService {
         edge = (edge * .8).floor().clamp(256, 1600).toInt();
       }
     } finally { descriptor.dispose(); buffer.dispose(); }
+  }
+  static Future<String> _encodeForPost(Uint8List input) async {
+    final buffer = await ui.ImmutableBuffer.fromUint8List(input);
+    ui.ImageDescriptor? descriptor;
+    try {
+      descriptor = await ui.ImageDescriptor.encoded(buffer);
+      final longest = descriptor.width > descriptor.height ? descriptor.width : descriptor.height;
+      final edge = longest.clamp(1, maxPhotoEdge).toInt();
+      final codec = await descriptor.instantiateCodec(
+        targetWidth: (descriptor.width * edge / longest).round().clamp(1, maxPhotoEdge).toInt(),
+        targetHeight: (descriptor.height * edge / longest).round().clamp(1, maxPhotoEdge).toInt(),
+      );
+      try {
+        final frame = await codec.getNextFrame();
+        try {
+          final pixels = await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
+          if (pixels == null) throw Exception('Impossibile leggere la foto.');
+          return compute(_encodeJpeg, <String, Object>{
+            'width': frame.image.width, 'height': frame.image.height,
+            'pixels': Uint8List.fromList(pixels.buffer.asUint8List(pixels.offsetInBytes, pixels.lengthInBytes)),
+          });
+        } finally { frame.image.dispose(); }
+      } finally { codec.dispose(); }
+    } finally { descriptor?.dispose(); buffer.dispose(); }
+  }
+
+}
+
+// JPEG is appropriate for photographs. Lower quality before reducing resolution;
+// never silently shrink a detailed photograph to a tiny PNG thumbnail.
+String _encodeJpeg(Map<String, Object> request) {
+  final original = img.Image.fromBytes(width: request['width'] as int, height: request['height'] as int, bytes: (request['pixels'] as Uint8List).buffer, numChannels: 4).convert(numChannels: 3);
+  final longest = original.width > original.height ? original.width : original.height;
+  var edge = longest;
+  while (true) {
+    final current = edge == longest ? original : img.copyResize(original,
+      width: (original.width * edge / longest).round(), height: (original.height * edge / longest).round(), interpolation: img.Interpolation.cubic);
+    for (final quality in [92, 88, 84, 80]) {
+      final encoded = img.encodeJpg(current, quality: quality, chroma: img.JpegChroma.yuv444);
+      if (encoded.length <= PhotoProcessingService.maxPhotoBytes) return base64Encode(encoded);
+    }
+    final minimum = longest < 1280 ? longest : 1280;
+    if (edge <= minimum) throw Exception('Foto troppo complessa per il limite di caricamento. Scegli una copia JPEG di qualità alta.');
+    edge = (edge * .85).round().clamp(minimum, PhotoProcessingService.maxPhotoEdge).toInt();
   }
 }

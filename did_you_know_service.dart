@@ -67,6 +67,9 @@ class DidYouKnowFeed {
 }
 
 class DidYouKnowService {
+  DidYouKnowService({File? cacheFile, Future<List<DidYouKnowItem>> Function()? newsLoader, DateTime Function()? clock}) : _cacheFile = cacheFile, _newsLoader = newsLoader, _clock = clock ?? DateTime.now;
+  final Future<List<DidYouKnowItem>> Function()? _newsLoader;
+  final DateTime Function() _clock;
   static final instance = DidYouKnowService();
   File? _cacheFile;
   static const Duration refreshInterval = Duration(hours: 1);
@@ -123,12 +126,13 @@ class DidYouKnowService {
     final cached = await _readCache();
     if (!force &&
         cached != null &&
-        DateTime.now().difference(cached.updatedAt) < refreshInterval) {
+        _clock().difference(cached.updatedAt) >= Duration.zero &&
+        _clock().difference(cached.updatedAt) < refreshInterval) {
       return DidYouKnowFeed(items: freshItems(cached.items), updatedAt: cached.updatedAt, fromCache: true);
     }
 
     final remote = <DidYouKnowItem>[];
-    final batches = await Future.wait<List<DidYouKnowItem>>([
+    final batches = _newsLoader != null ? [await _newsLoader!().timeout(const Duration(seconds: 25)).catchError((_) => <DidYouKnowItem>[])] : await Future.wait<List<DidYouKnowItem>>([
       _mountainBlog().then((rows) => freshItems(rows).isEmpty ? _mountainRss() : Future.value(rows)).catchError((_) => _mountainRss().catchError((_) => const <DidYouKnowItem>[])),
       _parksNews().catchError((_) => const <DidYouKnowItem>[]),
     ]);
@@ -141,20 +145,35 @@ class DidYouKnowService {
     if (remote.isNotEmpty) {
       final feed = DidYouKnowFeed(
         items: withFerrate(merged),
-        updatedAt: DateTime.now(),
+        updatedAt: _clock(),
         fromCache: false,
       );
-      await _writeCache(feed);
+      // A storage failure must not discard successfully fetched news.
+      try { await _writeCache(feed); } catch (_) {}
       return feed;
     }
 
     if (cached != null) return DidYouKnowFeed(items: withFerrate(_dedupeAndRank(freshItems(cached.items))), updatedAt: cached.updatedAt, fromCache: true, warning: 'Fonti non raggiungibili. Ultimo aggiornamento disponibile: ${cached.updatedAt.toLocal()}.');
     return DidYouKnowFeed(
       items: withFerrate(_dedupeAndRank(_evergreen())),
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
       fromCache: true,
       warning: 'Notizie online non disponibili. Mostro le curiosità e le guide salvate.',
     );
+  }
+
+  static List<DidYouKnowItem> rotateGuides(List<DidYouKnowItem> items, int turn) {
+    final news = items.where((item) => item.isLive).toList();
+    final guides = items.where((item) => !item.isLive).toList();
+    if (guides.isEmpty) return news;
+    final offset = turn % guides.length;
+    final rotated = [...guides.skip(offset), ...guides.take(offset)];
+    final result = <DidYouKnowItem>[];
+    for (var i = 0; i < news.length || i < rotated.length; i++) {
+      if (i < news.length) result.add(news[i]);
+      if (i < rotated.length) result.add(rotated[i]);
+    }
+    return result;
   }
 
   static List<DidYouKnowItem> freshItems(List<DidYouKnowItem> items, {DateTime? now}) {
@@ -200,16 +219,59 @@ class DidYouKnowService {
     await tmp.rename(file.path);
   }
 
-  Future<List<DidYouKnowItem>> _mountainBlog() async {
+  Future<DidYouKnowFeed> loadEvents({bool force = false}) async {
+    DidYouKnowFeed? general;
+    final batches = await Future.wait<List<DidYouKnowItem>?>([
+      load(force: force).then((feed) {
+        general = feed;
+        return feed.items;
+      }),
+      for (final term in ['festival montagna', 'mostra montagna', 'raduno alpinismo', 'evento trekking'])
+        _mountainBlog(search: term).then<List<DidYouKnowItem>?>((rows) => rows)
+            .catchError((_) => null),
+    ]);
+    final items = mountainEvents(_dedupeAndRank(freshItems([
+      for (final batch in batches) ...?batch,
+    ], now: _clock())));
+    if (items.isEmpty && general?.warning != null &&
+        batches.skip(1).every((batch) => batch == null)) {
+      throw const HttpException('Fonti eventi non raggiungibili');
+    }
+    return DidYouKnowFeed(
+      items: items,
+      updatedAt: _clock(),
+      fromCache: false,
+    );
+  }
+
+  static List<DidYouKnowItem> mountainEvents(List<DidYouKnowItem> items) {
+    final event = RegExp(r'\b(fier\w*|festival\w*|event\w*|mostr\w*|expo|radun\w*|convegn\w*|rassegn\w*|incontr\w*|proiezion\w*)\b');
+    final mountain = RegExp(r'\b(montagn\w*|alpin\w*|alpi|dolomit\w*|prealp\w*|trekking|escursion\w*|arrampicat\w*|climbing|ferrat\w*|rifugi\w*|cai|soccorso alpino)\b');
+    return items.where((item) {
+      final text = '${item.title} ${item.body}'.toLowerCase();
+      return item.isLive && event.hasMatch(text) && mountain.hasMatch(text);
+    }).toList();
+  }
+
+  Future<List<DidYouKnowItem>> _mountainBlog({String? search}) async {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
     try {
-      final uri = Uri.parse(
+      final base = Uri.parse(
         'https://www.mountainblog.it/wp-json/wp/v2/posts?per_page=12&orderby=date&order=desc&_fields=id,date,date_gmt,link,title,excerpt,categories&_wt=${DateTime.now().millisecondsSinceEpoch}',
       );
+      final uri = search == null ? base : base.replace(queryParameters: {
+        ...base.queryParameters,
+        'search': search,
+        'per_page': '30',
+        'after': _clock().toUtc().subtract(const Duration(days: 30)).toIso8601String(),
+      });
       final req = await client.getUrl(uri);
       req.headers.set(HttpHeaders.userAgentHeader, 'WildTrack/0.7');
       final res = await req.close().timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) return const [];
+      if (res.statusCode != 200) {
+        if (search != null) throw HttpException('Fonte eventi: ${res.statusCode}');
+        return const [];
+      }
       final rows = jsonDecode(await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 10))) as List;
       return rows
           .map((raw) {
@@ -439,12 +501,12 @@ class DidYouKnowService {
 
   String _categoryFor(String text) {
     final t = text.toLowerCase();
-    if (RegExp(r'ferrat').hasMatch(t)) return 'FERRATE';
-    if (RegExp(r'foto|fotograf|camera|obiettivo|sony|nikon|canon').hasMatch(t))
-      return 'FOTOGRAFIA';
     if (RegExp(r'fiera|festival|evento|mostra|expo|raduno|convegno')
         .hasMatch(t))
       return 'EVENTI';
+    if (RegExp(r'ferrat').hasMatch(t)) return 'FERRATE';
+    if (RegExp(r'foto|fotograf|camera|obiettivo|sony|nikon|canon').hasMatch(t))
+      return 'FOTOGRAFIA';
     if (RegExp(r'attrezz|zaino|scarpa|guscio|binocolo|gps|orologio')
         .hasMatch(t))
       return 'ATTREZZATURA';

@@ -320,17 +320,6 @@ class _PremiumStatsScreenState extends State<PremiumStatsScreen> {
                     child: RealRegions(sightings: sightings),
                   ),
                   const SizedBox(height: 10),
-                  WildPrimaryButton(
-                    label: 'Gestisci avvistamenti',
-                    icon: WildIcons.binoculars,
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const SightingDiaryScreen(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   _Panel(
                     title: 'Lista uscite',
                     onTitleTap: () => Navigator.push(

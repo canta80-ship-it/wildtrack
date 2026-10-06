@@ -71,8 +71,6 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
     if (photos.length >= 5) return;
     final f = await ImagePicker().pickImage(
       source: ImageSource.camera,
-      maxWidth: 1800,
-      imageQuality: 88,
     );
     if (f != null && mounted) setState(() => photos.add(f.path));
   }
@@ -82,8 +80,6 @@ class _PremiumSightingScreenState extends State<PremiumSightingScreen> {
     final remaining = 5 - photos.length;
     final files = await ImagePicker().pickMultiImage(
       limit: remaining,
-      maxWidth: 1800,
-      imageQuality: 88,
     );
     if (files.isNotEmpty && mounted)
       setState(() => photos.addAll(files.take(remaining).map((e) => e.path)));

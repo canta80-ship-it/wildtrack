@@ -194,7 +194,10 @@ class WildTrackIntelligenceService {
     final sun = SolarContext.at(now,pos.latitude,pos.longitude);
     final visual = <SpeciesForecast>[], listening = <SpeciesForecast>[];
     for (final entry in radarProfiles.entries) {
+      // Urban green space must not generate wildlife encounter predictions.
+      if (habitat.tags.contains('urban')) continue;
       final result = _forecast(entry.key,entry.value,now,pos,weather,habitat,history,evidence,surveys,sun);
+      if (!result.presenceSupported) continue;
       if (result.score >= 20 && (!sun.dark || entry.value.cycle != 'diurnal')) visual.add(result);
       if (entry.value.audible && sun.dark && entry.value.cycle == 'nocturnal' && result.presenceSupported && result.score >= 20) {
         listening.add(SpeciesForecast(name:result.name,score:math.min(80,result.score+25),confidence:result.confidence,reason:'Ascolto passivo: attività notturna; ${result.reason}',bestWindow:'Dopo il tramonto, senza playback',presenceSupported:true,quality:result.quality));
@@ -243,7 +246,7 @@ class WildTrackIntelligenceService {
       final age = now.difference(s.timestamp).inHours/24;
       if (age<0 || age>365) continue;
       final km = _distance.as(LengthUnit.Kilometer,LatLng(pos.latitude,pos.longitude),LatLng(s.latitude!,s.longitude!));
-      if (km>25 || (s.accuracy != null && s.accuracy!>1000)) continue;
+      if (km>5 || (s.accuracy != null && s.accuracy!>1000)) continue;
       recentCount++;
       final phase = SolarContext.at(s.timestamp,s.latitude!,s.longitude!).phase;
       weightedHistory += math.exp(-age/120)*(km<=5?2:km<=10?1:.3)*(phase==sun.phase?1.3:1);
@@ -254,9 +257,9 @@ class WildTrackIntelligenceService {
     for (final e in evidence) {
       if (e.species != name || !unique.add(e.id)) continue;
       final age = now.difference(e.at).inHours/24;
-      if (age<0 || age>730 || e.latitude.abs()>90 || e.longitude.abs()>180) continue;
+      if (age<0 || age>730 || !e.latitude.isFinite || !e.longitude.isFinite || e.latitude.abs()>90 || e.longitude.abs()>180) continue;
       final km = _distance.as(LengthUnit.Kilometer,LatLng(pos.latitude,pos.longitude),LatLng(e.latitude,e.longitude));
-      if (km>40) continue;
+      if (km>5) continue;
       sources.add(e.source); recentRemote++;
     }
     final supported = recentCount>0 || recentRemote>0;
@@ -329,7 +332,7 @@ class WildTrackIntelligenceService {
     try {
       final bundled=jsonDecode(await rootBundle.loadString('nature_assets.json')) as Map;
       final taxa=(bundled['taxa'] as Map).values.map((e)=>'$e').toList();
-      final deltaLat=.38, deltaLon=.38/math.cos(p.latitude*math.pi/180).abs().clamp(.2,1);
+      final deltaLat=5/111.32, deltaLon=(5/111.32)/math.cos(p.latitude*math.pi/180).abs().clamp(.2,1);
       final q=<String,dynamic>{'taxonKey':taxa,'hasCoordinate':'true','hasGeospatialIssue':'false','occurrenceStatus':'PRESENT','basisOfRecord':['HUMAN_OBSERVATION','MACHINE_OBSERVATION'],'eventDate':'${now.subtract(const Duration(days:730)).toUtc().toIso8601String().split('T').first},${now.toUtc().toIso8601String().split('T').first}','decimalLatitude':'${(p.latitude-deltaLat).clamp(-90,90)},${(p.latitude+deltaLat).clamp(-90,90)}','decimalLongitude':'${(p.longitude-deltaLon).clamp(-180,180)},${(p.longitude+deltaLon).clamp(-180,180)}','limit':'300'};
       final data=await _json(Uri.https('api.gbif.org','/v1/occurrence/search',q));
       final byLatin={for(final e in radarProfiles.entries)e.value.latin:e.key};
@@ -344,7 +347,7 @@ class WildTrackIntelligenceService {
     try {
       final data=await _json(Uri.parse('$communityUrl/api/sightings'));
       for(final raw in (data['items'] as List? ?? const []).take(300)) {
-        final e=raw as Map, name='${e['species']}', at=DateTime.tryParse('${e['timestamp'] ?? e['observed_at'] ?? ''}');
+        final e=raw as Map, name='${e['species']}', at=DateTime.tryParse('${e['observedAt'] ?? e['timestamp'] ?? e['observed_at'] ?? ''}');
         final lat=e['lat']??e['latitude'], lon=e['lng']??e['longitude'];
         if(!radarProfiles.containsKey(name)||at==null||lat is!num||lon is!num)continue;
         out.add(RadarEvidence('community:${e['id']}',name,lat.toDouble(),lon.toDouble(),at,'Community (non verificata)'));
