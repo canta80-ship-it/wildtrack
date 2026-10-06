@@ -104,6 +104,11 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
     return row["groupId"] == null && point != null && age != null && age >= Duration.zero && age <= const Duration(days: 365) && radarCenter != null && RadarMapService.distance.as(LengthUnit.Kilometer, radarCenter!, point) <= radarRadius;
   }).toList(), DateTime.now(), species: radarSpecies);
 
+  RadarPossibleSpecies _possibleForPatch(List<RadarPossibleSpecies> possible, HabitatPatch patch, int index) {
+    final candidates = possible.where((s) => s.patches.any((p) => p.id == patch.id)).toList();
+    return candidates[index % candidates.length];
+  }
+
   void _changeFilter(int value) {
     setState(() => filter = value);
     if (value == 2 && radarCenter == null) unawaited(_refreshRadar());
@@ -506,8 +511,8 @@ class _PremiumExploreScreenState extends State<PremiumExploreScreen> {
                   markers: [
                     if (showSpecies) ..._speciesMarkers(),
                     if (showRadar && radarMode != 1)
-                      for (final patch in RadarMapService.labelPatches(displayedPatches, radarCenter!, labelZoom))
-                        Marker(point: RadarMapService.labelAnchor(patch, radarCenter!), width: 112,height: 77,child: RadarPossiblePin(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id)).name, onTap: () => _showPossible(possible.firstWhere((s) => s.patches.any((p) => p.id == patch.id))))),
+                      for (final (index, patch) in RadarMapService.labelPatches(displayedPatches, radarCenter!, labelZoom).indexed)
+                        Marker(point: RadarMapService.labelAnchor(patch, radarCenter!), width: 112,height: 77,child: RadarPossiblePin(_possibleForPatch(possible, patch, index).name, onTap: () => _showPossible(_possibleForPatch(possible, patch, index)))),
                     if (showRadar && radarMode != 0)
                       for (final row in observed.take(100)) Marker(point: RadarMapService.observationPoint(row)!,width:56,height:60,child:RadarObservedPin(row,onTap:()=>_showObserved(row))),
                     if (showCommunity) ..._peopleMarkers(),

@@ -136,7 +136,7 @@ class DidYouKnowService {
     final batches = _newsLoader != null ? [await _newsLoader!().timeout(const Duration(seconds: 25)).catchError((_) => <DidYouKnowItem>[])] : await collectSources([
       for (final source in const ['mountainblog','montagna','cai'])
         () => _rss(source),
-      _parksNews().timeout(const Duration(seconds: 12)).catchError((_) => <DidYouKnowItem>[]),
+      () => _parksNews(),
     ]);
     for (final batch in batches) {
       remote.addAll(freshItems(batch));
