@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ea5846ef3c74a8ae6bc8d1fdf8b88784fdfe5424
+          ref: 97006c5ba9b7e325c9f2d04820bfa77920b93d5e
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
