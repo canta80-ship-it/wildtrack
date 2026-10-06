@@ -165,7 +165,10 @@ class DidYouKnowService {
   }
 
   static Future<List<List<DidYouKnowItem>>> collectSources(List<Future<List<DidYouKnowItem>> Function()> providers, {Duration timeout = const Duration(seconds:14)}) =>
-      Future.wait(providers.map((provider) => Future.sync(provider).timeout(timeout).catchError((_) => <DidYouKnowItem>[])));
+      Future.wait(providers.map((provider) async {
+        try { return await provider().timeout(timeout); }
+        catch (_) { return <DidYouKnowItem>[]; }
+      }));
 
   static List<DidYouKnowItem> rotateGuides(List<DidYouKnowItem> items, int turn) {
     final news = items.where((item) => item.isLive).toList();
