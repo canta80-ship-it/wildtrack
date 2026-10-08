@@ -1,7 +1,8 @@
+import 'premium_screen.dart';
+import '../services/location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../services/database_service.dart';
 import '../services/community_service.dart';
@@ -130,8 +131,9 @@ class _MapScreenState extends State<MapScreen> {
         selectedMap != "public" &&
         !CommunityService.instance.sightings.any(
           (s) => s["groupId"] == selectedMap,
-        ))
+        )) {
       selectedMap = "all";
+    }
     if (mounted) setState(() {});
   }
 
@@ -177,30 +179,18 @@ class _MapScreenState extends State<MapScreen> {
           ),
         );
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) message(context, 'Taccuino non caricato: $e');
+    }
   }
 
   Future<void> locate() async {
     if (locating) return;
     setState(() => locating = true);
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw Exception('Attiva la posizione del telefono');
-      }
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission != LocationPermission.always &&
-          permission != LocationPermission.whileInUse) {
-        throw Exception('Autorizza il GPS');
-      }
-      final p = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
+      final p = await LocationService.currentPosition();
+      if (p == null)
+        throw Exception('Autorizza il GPS e attiva la posizione del telefono');
       if (!mounted) return;
       setState(() => position = LatLng(p.latitude, p.longitude));
       if (ready) controller.move(position!, 13);
@@ -370,7 +360,7 @@ class _MapScreenState extends State<MapScreen> {
         (c.position == null
             ? null
             : LatLng(c.position!.latitude, c.position!.longitude));
-    return Scaffold(
+    return PremiumScaffold(
       appBar: AppBar(
         title: const WildTrackBrand(),
         actions: [
@@ -545,9 +535,9 @@ class _MapScreenState extends State<MapScreen> {
                                   children: [
                                     Text(
                                       p['nickname'] as String,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineSmall,
                                     ),
                                     Text(
                                       '${p['distanceM']} m · aggiornamento ${timeLabel(p['updated'])}',
@@ -555,7 +545,7 @@ class _MapScreenState extends State<MapScreen> {
                                     const Text(
                                       'Posizione condivisa volontariamente · nickname non verificato',
                                     ),
-                                    FilledButton.icon(
+                                    PremiumFilledButton.icon(
                                       onPressed: () {
                                         Navigator.pop(context);
                                         Navigator.push(
@@ -639,8 +629,9 @@ class _MapScreenState extends State<MapScreen> {
               constraints: const BoxConstraints(maxWidth: 230),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface
-                    .withValues(alpha: .95),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: .95),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(

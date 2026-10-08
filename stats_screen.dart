@@ -1,3 +1,4 @@
+import 'premium_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 
@@ -20,25 +21,35 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Future<void> _load() async {
-    final s = await DatabaseService.instance.getSightings();
-    final r = await DatabaseService.instance.getSessions();
-    if (!mounted) return;
-    setState(() {
-      sightings = s.length;
-      sessions = r.length;
-      animals = s.fold(0, (sum, e) => sum + e.count);
-      distance = r.fold(0, (sum, e) => sum + e.distanceMeters);
-    });
+    try {
+      final values = await DatabaseService.instance.statistics();
+      if (!mounted) return;
+      setState(() {
+        sightings = values['sightings']!.toInt();
+        sessions = values['sessions']!.toInt();
+        animals = values['animals']!.toInt();
+        distance = values['distance']!.toDouble();
+      });
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Statistiche non disponibili: $e')),
+        );
+    }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(title: const Text('Statistiche')),
     body: RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const PremiumHeading(
+            'Le tracce dei tuoi incontri.',
+            eyebrow: 'Il tuo riepilogo',
+          ),
           _Stat(icon: Icons.pets, label: 'Avvistamenti', value: '$sightings'),
           _Stat(
             icon: Icons.groups,

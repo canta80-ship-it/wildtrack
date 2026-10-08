@@ -1,9 +1,8 @@
 import 'dart:async';
-
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
-
 import '../models/track_point.dart';
 import '../models/track_session.dart';
 import 'database_service.dart';
@@ -20,6 +19,11 @@ class TrackingService extends ChangeNotifier {
   String? error;
   double distanceMeters = 0, ascentMeters = 0;
   bool isTracking = false, busy = false;
+  bool _storageFailed = false;
+  int _generation = 0;
+  Position? _last;
+  double? _altitudeBaseline;
+  final _altitudes = <double>[];
 
   TrackSession session(DateTime endedAt) => TrackSession(
     id: _id!,
@@ -28,17 +32,26 @@ class TrackingService extends ChangeNotifier {
     distanceMeters: distanceMeters,
     ascentMeters: ascentMeters,
   );
-
   Future<bool> start() async {
     if (busy || isTracking) return isTracking;
     busy = true;
     notifyListeners();
     try {
-      if (!await LocationService.ensurePermission()) return false;
+      await _subscription?.cancel();
+      _subscription = null;
+      await _writes;
+      if (!await LocationService.ensurePermission()) {
+        error = 'GPS non disponibile o permesso non concesso.';
+        return false;
+      }
+      final generation = ++_generation;
       points.clear();
-      distanceMeters = 0;
-      ascentMeters = 0;
+      _altitudes.clear();
+      _last = null;
+      _altitudeBaseline = null;
+      distanceMeters = ascentMeters = 0;
       error = null;
+      _storageFailed = false;
       _startedAt = DateTime.now();
       _id = const Uuid().v4();
       await DatabaseService.instance.appendTrackPoint(
@@ -48,47 +61,97 @@ class TrackingService extends ChangeNotifier {
       isTracking = true;
       _subscription = LocationService.positionStream().listen(
         (position) {
-          if (!isTracking ||
-              position.accuracy > 100 ||
-              !position.accuracy.isFinite)
-            return;
-          if (points.isNotEmpty) {
-            final prev = points.last;
-            if (!position.timestamp.isAfter(prev.timestamp)) return;
-            distanceMeters += Geolocator.distanceBetween(
-              prev.latitude,
-              prev.longitude,
-              position.latitude,
-              position.longitude,
-            );
-            final climb = position.altitude - prev.altitude;
-            if (climb > 0) ascentMeters += climb;
-          }
-          final p = TrackPoint(
-            latitude: position.latitude,
-            longitude: position.longitude,
-            altitude: position.altitude,
-            timestamp: position.timestamp,
-          );
-          points.add(p);
-          final snapshot = session(position.timestamp);
+          if (!isTracking || generation != _generation) return;
           _writes = _writes
-              .then(
-                (_) => DatabaseService.instance.appendTrackPoint(snapshot, p),
-              )
+              .then((_) async {
+                if (_storageFailed || generation != _generation) return;
+                if (!position.accuracy.isFinite ||
+                    position.accuracy > 50 ||
+                    !position.latitude.isFinite ||
+                    !position.longitude.isFinite ||
+                    !position.altitude.isFinite)
+                  return;
+                final previous = _last;
+                if (previous != null &&
+                    (!position.timestamp.isAfter(previous.timestamp) ||
+                        position.timestamp
+                                .difference(previous.timestamp)
+                                .inSeconds <
+                            10))
+                  return;
+                var distance = distanceMeters, ascent = ascentMeters;
+                if (previous != null) {
+                  final moved = Geolocator.distanceBetween(
+                    previous.latitude,
+                    previous.longitude,
+                    position.latitude,
+                    position.longitude,
+                  );
+                  final noise = math.max(
+                    3.0,
+                    (previous.accuracy + position.accuracy) / 3,
+                  );
+                  if (moved >= noise) distance += moved;
+                }
+                if (position.altitudeAccuracy.isFinite &&
+                    position.altitudeAccuracy >= 0 &&
+                    position.altitudeAccuracy <= 15) {
+                  _altitudes.add(position.altitude);
+                  if (_altitudes.length > 3) _altitudes.removeAt(0);
+                  _altitudeBaseline ??= position.altitude;
+                  if (_altitudes.length == 3) {
+                    final sorted = List<double>.of(_altitudes)..sort();
+                    final height = sorted[1];
+                    final delta = height - _altitudeBaseline!;
+                    if (delta.abs() >=
+                        math.max(3.0, position.altitudeAccuracy)) {
+                      if (delta > 0) ascent += delta;
+                      _altitudeBaseline = height;
+                    }
+                  }
+                }
+                final point = TrackPoint(
+                  latitude: position.latitude,
+                  longitude: position.longitude,
+                  altitude: position.altitude,
+                  timestamp: position.timestamp,
+                );
+                final snapshot = TrackSession(
+                  id: _id!,
+                  startedAt: _startedAt!,
+                  endedAt: position.timestamp,
+                  distanceMeters: distance,
+                  ascentMeters: ascent,
+                );
+                await DatabaseService.instance.appendTrackPoint(
+                  snapshot,
+                  point,
+                );
+                _last = position;
+                points.add(point);
+                distanceMeters = distance;
+                ascentMeters = ascent;
+                notifyListeners();
+              })
               .catchError((Object e) {
+                if (generation != _generation) return;
+                _storageFailed = true;
                 error =
                     'Registrazione fermata: impossibile salvare il tracciato. $e';
                 isTracking = false;
-                unawaited(_subscription?.cancel());
+                final stream = _subscription;
+                _subscription = null;
+                unawaited(stream?.cancel());
                 notifyListeners();
               });
-          notifyListeners();
         },
         onError: (Object e) {
+          if (generation != _generation) return;
           error = 'GPS interrotto: $e. I punti già acquisiti restano salvati.';
           isTracking = false;
-          unawaited(_subscription?.cancel());
+          final stream = _subscription;
+          _subscription = null;
+          unawaited(stream?.cancel());
           notifyListeners();
         },
       );
@@ -112,7 +175,7 @@ class TrackingService extends ChangeNotifier {
       await _subscription?.cancel();
       _subscription = null;
       await _writes;
-      if (error != null) throw Exception(error);
+      if (_storageFailed) throw Exception(error);
       final saved = session(DateTime.now());
       await DatabaseService.instance.appendTrackPoint(saved, null);
       return saved;

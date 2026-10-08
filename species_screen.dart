@@ -1,5 +1,5 @@
-import 'dart:convert';
-import 'dart:io';
+import 'premium_screen.dart';
+import '../services/network_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -316,22 +316,15 @@ const animals = <Animal>[
   ),
 ];
 
-Future<Map<String, dynamic>> getJson(Uri uri) async {
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 12);
-  try {
-    final request = await client.getUrl(uri);
-    request.headers.set(
-      'User-Agent',
-      'WildTrack/0.2 (nature education; https://github.com/canta80-ship-it/wildtrack)',
-    );
-    final response = await request.close().timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200) throw Exception('Rete');
-    return jsonDecode(await response.transform(utf8.decoder).join())
-        as Map<String, dynamic>;
-  } finally {
-    client.close(force: true);
-  }
-}
+Future<Map<String, dynamic>> getJson(Uri uri) => JsonNetwork.request(
+  uri,
+  headers: {
+    'User-Agent':
+        'WildTrack/0.6 (nature education; https://github.com/canta80-ship-it/wildtrack)',
+  },
+  timeout: const Duration(seconds: 30),
+  maxBytes: 4 * 1024 * 1024,
+);
 
 String cleanCredit(String x) => x
     .replaceAll(RegExp('<[^>]*>'), '')
@@ -344,7 +337,22 @@ class CommonsMedia {
   const CommonsMedia(this.url, this.credit, this.page);
   final String url, credit, page;
   static final cache = <String, Future<CommonsMedia>>{};
-  static Future<CommonsMedia> file(
+  static final _files = <String, Future<CommonsMedia>>{};
+  static Future<CommonsMedia> file(String title, {bool thumbnail = false}) {
+    final key = "$title:$thumbnail";
+    return _files.putIfAbsent(
+      key,
+      () => _file(title, thumbnail: thumbnail).catchError((
+        Object e,
+        StackTrace st,
+      ) {
+        _files.remove(key);
+        Error.throwWithStackTrace(e, st);
+      }),
+    );
+  }
+
+  static Future<CommonsMedia> _file(
     String title, {
     bool thumbnail = false,
   }) async {
@@ -375,8 +383,8 @@ class CommonsMedia {
     );
   }
 
-  static Future<CommonsMedia> photo(Animal a) =>
-      cache.putIfAbsent(a.latin, () async {
+  static Future<CommonsMedia> photo(Animal a) => cache
+      .putIfAbsent(a.latin, () async {
         final data = await getJson(
           Uri.https('en.wikipedia.org', '/w/api.php', {
             'action': 'query',
@@ -391,6 +399,10 @@ class CommonsMedia {
         final title = pages.values.first['pageimage'] as String?;
         if (title == null) throw Exception('Foto non disponibile');
         return file(title, thumbnail: true);
+      })
+      .catchError((Object e, StackTrace st) {
+        cache.remove(a.latin);
+        Error.throwWithStackTrace(e, st);
       });
 }
 
@@ -545,10 +557,17 @@ class _SpeciesScreenState extends State<SpeciesScreen> {
               )),
         )
         .toList();
-    return Scaffold(
+    return PremiumScaffold(
       appBar: AppBar(title: const Text('Specie')),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 22),
+            child: PremiumHeading(
+              'Incontri selvatici.',
+              eyebrow: 'Conosci il territorio',
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: TextField(
@@ -612,7 +631,7 @@ class AnimalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final a = animal;
-    return Scaffold(
+    return PremiumScaffold(
       appBar: AppBar(title: Text(a.name)),
       body: ListView(
         padding: const EdgeInsets.all(18),
@@ -681,7 +700,7 @@ class AudioTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FilledButton.icon(
+              PremiumFilledButton.icon(
                 onPressed: () => audio.play(animal),
                 icon: Icon(
                   audio.current == animal.name ? Icons.stop : Icons.play_arrow,
@@ -794,24 +813,42 @@ class TrackCard extends StatelessWidget {
         ? 'due_due'
         : 'uccello';
     final description = switch (name) {
-      'Orso bruno' => 'Piede plantigrado con cinque dita. Il posteriore lascia un’impronta allungata; fango e neve possono deformarla. Documenta più impronte senza seguire l’animale.',
-      'Lupo' => 'Quattro dita e cuscinetto centrale, spesso unghie visibili. Le impronte possono essere indistinguibili da quelle di un cane: una foto isolata non conferma il lupo.',
-      'Sciacallo dorato' => 'Impronta di canide a quattro dita, confondibile con volpe e cane. Dimensioni, pista e contesto aiutano ma non costituiscono prova della specie.',
-      'Marmotta' => 'Zampe anteriori e posteriori hanno forma diversa; sul terreno le dita non sono sempre tutte impresse. Considera anche habitat e sequenza delle tracce.',
-      'Ermellino' => 'Piccole impronte a cinque dita, spesso in coppie durante i balzi. Confondibile con altri piccoli mustelidi: conserva foto con riferimento metrico.',
-      'Tasso' => 'Cinque dita allineate ad arco, cuscinetto largo e unghie anteriori sviluppate. La qualità del terreno cambia molto l’aspetto.',
-      'Gracchio alpino' || 'Ghiandaia' => 'Tre dita anteriori e una posteriore. Le impronte da sole non distinguono in modo affidabile questi corvidi.',
-      'Gufo reale' || 'Barbagianni' => 'Dita robuste con artigli; il dito esterno può orientarsi posteriormente. Usa lo schema solo per riconoscere il tipo di piede.',
-      'Cervo' => 'Due unghioni affiancati. Può essere difficile distinguerla da quella di altri cervidi: valuta dimensioni, sequenza e ambiente.',
-      'Capriolo' => 'Due unghioni affiancati, come negli altri cervidi. Non basta una singola impronta per attribuirla con certezza al capriolo.',
-      'Volpe' => 'Quattro dita e cuscinetto centrale; spesso sono visibili le unghie. La forma tende a essere stretta. Può confondersi con un piccolo cane.',
-      'Cinghiale' => 'Zoccolo diviso in due unghioni. Sul terreno cedevole possono comparire anche i segni degli speroni posteriori; osserva più impronte.',
-      'Camoscio alpino' || 'Stambecco' => 'Zoccolo diviso in due unghioni. Sulle rocce le tracce sono poco evidenti; neve e fango conservano meglio i segni. Lo schema non distingue i due caprini.',
-      'Germano reale' => 'Tre dita anteriori unite da una membrana: nel fango può apparire la tipica impronta palmata delle anatre.',
-      'Picchio nero' => 'Due dita rivolte in avanti e due indietro. Le impronte sul terreno sono poco frequenti; lo schema rappresenta la disposizione delle dita.',
-      'Allocco' => 'Può lasciare due dita in avanti e due indietro; la posizione del dito esterno è variabile. Non identificare la specie dalla sola impronta.',
-      'Airone cenerino' => 'Dita lunghe e aperte, tre anteriori e una posteriore. Cerca le tracce sul fango ai margini dell’acqua, restando sui percorsi.',
-      _ => 'Piede da rapace con dita e artigli. Le impronte a terra sono difficili da attribuire alla specie: lo schema è generale, non una chiave di identificazione.',
+      'Orso bruno' =>
+        'Piede plantigrado con cinque dita. Il posteriore lascia un’impronta allungata; fango e neve possono deformarla. Documenta più impronte senza seguire l’animale.',
+      'Lupo' =>
+        'Quattro dita e cuscinetto centrale, spesso unghie visibili. Le impronte possono essere indistinguibili da quelle di un cane: una foto isolata non conferma il lupo.',
+      'Sciacallo dorato' =>
+        'Impronta di canide a quattro dita, confondibile con volpe e cane. Dimensioni, pista e contesto aiutano ma non costituiscono prova della specie.',
+      'Marmotta' =>
+        'Zampe anteriori e posteriori hanno forma diversa; sul terreno le dita non sono sempre tutte impresse. Considera anche habitat e sequenza delle tracce.',
+      'Ermellino' =>
+        'Piccole impronte a cinque dita, spesso in coppie durante i balzi. Confondibile con altri piccoli mustelidi: conserva foto con riferimento metrico.',
+      'Tasso' =>
+        'Cinque dita allineate ad arco, cuscinetto largo e unghie anteriori sviluppate. La qualità del terreno cambia molto l’aspetto.',
+      'Gracchio alpino' || 'Ghiandaia' =>
+        'Tre dita anteriori e una posteriore. Le impronte da sole non distinguono in modo affidabile questi corvidi.',
+      'Gufo reale' || 'Barbagianni' =>
+        'Dita robuste con artigli; il dito esterno può orientarsi posteriormente. Usa lo schema solo per riconoscere il tipo di piede.',
+      'Cervo' =>
+        'Due unghioni affiancati. Può essere difficile distinguerla da quella di altri cervidi: valuta dimensioni, sequenza e ambiente.',
+      'Capriolo' =>
+        'Due unghioni affiancati, come negli altri cervidi. Non basta una singola impronta per attribuirla con certezza al capriolo.',
+      'Volpe' =>
+        'Quattro dita e cuscinetto centrale; spesso sono visibili le unghie. La forma tende a essere stretta. Può confondersi con un piccolo cane.',
+      'Cinghiale' =>
+        'Zoccolo diviso in due unghioni. Sul terreno cedevole possono comparire anche i segni degli speroni posteriori; osserva più impronte.',
+      'Camoscio alpino' || 'Stambecco' =>
+        'Zoccolo diviso in due unghioni. Sulle rocce le tracce sono poco evidenti; neve e fango conservano meglio i segni. Lo schema non distingue i due caprini.',
+      'Germano reale' =>
+        'Tre dita anteriori unite da una membrana: nel fango può apparire la tipica impronta palmata delle anatre.',
+      'Picchio nero' =>
+        'Due dita rivolte in avanti e due indietro. Le impronte sul terreno sono poco frequenti; lo schema rappresenta la disposizione delle dita.',
+      'Allocco' =>
+        'Può lasciare due dita in avanti e due indietro; la posizione del dito esterno è variabile. Non identificare la specie dalla sola impronta.',
+      'Airone cenerino' =>
+        'Dita lunghe e aperte, tre anteriori e una posteriore. Cerca le tracce sul fango ai margini dell’acqua, restando sui percorsi.',
+      _ =>
+        'Piede da rapace con dita e artigli. Le impronte a terra sono difficili da attribuire alla specie: lo schema è generale, non una chiave di identificazione.',
     };
     return Card(
       child: Padding(
@@ -1505,14 +1542,22 @@ class SpeciesIconPainter extends CustomPainter {
 }
 
 String scatDescription(String name, String group) => switch (name) {
-  'Orso bruno' => 'Aspetto molto variabile con la dieta: resti vegetali, semi o parti animali. La forma non basta per un’attribuzione certa.',
-  'Lupo' || 'Sciacallo dorato' || 'Volpe' => 'Fatte spesso allungate, con peli, frammenti o semi secondo la dieta. Le sovrapposizioni fra canidi impediscono identificazioni certe dalla sola forma; per il lupo può servire l’analisi genetica.',
-  'Tasso' => 'Può deporre le fatte in piccole buche utilizzate come latrine. Consistenza e colore dipendono dal cibo; considera l’insieme dei segni.',
-  'Ermellino' => 'Piccole fatte allungate, talvolta con peli. Dimensioni e contenuto non escludono altri mustelidi.',
-  'Marmotta' => 'Fatte di erbivoro con residui vegetali, spesso in punti abituali. Valuta insieme alle impronte e all’habitat.',
-  'Cervo' || 'Capriolo' || 'Camoscio alpino' || 'Stambecco' => 'Pellet o gruppi di elementi vegetali; umidità e alimentazione ne modificano la forma. Non distinguere specie simili soltanto dalle dimensioni.',
-  'Cinghiale' => 'Aspetto variabile, spesso aggregato o segmentato; dieta onnivora. Cerca anche grufolate, senza entrare nei rifugi.',
-  'Gufo reale' || 'Barbagianni' || 'Allocco' => 'Le borre sono rigurgiti di peli, ossa o altri resti e non escrementi. Non avvicinarti ai posatoi occupati o ai nidi.',
+  'Orso bruno' =>
+    'Aspetto molto variabile con la dieta: resti vegetali, semi o parti animali. La forma non basta per un’attribuzione certa.',
+  'Lupo' || 'Sciacallo dorato' || 'Volpe' =>
+    'Fatte spesso allungate, con peli, frammenti o semi secondo la dieta. Le sovrapposizioni fra canidi impediscono identificazioni certe dalla sola forma; per il lupo può servire l’analisi genetica.',
+  'Tasso' =>
+    'Può deporre le fatte in piccole buche utilizzate come latrine. Consistenza e colore dipendono dal cibo; considera l’insieme dei segni.',
+  'Ermellino' =>
+    'Piccole fatte allungate, talvolta con peli. Dimensioni e contenuto non escludono altri mustelidi.',
+  'Marmotta' =>
+    'Fatte di erbivoro con residui vegetali, spesso in punti abituali. Valuta insieme alle impronte e all’habitat.',
+  'Cervo' || 'Capriolo' || 'Camoscio alpino' || 'Stambecco' =>
+    'Pellet o gruppi di elementi vegetali; umidità e alimentazione ne modificano la forma. Non distinguere specie simili soltanto dalle dimensioni.',
+  'Cinghiale' =>
+    'Aspetto variabile, spesso aggregato o segmentato; dieta onnivora. Cerca anche grufolate, senza entrare nei rifugi.',
+  'Gufo reale' || 'Barbagianni' || 'Allocco' =>
+    'Le borre sono rigurgiti di peli, ossa o altri resti e non escrementi. Non avvicinarti ai posatoi occupati o ai nidi.',
   _ =>
     group == 'Mammiferi'
         ? 'Annota forma e contesto: una singola fatta non permette sempre di determinare la specie.'

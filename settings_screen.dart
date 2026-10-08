@@ -1,3 +1,4 @@
+import 'premium_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../services/preferences_service.dart';
@@ -41,7 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final p = PreferencesService.instance;
-    return Scaffold(
+    return PremiumScaffold(
       appBar: AppBar(title: const Text('Impostazioni')),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -169,7 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               onPressed: () => Navigator.pop(c, false),
                               child: const Text('Annulla'),
                             ),
-                            FilledButton(
+                            PremiumFilledButton(
                               onPressed: () => Navigator.pop(c, true),
                               child: const Text('Attiva'),
                             ),
@@ -208,9 +209,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       await save();
                     } catch (e) {
                       p.backgroundSharing = previous;
-                      if (context.mounted)
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text('$e')));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('$e')));
+                      }
                     }
                     if (mounted) setState(() {});
                   },

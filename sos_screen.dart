@@ -1,3 +1,5 @@
+import '../services/location_service.dart';
+import 'premium_screen.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,28 +30,11 @@ class _SosScreenState extends State<SosScreen> {
       position = null;
     });
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw Exception('Attiva la posizione del telefono.');
-      }
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.deniedForever) {
+      final p = await LocationService.currentPosition();
+      if (p == null)
         throw Exception(
-          'Autorizza la posizione dalle impostazioni del telefono.',
+          'Attiva il GPS e autorizza la posizione dalle impostazioni del telefono.',
         );
-      }
-      if (permission != LocationPermission.always &&
-          permission != LocationPermission.whileInUse) {
-        throw Exception('Permesso GPS non concesso.');
-      }
-      final p = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
       if (mounted) setState(() => position = p);
     } on TimeoutException {
       if (mounted) {
@@ -82,7 +67,7 @@ class _SosScreenState extends State<SosScreen> {
   @override
   Widget build(BuildContext context) {
     final p = position;
-    return Scaffold(
+    return PremiumScaffold(
       appBar: AppBar(title: const Text('SOS · Emergenza')),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -92,7 +77,7 @@ class _SosScreenState extends State<SosScreen> {
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          FilledButton.icon(
+          PremiumFilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF9C282B),
               foregroundColor: Colors.white,

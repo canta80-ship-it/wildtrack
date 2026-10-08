@@ -1,3 +1,4 @@
+import 'premium_screen.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -11,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../models/sighting.dart';
 import '../services/database_service.dart';
 import '../services/location_service.dart';
+import '../services/photo_service.dart';
 import '../services/preferences_service.dart';
 import 'community_screen.dart';
 import 'species_screen.dart';
@@ -46,7 +48,7 @@ class _SightingsScreenState extends State<SightingsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(title: const Text('Taccuino offline')),
     body: sightings.isEmpty
         ? const Center(
@@ -130,6 +132,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
     latitude.text = s?.latitude?.toStringAsFixed(6) ?? '';
     longitude.text = s?.longitude?.toStringAsFixed(6) ?? '';
     if (s == null) unawaited(locate());
+    unawaited(restorePhoto());
   }
 
   @override
@@ -167,10 +170,11 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
     try {
       final p = await LocationService.currentPosition();
       if (!mounted || generation != locationGeneration) return;
-      if (p == null)
+      if (p == null) {
         throw Exception(
           'GPS non disponibile. Puoi salvare ora e aggiungere la posizione dopo.',
         );
+      }
       setState(() {
         latitude.text = p.latitude.toStringAsFixed(6);
         longitude.text = p.longitude.toStringAsFixed(6);
@@ -178,24 +182,32 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
         source = 'gps';
       });
     } catch (_) {
-      if (mounted && generation == locationGeneration)
+      if (mounted && generation == locationGeneration) {
         setState(
           () => error =
               'Posizione non ottenuta. Salva comunque; potrai inserirla dopo.',
         );
+      }
     } finally {
-      if (mounted && generation == locationGeneration)
+      if (mounted && generation == locationGeneration) {
         setState(() => locating = false);
+      }
+    }
+  }
+
+  Future<void> restorePhoto() async {
+    try {
+      final recovered = await PhotoService.restored('editor');
+      if (mounted && recovered != null && photoPath == null)
+        setState(() => photoPath = recovered);
+    } catch (e) {
+      if (mounted) message(context, e);
     }
   }
 
   Future<void> pickPhoto(ImageSource source) async {
     try {
-      final image = await ImagePicker().pickImage(
-        source: source,
-        maxWidth: 1600,
-        imageQuality: 85,
-      );
+      final image = await PhotoService.pick(source, owner: 'editor');
       if (!mounted || image == null) return;
       setState(() => photoPath = image.path);
     } catch (e) {
@@ -234,7 +246,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(observedAt),
     );
-    if (time != null && mounted)
+    if (time != null && mounted) {
       setState(
         () => observedAt = DateTime(
           date.year,
@@ -244,6 +256,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
           time.minute,
         ),
       );
+    }
   }
 
   Future<Sighting?> save({bool close = true}) async {
@@ -253,7 +266,8 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
     final n = int.tryParse(count.text);
     if (!empty && !valid(lat, lng)) {
       setState(
-        () => error = 'Inserisci entrambe le coordinate valide oppure lascia entrambe vuote.',
+        () => error =
+            'Inserisci entrambe le coordinate valide oppure lascia entrambe vuote.',
       );
       return null;
     }
@@ -265,6 +279,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
       saving = true;
       error = null;
     });
+    String? newCopy;
     try {
       String? storedPhoto = photoPath;
       if (photoPath != null) {
@@ -281,6 +296,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
           final target =
               '${directory.path}/$id-${DateTime.now().microsecondsSinceEpoch}.$suffix';
           storedPhoto = (await File(photoPath!).copy(target)).path;
+          newCopy = storedPhoto;
         }
       }
       final sighting = Sighting(
@@ -299,6 +315,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
         positionSource: empty ? 'missing' : source,
       );
       await DatabaseService.instance.insertSighting(sighting);
+      await PhotoService.consumed(photoPath);
       if (mounted) {
         setState(() {
           photoPath = storedPhoto;
@@ -308,6 +325,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
       }
       return sighting;
     } catch (e) {
+      await PhotoService.deleteIfUnreferenced(newCopy);
       if (mounted) setState(() => error = 'Salvataggio non riuscito: $e');
       return null;
     } finally {
@@ -371,7 +389,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(
       title: Text(saved ? 'Osservazione privata' : 'Registra osservazione'),
       actions: [
@@ -521,7 +539,7 @@ class _SightingEditorScreenState extends State<SightingEditorScreen> {
         ),
         if (error != null)
           Padding(padding: const EdgeInsets.all(8), child: Text(error!)),
-        FilledButton.icon(
+        PremiumFilledButton.icon(
           onPressed: saving ? null : () => save(),
           icon: const Icon(Icons.save),
           label: Text(saving ? 'Salvataggio…' : 'Salva sul telefono'),
@@ -551,7 +569,7 @@ class _SightingPointScreenState extends State<SightingPointScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(title: const Text('Tocca il punto osservato')),
     body: Column(
       children: [
@@ -595,7 +613,7 @@ class _SightingPointScreenState extends State<SightingPointScreen> {
             '${selected!.latitude.toStringAsFixed(6)}, ${selected!.longitude.toStringAsFixed(6)}',
           ),
         SafeArea(
-          child: FilledButton(
+          child: PremiumFilledButton(
             onPressed: selected == null
                 ? null
                 : () => Navigator.pop(context, selected),

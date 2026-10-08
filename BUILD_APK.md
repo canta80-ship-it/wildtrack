@@ -1,27 +1,28 @@
-# Generare l'APK di WildTrack
+# Generare e aggiornare l'APK WildTrack
 
-Il progetto include un workflow GitHub Actions in `.github/workflows/build-apk.yml`.
+Release corrente: `0.6.0+6`, package `it.wildtrack.wildtrack_v5`.
+Per aggiornare conservando i dati occorrono il package e il certificato dell'app installata, con un `versionCode` superiore. Non disinstallare l'app per aggirare un errore di firma.
 
-Quando il repository viene caricato su GitHub, il workflow:
+Il repository mantiene i sorgenti Dart nella radice. CI e setup cloud li copiano nelle cartelle Flutter (`lib/screens`, `lib/services`, `lib/models`, `lib/main.dart`) prima della build. Conservare anche `assets/`, `test/`, dati naturalistici e fotografie della radice.
 
-1. installa Java 17;
-2. installa Flutter 3.47.3;
-3. genera i file Android;
-4. aggiunge i permessi GPS, Internet e Fotocamera;
-5. esegue `flutter analyze`;
-6. compila `flutter build apk --release`;
-7. pubblica `WildTrack-release.apk` come artifact scaricabile.
-
-In alternativa, su un computer con Flutter installato:
+Toolchain: Flutter **3.47.3**, Java **17**. Nel cloud già configurato:
 
 ```bash
-flutter create --platforms=android --org it.wildtrack --project-name wildtrack_mvp .
-python tool/prepare_android.py
-flutter pub get
-flutter analyze
-flutter build apk --release
+source /workspace/wildtrack-onboarding/activate.sh
+cd /workspace/wildtrack-dev
+python3 tool/prepare_android.py
+flutter pub get --enforce-lockfile
+flutter analyze --no-pub --no-fatal-infos
+flutter test --no-pub
+flutter build apk --release --no-pub
 ```
 
-APK generato in:
+`wildtrack-dev` è una copia di compilazione: sincronizzare i sorgenti dal repository prima di compilare modifiche successive. L'APK è `build/app/outputs/flutter-apk/app-release.apk`.
 
-`build/app/outputs/flutter-apk/app-release.apk`
+Lo script Android richiede una chiave già esistente: **non genera una nuova identità**. In questo ambiente usa la chiave conservata in `ANDROID_USER_HOME`. Per scegliere una chiave originale diversa, usare `WILDTRACK_KEYSTORE`, `WILDTRACK_STORE_PASSWORD`, `WILDTRACK_KEY_ALIAS` e `WILDTRACK_KEY_PASSWORD` tramite impostazioni sicure dell'ambiente. Non inserire chiavi o password nel repository.
+
+La CI `.github/workflows/build-apk.yml` usa Flutter fissato, lockfile e test. Prima di distribuire con GitHub Actions, configurare la chiave originale nei secret `WILDTRACK_KEYSTORE_B64`, `WILDTRACK_STORE_PASSWORD`, `WILDTRACK_KEY_ALIAS`, `WILDTRACK_KEY_PASSWORD`. In assenza della chiave il workflow si ferma, evitando APK firmati con chiavi temporanee incompatibili. Non sono stati caricati secret su GitHub in questa sessione.
+
+La firma debug preesistente viene conservata per consentire l'aggiornamento della relativa installazione. La dicitura `release` descrive la modalità di compilazione e non sostituisce il confronto del certificato.
+
+I test SQLite desktop usano `sqflite_common_ffi` e `sqlite3` soltanto come dipendenze di sviluppo; su Linux caricano `libsqlite3.so.0`. Non sono componenti aggiunti all'app Android.

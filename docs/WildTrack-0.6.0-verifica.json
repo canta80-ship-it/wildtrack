@@ -1,0 +1,13 @@
+{
+  "apk": "WildTrack-arm64.apk",
+  "version": "0.6.0",
+  "versionCode": 6,
+  "package": "it.wildtrack.wildtrack_v5",
+  "bytes": 45606309,
+  "sha256": "5063fc596c41e2fa2a047326d9acdb73cafe6f273466dfd54386573df485b181",
+  "certificateSha256": "f53421a6192dcce43537b675931f5ee93fd119e13f1e50b1a4e8131b506c7972",
+  "matchesReferenceSignature": true,
+  "testsPassed": 14,
+  "deviceInstallNotVerified": true,
+  "architecture": "Android ARM64"
+}

@@ -1,3 +1,4 @@
+import 'premium_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,10 +23,11 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
   }
 
   Future<void> load() async {
+    if (loading) return;
     setState(() => loading = true);
     try {
       final d = await CommunityService.instance.api('maps');
-      if (mounted)
+      if (mounted) {
         setState(() {
           maps = (d['items'] as List)
               .map((x) => Map<String, dynamic>.from(x as Map))
@@ -35,6 +37,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
               .toList();
           error = null;
         });
+      }
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -57,7 +60,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
             onPressed: () => Navigator.pop(c),
             child: const Text('Annulla'),
           ),
-          FilledButton(
+          PremiumFilledButton(
             onPressed: () => Navigator.pop(c, t.text.trim()),
             child: const Text('Conferma'),
           ),
@@ -118,7 +121,7 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(
       title: const Text('Mappe private'),
       actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))],
@@ -126,6 +129,10 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
     body: ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const PremiumHeading(
+          'Il tuo gruppo. Il tuo spazio.',
+          eyebrow: 'Condivisione riservata',
+        ),
         const Text(
           'Condividi osservazioni solo con le persone che approvi. Le mappe private non compaiono nella comunità pubblica.',
         ),
@@ -133,11 +140,12 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
         Wrap(
           spacing: 8,
           children: [
-            FilledButton.icon(
+            PremiumFilledButton.icon(
               onPressed: () async {
                 final n = await input('Crea mappa privata', 'Nome della mappa');
-                if (n != null && n.isNotEmpty)
+                if (n != null && n.isNotEmpty) {
                   await action({'action': 'create', 'name': n});
+                }
               },
               icon: const Icon(Icons.add),
               label: const Text('Crea mappa'),
@@ -145,12 +153,13 @@ class _PrivateMapsScreenState extends State<PrivateMapsScreen> {
             OutlinedButton.icon(
               onPressed: () async {
                 final code = await input('Chiedi accesso', 'Codice ricevuto');
-                if (code != null && code.isNotEmpty)
+                if (code != null && code.isNotEmpty) {
                   await action({
                     'action': 'join',
                     'code': code,
                     'nickname': PreferencesService.instance.nickname,
                   });
+                }
               },
               icon: const Icon(Icons.vpn_key_outlined),
               label: const Text('Usa invito'),

@@ -1,3 +1,4 @@
+import 'premium_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -131,11 +132,15 @@ class GuideScreen extends StatefulWidget {
 class _GuideScreenState extends State<GuideScreen> {
   final checked = <String>{};
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(title: const Text('Guida sul campo')),
     body: ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const PremiumHeading(
+          'Osservare senza lasciare traccia.',
+          eyebrow: 'Guida sul campo',
+        ),
         const Text(
           'Osservare senza lasciare traccia',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),

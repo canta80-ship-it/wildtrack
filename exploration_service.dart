@@ -6,22 +6,47 @@ import 'package:flutter/services.dart';
 
 import 'community_service.dart';
 import 'preferences_service.dart';
+import 'storage_service.dart';
+import 'network_service.dart';
 
 class NatureTrail {
-  NatureTrail(this.data);
+  NatureTrail(Map<String, dynamic> value)
+    : data = Map.unmodifiable(
+        jsonDecode(jsonEncode(value)) as Map<String, dynamic>,
+      ) {
+    if (data['segments'] is! List ||
+        segments.length != (data['segments'] as List).length) {
+      throw const FormatException('Geometria itinerario non valida');
+    }
+    final source = data['source'];
+    if (source != null) {
+      final uri = source is String ? Uri.tryParse(source) : null;
+      if (uri == null ||
+          uri.scheme != 'https' ||
+          !{'www.openstreetmap.org', 'openstreetmap.org'}.contains(uri.host)) {
+        throw const FormatException('Fonte itinerario non valida');
+      }
+    }
+  }
   final Map<String, dynamic> data;
   String get id => '${data['id']}';
-  String get name => data['name'] as String? ?? 'Itinerario';
-  List<List<LatLng>> get segments => (data['segments'] as List)
-      .map(
-        (s) => (s as List)
-            .map(
-              (p) => LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble()),
-            )
-            .toList(),
-      )
-      .toList();
-  double get length {
+  String get name =>
+      data['name'] is String ? data['name'] as String : 'Itinerario';
+  late final List<List<LatLng>> segments = List.unmodifiable(
+    (data['segments'] as List)
+        .map(
+          (s) => List<LatLng>.unmodifiable(
+            (s as List).map((p) {
+              if (!validCoordinates(p[0], p[1]))
+                throw const FormatException('Coordinate itinerario non valide');
+              return LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble());
+            }),
+          ),
+        )
+        .where((s) => s.length > 1),
+  );
+  late final double length = _length();
+  double _length() {
     double n = 0;
     const d = Distance();
     for (final s in segments) {
@@ -37,7 +62,10 @@ class NatureTrail {
 
 class ExplorationService {
   static final instance = ExplorationService();
-  Future<Map<String, dynamic>> bundled() async =>
+  final _writes = SerialExecutor();
+  Future<Map<String, dynamic>>? _bundle;
+  Future<Map<String, dynamic>> bundled() => _bundle ??= _loadBundle();
+  Future<Map<String, dynamic>> _loadBundle() async =>
       jsonDecode(await rootBundle.loadString('nature_assets.json'))
           as Map<String, dynamic>;
   Future<List<NatureTrail>> presets() async {
@@ -51,37 +79,25 @@ class ExplorationService {
     '${PreferencesService.instance.file.parent.path}/wildtrack_trails.json',
   );
   Future<List<NatureTrail>> saved() async {
-    try {
-      return (jsonDecode(await file.readAsString()) as List)
-          .map((x) => NatureTrail(Map<String, dynamic>.from(x as Map)))
-          .toList();
-    } catch (_) {
-      return [];
-    }
+    final value = await JsonStorage.read(file, empty: <Object>[]);
+    if (value is! List)
+      throw const FormatException('Archivio itinerari non valido');
+    return value
+        .map((x) => NatureTrail(Map<String, dynamic>.from(x as Map)))
+        .toList();
   }
 
-  Future<void> save(NatureTrail t) async {
+  Future<void> save(NatureTrail t) => _writes.run(() async {
     final rows = await saved();
     rows.removeWhere((r) => r.id == t.id);
     rows.add(t);
-    final tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(
-      jsonEncode(rows.map((r) => r.data).toList()),
-      flush: true,
-    );
-    await tmp.rename(file.path);
-  }
-
-  Future<void> remove(String id) async {
+    await JsonStorage.write(file, rows.map((r) => r.data).toList());
+  });
+  Future<void> remove(String id) => _writes.run(() async {
     final rows = await saved();
     rows.removeWhere((r) => r.id == id);
-    final tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(
-      jsonEncode(rows.map((r) => r.data).toList()),
-      flush: true,
-    );
-    await tmp.rename(file.path);
-  }
+    await JsonStorage.write(file, rows.map((r) => r.data).toList());
+  });
 
   Future<List<NatureTrail>> nearby(LatLng p) async {
     if (p.latitude < 35 ||
@@ -98,22 +114,14 @@ class ExplorationService {
         '(around:5000,${p.latitude},${p.longitude});'
         'out body geom($south,$west,$north,$east);';
     for (final host in ['overpass-api.de', 'overpass.private.coffee']) {
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 8);
       try {
-        final req = await client.postUrl(Uri.https(host, '/api/interpreter'));
-        req.headers.contentType = ContentType(
-          'application',
-          'x-www-form-urlencoded',
+        final data = await JsonNetwork.request(
+          Uri.https(host, '/api/interpreter'),
+          method: 'POST',
+          body: 'data=${Uri.encodeQueryComponent(query)}',
+          form: true,
+          timeout: const Duration(seconds: 40),
         );
-        req.write('data=${Uri.encodeQueryComponent(query)}');
-        final res = await req.close().timeout(const Duration(seconds: 25));
-        if (res.statusCode != 200) continue;
-        final text = await res
-            .transform(utf8.decoder)
-            .join()
-            .timeout(const Duration(seconds: 15));
-        final data = jsonDecode(text) as Map<String, dynamic>;
         if (data['remark'] != null || data['elements'] is! List) continue;
         return (data['elements'] as List)
             .where((e) => e['type'] == 'relation')
@@ -150,8 +158,6 @@ class ExplorationService {
             .toList();
       } catch (_) {
         // Retry another provider; never substitute unrelated bundled routes.
-      } finally {
-        client.close(force: true);
       }
     }
     // The server may still have a cached response when public providers are busy.

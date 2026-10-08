@@ -1,3 +1,4 @@
+import 'premium_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -28,7 +29,7 @@ class _RoutesScreenState extends State<RoutesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(title: const Text('Percorsi salvati')),
     body: sessions.isEmpty
         ? const Center(child: Text('Nessun percorso registrato.'))

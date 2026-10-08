@@ -1,3 +1,4 @@
+import 'premium_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../services/tracking_service.dart';
@@ -30,13 +31,16 @@ class _RecordScreenState extends State<RecordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PremiumScaffold(
       appBar: AppBar(title: const Text('Registra uscita')),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
           children: [
+            const PremiumHeading(
+              'Il tuo percorso, punto dopo punto.',
+              eyebrow: 'Registrazione GPS',
+            ),
             _Metric(
               label: 'Distanza',
               value: '${_km(tracker.distanceMeters)} km',
@@ -50,8 +54,8 @@ class _RecordScreenState extends State<RecordScreen> {
               'Il percorso continua a schermo spento. Ogni punto viene salvato sul telefono; per fermare premi Termina. Un arresto forzato interrompe il GPS, ma conserva i punti già scritti.',
             ),
             if (tracker.error != null) Text(tracker.error!),
-            const Spacer(),
-            FilledButton.icon(
+            const SizedBox(height: 24),
+            PremiumFilledButton.icon(
               onPressed: tracker.busy
                   ? null
                   : () async {
@@ -83,9 +87,11 @@ class _RecordScreenState extends State<RecordScreen> {
                           }
                         }
                       } catch (e) {
-                        if (context.mounted)
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(content: Text('$e')));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('$e')));
+                        }
                       }
                     },
               icon: Icon(tracker.isTracking ? Icons.stop : Icons.play_arrow),
@@ -108,10 +114,49 @@ class _Metric extends StatelessWidget {
   final String value;
   const _Metric({required this.label, required this.value});
   @override
-  Widget build(BuildContext context) => Card(
-    child: ListTile(
-      title: Text(label),
-      trailing: Text(value, style: Theme.of(context).textTheme.titleLarge),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final featured = label == 'Distanza';
+    final content = Padding(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.w600,
+              color: featured
+                  ? const Color(0xFFD2DFC1)
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: featured ? 42 : 30,
+              letterSpacing: -1,
+              color: featured
+                  ? const Color(0xFFF7FAEF)
+                  : Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+    return featured
+        ? Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(23),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF214A35), Color(0xFF57764E)],
+              ),
+            ),
+            child: content,
+          )
+        : Card(child: content);
+  }
 }

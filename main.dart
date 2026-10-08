@@ -16,12 +16,83 @@ import 'screens/private_maps_screen.dart';
 import 'screens/exploration_screen.dart';
 import 'services/preferences_service.dart';
 import 'services/community_service.dart';
+import 'services/database_service.dart';
+import 'services/photo_service.dart';
+import 'services/lifecycle_service.dart';
+import 'screens/premium_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await PreferencesService.instance.load();
-  await CommunityService.instance.load();
-  runApp(const WildTrackApp());
+  runApp(const StartupGate());
+}
+
+class StartupGate extends StatefulWidget {
+  const StartupGate({super.key});
+  @override
+  State<StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<StartupGate> {
+  late Future<void> ready = initialize();
+  Future<void> initialize() async {
+    await PreferencesService.instance.load();
+    await CommunityService.instance.load();
+    await DatabaseService.instance.database;
+    try {
+      await PhotoService.recoverLost();
+    } catch (_) {
+      /* Retry remains available in the editor. */
+    }
+    unawaited(PhotoService.sweep().catchError((Object _) {}));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+    future: ready,
+    builder: (context, state) {
+      if (state.connectionState == ConnectionState.done && !state.hasError)
+        return const WildTrackApp();
+      return MaterialApp(
+        theme: wildTrackTheme(Brightness.light),
+        debugShowCheckedModeBanner: false,
+        home: PremiumScaffold(
+          body: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: state.hasError
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.folder_off_outlined, size: 46),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Impossibile aprire gli archivi. I dati esistenti sono conservati. Non cancellare i dati dell’app.',
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          FilledButton(
+                            onPressed: () =>
+                                setState(() => ready = initialize()),
+                            child: const Text('Riprova'),
+                          ),
+                        ],
+                      )
+                    : const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 24),
+                          Text('WildTrack'),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class WildTrackApp extends StatefulWidget {
@@ -57,46 +128,15 @@ class _WildTrackAppState extends State<WildTrackApp>
     }
   }
 
-  ThemeData theme(Brightness brightness) {
-    final dark = brightness == Brightness.dark;
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: const Color(0xFF405D36),
-          brightness: brightness,
-        ).copyWith(
-          surface: dark ? const Color(0xFF17251B) : const Color(0xFFCCD5B5),
-          surfaceContainerLow: dark
-              ? const Color(0xFF213225)
-              : const Color(0xFFD8DFC6),
-          primary: dark ? const Color(0xFFB4CD91) : const Color(0xFF29452E),
-          onSurface: dark ? const Color(0xFFE5EBDC) : const Color(0xFF1A2A1B),
-        );
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.surface,
-      cardTheme: CardThemeData(color: scheme.surfaceContainerLow, elevation: 0),
-      appBarTheme: AppBarTheme(
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: scheme.surfaceContainerLow,
-      ),
-      inputDecorationTheme: const InputDecorationTheme(
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: PreferencesService.instance,
     builder: (context, _) => MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'WildTrack',
-      theme: theme(Brightness.light),
-      darkTheme: theme(Brightness.dark),
+      navigatorObservers: [wildTrackRoutes],
+      theme: wildTrackTheme(Brightness.light),
+      darkTheme: wildTrackTheme(Brightness.dark),
       themeMode: PreferencesService.instance.theme,
       home: const IntroScreen(home: HomeShell()),
     ),
@@ -109,7 +149,19 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell>
+    with SingleTickerProviderStateMixin {
+  late final tabs = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    value: 1,
+  );
+  @override
+  void dispose() {
+    tabs.dispose();
+    super.dispose();
+  }
+
   int index = 0;
   final pages = const [
     MapScreen(),
@@ -119,11 +171,24 @@ class _HomeShellState extends State<HomeShell> {
     MoreScreen(),
   ];
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: IndexedStack(index: index, children: pages),
+  Widget build(BuildContext context) => PremiumScaffold(
+    body: FadeTransition(
+      opacity: tabs.drive(Tween(begin: .4, end: 1.0)),
+      child: IndexedStack(
+        index: index,
+        children: [
+          for (var i = 0; i < pages.length; i++)
+            TickerMode(enabled: i == index, child: pages[i]),
+        ],
+      ),
+    ),
     bottomNavigationBar: NavigationBar(
       selectedIndex: index,
-      onDestinationSelected: (i) => setState(() => index = i),
+      onDestinationSelected: (i) {
+        if (i == index) return;
+        setState(() => index = i);
+        if (!MediaQuery.disableAnimationsOf(context)) tabs.forward(from: 0);
+      },
       destinations: const [
         NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Mappa'),
         NavigationDestination(icon: Icon(Icons.pets_outlined), label: 'Specie'),
@@ -144,40 +209,68 @@ class _HomeShellState extends State<HomeShell> {
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(title: const Text('WildTrack')),
     body: ListView(
+      padding: const EdgeInsets.all(22),
       children: [
-        for (final item in <(String, IconData, Widget)>[
-          (
-            'Registra percorso',
-            Icons.radio_button_checked,
-            const RecordScreen(),
-          ),
-          (
-            'Italia: specie e itinerari',
-            Icons.hiking,
-            const ExplorationScreen(),
-          ),
-          ('Mappe private', Icons.lock_outline, const PrivateMapsScreen()),
-          ('Percorsi salvati', Icons.route, const RoutesScreen()),
-          (
-            'Taccuino offline e posizioni da completare',
-            Icons.bookmark,
-            const SightingsScreen(),
-          ),
-          ('Statistiche', Icons.bar_chart, const StatsScreen()),
-          ('Impostazioni', Icons.settings, const SettingsScreen()),
-        ])
-          ListTile(
-            leading: Icon(item.$2),
-            title: Text(item.$1),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(builder: (_) => item.$3),
-            ),
-          ),
+        const PremiumHeading(
+          'Il tuo mondo\noutdoor.',
+          eyebrow: 'Tutti gli strumenti',
+        ),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.4,
+          children: [
+            for (final item in <(String, IconData, Widget)>[
+              (
+                'Registra percorso',
+                Icons.radio_button_checked,
+                const RecordScreen(),
+              ),
+              ('Italia e itinerari', Icons.hiking, const ExplorationScreen()),
+              ('Mappe private', Icons.lock_outline, const PrivateMapsScreen()),
+              ('Percorsi salvati', Icons.route, const RoutesScreen()),
+              ('Taccuino offline', Icons.bookmark, const SightingsScreen()),
+              ('Statistiche', Icons.bar_chart, const StatsScreen()),
+              ('Impostazioni', Icons.settings, const SettingsScreen()),
+            ])
+              Card(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(21),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(builder: (_) => item.$3),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Icon(
+                          item.$2,
+                          size: 28,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        Flexible(
+                          child: Text(
+                            item.$1,
+                            maxLines: 3,
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ],
     ),
   );

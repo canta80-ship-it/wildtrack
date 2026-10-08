@@ -5,19 +5,28 @@ import 'package:sqflite/sqflite.dart';
 import '../models/sighting.dart';
 import '../models/track_point.dart';
 import '../models/track_session.dart';
+import 'storage_service.dart';
+import 'photo_service.dart';
 
 class DatabaseService {
   DatabaseService._();
   static final DatabaseService instance = DatabaseService._();
   Database? _db;
+  Future<Database>? _opening;
+  final _mutations = SerialExecutor();
   final changes = ValueNotifier<int>(0);
 
-  Future<Database> get database async {
+  Future<Database> get database =>
+      _opening ??= _open().catchError((Object e, StackTrace st) {
+        _opening = null;
+        Error.throwWithStackTrace(e, st);
+      });
+  Future<Database> _open() async {
     if (_db != null) return _db!;
     final path = join(await getDatabasesPath(), 'wildtrack.db');
     _db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
         CREATE TABLE sightings(
@@ -69,49 +78,106 @@ class DatabaseService {
           await db.execute('DROP TABLE sightings_v1');
         }
       },
+      onOpen: (db) async {
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS track_points_session_time ON track_points(session_id,timestamp,id)',
+        );
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS sightings_time ON sightings(timestamp DESC)',
+        );
+      },
     );
     return _db!;
   }
 
-  Future<void> insertSighting(Sighting sighting) async {
+  Future<void> insertSighting(Sighting sighting) => _mutations.run(() async {
     final db = await database;
+    final old = await db.query(
+      'sightings',
+      where: 'id=?',
+      whereArgs: [sighting.id],
+    );
     await db.insert(
       'sightings',
       sighting.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     changes.value++;
+    if (old.isNotEmpty)
+      await PhotoService.deleteIfUnreferenced(
+        old.first['photo_path'] as String?,
+      );
+  });
+
+  Future<void> deleteSighting(String id) => _mutations.run(() async {
+    final db = await database;
+    final old = await db.query('sightings', where: 'id=?', whereArgs: [id]);
+    final removed = await db.delete(
+      'sightings',
+      where: 'id=?',
+      whereArgs: [id],
+    );
+    if (removed > 0) {
+      changes.value++;
+      await PhotoService.deleteIfUnreferenced(
+        old.first['photo_path'] as String?,
+      );
+    }
+  });
+
+  Future<Map<String, Object?>?> sightingSnapshot(String id) async {
+    final rows = await (await database).query(
+      'sightings',
+      where: 'id=?',
+      whereArgs: [id],
+    );
+    return rows.isEmpty ? null : Sighting.fromMap(rows.first).toMap();
   }
 
-  Future<void> deleteSighting(String id) async {
+  Future<void> deleteIfUnchanged(String id, Map snapshot) =>
+      _mutations.run(() async {
+        final db = await database;
+        String? photo;
+        final deleted = await db.transaction((txn) async {
+          final rows = await txn.query(
+            'sightings',
+            where: 'id=?',
+            whereArgs: [id],
+          );
+          if (rows.isEmpty) return 0;
+          final current = Sighting.fromMap(rows.first).toMap();
+          if (snapshot.length != current.length ||
+              !current.entries.every((e) => snapshot[e.key] == e.value))
+            return 0;
+          photo = current['photo_path'] as String?;
+          return txn.delete('sightings', where: 'id=?', whereArgs: [id]);
+        });
+        if (deleted > 0) {
+          changes.value++;
+          await PhotoService.deleteIfUnreferenced(photo);
+        }
+      });
+
+  Future<Map<String, num>> statistics() async {
     final db = await database;
-    await db.delete('sightings', where: 'id = ?', whereArgs: [id]);
-    changes.value++;
+    final s = (await db.rawQuery(
+      'SELECT COUNT(*) AS n, COALESCE(SUM(count),0) AS animals FROM sightings',
+    )).first;
+    final r = (await db.rawQuery(
+      'SELECT COUNT(*) AS n, COALESCE(SUM(distance_m),0) AS distance FROM sessions',
+    )).first;
+    return {
+      'sightings': s['n'] as num,
+      'animals': s['animals'] as num,
+      'sessions': r['n'] as num,
+      'distance': r['distance'] as num,
+    };
   }
 
   Future<List<Sighting>> getSightings() async {
     final db = await database;
     final rows = await db.query('sightings', orderBy: 'timestamp DESC');
     return rows.map(Sighting.fromMap).toList();
-  }
-
-  Future<void> saveSession(
-    TrackSession session,
-    List<TrackPoint> points,
-  ) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      await txn.insert(
-        'sessions',
-        session.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      final batch = txn.batch();
-      for (final p in points) {
-        batch.insert('track_points', p.toMap(session.id));
-      }
-      await batch.commit(noResult: true);
-    });
   }
 
   Future<void> appendTrackPoint(TrackSession session, TrackPoint? point) async {
@@ -122,8 +188,9 @@ class DatabaseService {
         session.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      if (point != null)
+      if (point != null) {
         await txn.insert('track_points', point.toMap(session.id));
+      }
     });
   }
 

@@ -1,10 +1,10 @@
+import 'premium_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../models/sighting.dart';
@@ -17,6 +17,9 @@ import 'package:uuid/uuid.dart';
 import '../services/community_service.dart';
 import '../services/database_service.dart';
 import '../services/preferences_service.dart';
+import '../services/location_service.dart';
+import '../services/photo_service.dart';
+import '../services/lifecycle_service.dart';
 import 'private_maps_screen.dart';
 import 'species_screen.dart';
 
@@ -45,7 +48,7 @@ class CommunityScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DefaultTabController(
     length: 2,
-    child: Scaffold(
+    child: PremiumScaffold(
       appBar: AppBar(
         title: const Text('Comunità'),
         actions: [
@@ -127,7 +130,17 @@ class CommunityScreen extends StatelessWidget {
               );
             },
           ),
-          const InboxScreen(),
+          Builder(
+            builder: (context) => AnimatedBuilder(
+              animation: DefaultTabController.of(context),
+              builder: (context, _) => TickerMode(
+                enabled:
+                    TickerMode.valuesOf(context).enabled &&
+                    DefaultTabController.of(context).index == 1,
+                child: const InboxScreen(),
+              ),
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -213,7 +226,7 @@ Future<void> showSighting(
                         onPressed: () => Navigator.pop(c, false),
                         child: const Text('Annulla'),
                       ),
-                      FilledButton(
+                      PremiumFilledButton(
                         onPressed: () => Navigator.pop(c, true),
                         child: const Text('Rimuovi'),
                       ),
@@ -259,6 +272,7 @@ class _PublishScreenState extends State<PublishScreen> {
   void initState() {
     super.initState();
     loadMaps();
+    unawaited(restorePhoto());
     final s = widget.initial;
     observedAt = s?.timestamp ?? DateTime.now();
     if (s != null) {
@@ -271,23 +285,35 @@ class _PublishScreenState extends State<PublishScreen> {
     }
   }
 
+  Future<void> restorePhoto() async {
+    try {
+      final recovered = await PhotoService.restored('publish');
+      if (mounted && recovered != null && photo == null)
+        setState(() => photo = XFile(recovered));
+    } catch (e) {
+      if (mounted) setState(() => error = 'Recupero foto non riuscito: $e');
+    }
+  }
+
   String? groupId;
   List<Map<String, dynamic>> privateMaps = [];
   Future<void> loadMaps() async {
     try {
       final d = await CommunityService.instance.api('maps');
-      if (mounted)
+      if (mounted) {
         setState(
           () => privateMaps = (d['items'] as List)
               .map((x) => Map<String, dynamic>.from(x as Map))
               .toList(),
         );
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => error =
               'Mappe private non caricate: riprova prima di condividere.',
         );
+      }
     }
   }
 
@@ -302,23 +328,9 @@ class _PublishScreenState extends State<PublishScreen> {
   Future<void> locate() async {
     setState(() => busy = true);
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw Exception('Attiva il GPS');
-      }
-      var p = await Geolocator.checkPermission();
-      if (p == LocationPermission.denied) {
-        p = await Geolocator.requestPermission();
-      }
-      if (p != LocationPermission.always &&
-          p != LocationPermission.whileInUse) {
-        throw Exception('Permesso GPS non concesso');
-      }
-      final value = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
+      final value = await LocationService.currentPosition();
+      if (value == null)
+        throw Exception('Permesso GPS non concesso o GPS disattivato');
       if (mounted) {
         setState(() {
           location = LatLng(value.latitude, value.longitude);
@@ -368,10 +380,11 @@ class _PublishScreenState extends State<PublishScreen> {
                 final data = await frame.image.toByteData(
                   format: ui.ImageByteFormat.png,
                 );
-                if (data == null)
+                if (data == null) {
                   throw Exception(
                     'Impossibile elaborare questa foto. Prova un’altra immagine.',
                   );
+                }
                 if (data.lengthInBytes <= 1000000) {
                   encoded = base64Encode(
                     data.buffer.asUint8List(
@@ -387,10 +400,11 @@ class _PublishScreenState extends State<PublishScreen> {
               codec.dispose();
             }
             if (encoded != null) break;
-            if (edge <= 256)
+            if (edge <= 256) {
               throw Exception(
                 'Impossibile preparare questa foto per la condivisione.',
               );
+            }
             edge = (edge * 0.8).floor().clamp(256, 1600).toInt();
           }
         } finally {
@@ -414,12 +428,17 @@ class _PublishScreenState extends State<PublishScreen> {
         'species': species,
         'count': n,
         'notes': notes.text.trim(),
-        'lat': p.latitude,
-        'lng': p.longitude,
+        'lat': approximate ? (p.latitude * 100).round() / 100 : p.latitude,
+        'lng': approximate ? (p.longitude * 100).round() / 100 : p.longitude,
+        '_localId': original?.id,
+        '_localSnapshot': original == null
+            ? null
+            : await DatabaseService.instance.sightingSnapshot(original.id),
         'observedAt': observedAt.toUtc().toIso8601String(),
         'approximate': approximate,
         'photo': encoded,
       });
+      await PhotoService.consumed(photo?.path);
       if (mounted) Navigator.pop(context, species);
     } catch (e) {
       if (mounted) {
@@ -431,7 +450,7 @@ class _PublishScreenState extends State<PublishScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(title: const Text('Condividi avvistamento')),
     body: ListView(
       padding: const EdgeInsets.all(18),
@@ -470,21 +489,19 @@ class _PublishScreenState extends State<PublishScreen> {
           items: [
             if (!animals.any((a) => a.name == species))
               DropdownMenuItem(value: species, child: Text(species)),
-            ...animals
-                .map(
-                  (a) => DropdownMenuItem(
-                    value: a.name,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SpeciesIcon(a.name, size: 28),
-                        const SizedBox(width: 8),
-                        Text(a.name),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
+            ...animals.map(
+              (a) => DropdownMenuItem(
+                value: a.name,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SpeciesIcon(a.name, size: 28),
+                    const SizedBox(width: 8),
+                    Text(a.name),
+                  ],
+                ),
+              ),
+            ),
           ],
           onChanged: busy ? null : (v) => setState(() => species = v!),
         ),
@@ -505,10 +522,11 @@ class _PublishScreenState extends State<PublishScreen> {
           onPressed: busy
               ? null
               : () async {
-                  final f = await ImagePicker().pickImage(
-                    source: ImageSource.gallery,
+                  final f = await PhotoService.pick(
+                    ImageSource.gallery,
+                    owner: 'publish',
                     maxWidth: 1000,
-                    imageQuality: 80,
+                    quality: 80,
                   );
                   if (mounted) setState(() => photo = f);
                 },
@@ -556,7 +574,7 @@ class _PublishScreenState extends State<PublishScreen> {
         ),
         if (error != null) Text(error!),
         if (busy) const LinearProgressIndicator(),
-        FilledButton(
+        PremiumFilledButton(
           onPressed: busy || location == null || !consent ? null : publish,
           child: const Text('Pubblica avvistamento'),
         ),
@@ -571,27 +589,22 @@ class InboxScreen extends StatefulWidget {
   State<InboxScreen> createState() => _InboxScreenState();
 }
 
-class _InboxScreenState extends State<InboxScreen> {
+class _InboxScreenState extends State<InboxScreen>
+    with VisiblePolling<InboxScreen> {
   List<Map<String, dynamic>> rows = [];
   String? error;
-  Timer? timer;
-  @override
-  void initState() {
-    super.initState();
-    load();
-    timer = Timer.periodic(const Duration(seconds: 15), (_) => load());
-  }
+  bool _loading = false;
 
   @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
-
+  Duration get pollInterval => const Duration(seconds: 15);
+  @override
+  Future<void> poll() => load();
   Future<void> load() async {
+    if (_loading || !pollVisible) return;
+    _loading = true;
     try {
       final r = await CommunityService.instance.api('messages');
-      if (mounted) {
+      if (pollVisible) {
         setState(() {
           rows = (r['items'] as List)
               .map((x) => Map<String, dynamic>.from(x as Map))
@@ -605,6 +618,8 @@ class _InboxScreenState extends State<InboxScreen> {
           () => error = 'Messaggi non disponibili. Trascina per riprovare.',
         );
       }
+    } finally {
+      _loading = false;
     }
   }
 
@@ -668,33 +683,33 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen>
+    with VisiblePolling<ChatScreen> {
   final input = TextEditingController();
   List<Map<String, dynamic>> rows = [];
   String? error;
   bool busy = false, blocked = false;
-  Timer? timer;
+  bool _loading = false;
   String? retryId, retryText;
-  @override
-  void initState() {
-    super.initState();
-    load();
-    timer = Timer.periodic(const Duration(seconds: 8), (_) => load());
-  }
 
   @override
   void dispose() {
-    timer?.cancel();
     input.dispose();
     super.dispose();
   }
 
+  @override
+  Duration get pollInterval => const Duration(seconds: 8);
+  @override
+  Future<void> poll() => load();
   Future<void> load() async {
+    if (_loading || !pollVisible) return;
+    _loading = true;
     try {
       final data = await CommunityService.instance.api(
-        'messages?peer=${widget.peer}',
+        'messages?peer=${Uri.encodeQueryComponent(widget.peer)}',
       );
-      if (mounted) {
+      if (pollVisible) {
         setState(() {
           rows = (data['items'] as List)
               .map((x) => Map<String, dynamic>.from(x as Map))
@@ -703,7 +718,9 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => error = 'Aggiornamento non riuscito.');
+      if (pollVisible) setState(() => error = 'Aggiornamento non riuscito.');
+    } finally {
+      _loading = false;
     }
   }
 
@@ -737,7 +754,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PremiumScaffold(
     appBar: AppBar(
       title: Text(widget.nickname),
       actions: [
@@ -757,7 +774,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     onPressed: () => Navigator.pop(c, false),
                     child: const Text('Annulla'),
                   ),
-                  FilledButton(
+                  PremiumFilledButton(
                     onPressed: () => Navigator.pop(c, true),
                     child: const Text('Blocca'),
                   ),

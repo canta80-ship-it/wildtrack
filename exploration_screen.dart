@@ -1,3 +1,4 @@
+import 'premium_screen.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -32,7 +33,11 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
   NatureTrail? active;
   Position? gps;
   StreamSubscription<Position>? stream;
-  int speciesGeneration = 0;
+  int speciesGeneration = 0, navigationGeneration = 0;
+  bool navigationBusy = false;
+  Position? _distanceGps;
+  NatureTrail? _distanceTrail;
+  double? _distanceResult;
   List<Map<String, dynamic>> records = [];
   @override
   void initState() {
@@ -47,6 +52,7 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
   @override
   void dispose() {
     speciesGeneration++;
+    navigationGeneration++;
     stream?.cancel();
     map.dispose();
     super.dispose();
@@ -55,15 +61,17 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
   Future<void> loadPresets() async {
     try {
       final rows = await ExplorationService.instance.presets();
-      if (mounted)
+      if (mounted) {
         setState(() {
           trails = rows;
           notice =
               '${rows.length} itinerari reali già disponibili. Scegli Itinerari oppure carica un’altra area.';
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() => error = 'Catalogo itinerari non caricato: $e');
+      }
     }
   }
 
@@ -83,11 +91,13 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
           : await CommunityService.instance.api(
               'nature?name=${Uri.encodeQueryComponent(a.latin)}',
             );
-      if (mounted && generation == speciesGeneration)
+      if (mounted && generation == speciesGeneration) {
         setState(() => taxon = d['taxon'] as int);
+      }
     } catch (e) {
-      if (mounted && generation == speciesGeneration)
+      if (mounted && generation == speciesGeneration) {
         setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+      }
     }
   }
 
@@ -100,16 +110,18 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
     try {
       final p = map.camera.center;
       final rows = await ExplorationService.instance.nearby(p);
-      if (mounted)
+      if (mounted) {
         setState(() {
           trails = rows;
           notice = rows.isEmpty
               ? 'Nessun itinerario OSM trovato entro 5 km. Sposta la mappa e riprova.'
               : '${rows.length} itinerari trovati entro 5 km dal centro mappa.';
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -128,7 +140,7 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
       final d = await CommunityService.instance.api(
         'nature?name=${Uri.encodeQueryComponent(a.latin)}&lat=${p.latitude}&lng=${p.longitude}',
       );
-      if (mounted && gen == speciesGeneration)
+      if (mounted && gen == speciesGeneration) {
         setState(() {
           records = (d['items'] as List)
               .map((r) => Map<String, dynamic>.from(r as Map))
@@ -136,6 +148,7 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
           notice =
               '${records.length} registrazioni mostrate su ${d['count']} nell’area. Date e qualità variabili: tocca un punto.';
         });
+      }
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -156,56 +169,75 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
   }
 
   Future<void> navigate() async {
-    if (following) {
-      await stream?.cancel();
-      stream = null;
-      if (mounted) setState(() => following = false);
-      return;
-    }
+    if (navigationBusy) return;
+    navigationBusy = true;
+    final generation = ++navigationGeneration;
     try {
+      if (following) {
+        await stream?.cancel();
+        stream = null;
+        if (mounted) setState(() => following = false);
+        return;
+      }
       if (!await LocationService.ensurePermission())
         throw Exception('Autorizza il GPS');
-      if (!mounted) return;
+      if (!mounted || generation != navigationGeneration) return;
       setState(() => following = true);
-      stream =
-          Geolocator.getPositionStream(
-            locationSettings: AndroidSettings(
-              accuracy: LocationAccuracy.high,
-              distanceFilter: 3,
-              intervalDuration: const Duration(seconds: 3),
-              foregroundNotificationConfig: const ForegroundNotificationConfig(
-                notificationTitle: 'WildTrack · navigazione GPS',
-                notificationText: 'Segui il tracciato. Apri WildTrack per fermare la navigazione.',
-                enableWakeLock: true,
-                setOngoing: true,
-              ),
-            ),
-          ).listen(
-            (p) {
-              if (!mounted) return;
-              setState(() => gps = p);
-              map.move(
-                LatLng(p.latitude, p.longitude),
-                math.max(map.camera.zoom, 14.0),
-              );
-            },
-            onError: (Object e) {
-              if (mounted)
-                setState(() {
-                  following = false;
-                  error = 'GPS interrotto: $e';
-                });
-              stream?.cancel();
-              stream = null;
-            },
+      stream = LocationService.positionStream(purpose: 'navigation').listen(
+        (p) {
+          if (!mounted || generation != navigationGeneration) return;
+          setState(() => gps = p);
+          map.move(
+            LatLng(p.latitude, p.longitude),
+            math.max(map.camera.zoom, 14.0),
           );
+        },
+        onError: (Object e) {
+          if (!mounted || generation != navigationGeneration) return;
+          setState(() {
+            following = false;
+            error = 'GPS interrotto: $e';
+          });
+          final old = stream;
+          stream = null;
+          unawaited(old?.cancel());
+        },
+      );
     } catch (e) {
       if (mounted) message(context, e);
+    } finally {
+      navigationBusy = false;
     }
+  }
+
+  List<NatureTrail>? _lineTrails;
+  String? _lineActive;
+  List<Polyline> _lines = [];
+  List<Polyline> get trailLines {
+    if (!identical(_lineTrails, trails) || _lineActive != active?.id) {
+      _lineTrails = trails;
+      _lineActive = active?.id;
+      _lines = [
+        for (final t in trails)
+          for (final segment in t.segments)
+            Polyline(
+              points: segment,
+              color: t.id == active?.id
+                  ? const Color(0xFFD7824A)
+                  : const Color(0xFF2A563C),
+              strokeWidth: t.id == active?.id ? 6 : 3,
+            ),
+      ];
+    }
+    return _lines;
   }
 
   double? offTrack() {
     if (gps == null || active == null) return null;
+    if (identical(_distanceGps, gps) && identical(_distanceTrail, active))
+      return _distanceResult;
+    _distanceGps = gps;
+    _distanceTrail = active;
     final lat = gps!.latitude,
         lon = gps!.longitude,
         scale = 111320 * math.cos(lat * math.pi / 180);
@@ -226,7 +258,7 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
         );
       }
     }
-    return best.isFinite ? best : null;
+    return _distanceResult = best.isFinite ? best : null;
   }
 
   void focus(NatureTrail t) {
@@ -241,7 +273,13 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
   }
 
   Future<void> listTrails({bool saved = false}) async {
-    final rows = saved ? await ExplorationService.instance.saved() : trails;
+    List<NatureTrail> rows;
+    try {
+      rows = saved ? await ExplorationService.instance.saved() : trails;
+    } catch (e) {
+      if (mounted) message(context, e);
+      return;
+    }
     if (!mounted) return;
     showModalBottomSheet<void>(
       context: context,
@@ -286,12 +324,17 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
                           ),
                           TextButton.icon(
                             onPressed: () async {
-                              await ExplorationService.instance.save(t);
-                              if (c.mounted)
-                                message(
-                                  c,
-                                  'Tracciato salvato sul telefono. La mappa di sfondo richiede rete.',
-                                );
+                              try {
+                                await ExplorationService.instance.save(t);
+                                if (c.mounted) {
+                                  message(
+                                    c,
+                                    'Tracciato salvato sul telefono. La mappa di sfondo richiede rete.',
+                                  );
+                                }
+                              } catch (e) {
+                                if (c.mounted) message(c, e);
+                              }
                             },
                             icon: const Icon(Icons.download),
                             label: const Text('Salva'),
@@ -397,7 +440,7 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
   @override
   Widget build(BuildContext context) {
     final off = offTrack();
-    return Scaffold(
+    return PremiumScaffold(
       appBar: AppBar(
         title: const Text('Italia · specie e itinerari'),
         actions: [
@@ -508,20 +551,7 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
                     userAgentPackageName: 'it.wildtrack.wildtrack_v2',
                     maxNativeZoom: 14,
                   ),
-                if (trekking)
-                  PolylineLayer(
-                    polylines: [
-                      for (final t in trails)
-                        for (final s in t.segments)
-                          Polyline(
-                            points: s,
-                            color: t.id == active?.id
-                                ? Colors.deepOrange
-                                : const Color(0xFF176958),
-                            strokeWidth: t.id == active?.id ? 6 : 3,
-                          ),
-                    ],
-                  ),
+                if (trekking) PolylineLayer(polylines: trailLines),
                 MarkerLayer(
                   markers: [
                     if (fauna)
@@ -595,7 +625,7 @@ class _ExplorationScreenState extends State<ExplorationScreen> {
                   style: TextStyle(fontSize: 12),
                 ),
                 if (active != null)
-                  FilledButton.icon(
+                  PremiumFilledButton.icon(
                     onPressed: navigate,
                     icon: Icon(following ? Icons.stop : Icons.navigation),
                     label: Text(
